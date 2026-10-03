@@ -289,10 +289,11 @@ public actor BrowserStore {
 /// them, which is the frequency half of "frecency" thrown away (§9.3's "normalised by
 /// sampled visit count" is Firefox's mean × visit_count, and the plain sum says the same
 /// thing with less arithmetic).
-private enum Frecency {
+enum Frecency {
 
     /// Firefox-derived visit-type weights; redirect and embed are worth nothing on purpose.
-    private static let points = """
+    /// Internal for `BrowserStore+Sites`, which sums the same points per site.
+    static let points = """
     (CASE v.type WHEN 'typed' THEN 200.0 WHEN 'bookmarked' THEN 140.0 WHEN 'link' THEN 120.0 ELSE 0.0 END)
     * (CASE
         WHEN julianday('now') - julianday(v.at) <= 4 THEN 1.0

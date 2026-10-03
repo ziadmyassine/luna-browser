@@ -31,7 +31,7 @@ from rather than pretending to a trend.
 | Luna's own cost per page load | 09-19, M1 Pro: **+5.9 ms** over one frame, **+7.9 ms** over eleven, all in `TabController.attach` | no budget; stated |
 | §17.1's list refresh | 09-19, M1 Pro: **13.0 s**, worst stall **166 ms**, 0.6 s of main thread — now once a day rather than most launches | no budget; stated |
 | New-tab command bar < 100 ms | 09-17, M4: **54.7 ms** first, **8.8 ms** median | **PASS** |
-| §9.3 the page meant is first after 2 characters, ≥ 90 % | 10-01, the owner's history: **27 %** (its site: 40 %) | **FAIL** — see *§9.3's ranking* |
+| §9.3 the page meant is first after 2 characters, ≥ 90 % | 10-03, the owner's history: **70 %** (its site: **90 %**, by 3 characters 93 %) | **FAIL for the page, PASS for the site** — see *§9.3's ranking* |
 | §9.7 keystroke to local rows ≤ 16 ms | 10-01, M1 Pro, under load: **8.6–13.4 ms** median, **17.5–23.2 ms** p95 | **PASS at the median**; p95 held to 33 ms — see *Command bar* |
 | **40 tabs / 3 Spaces / 6 live < 3.5 GB RSS** | 09-17, M4: **165–310 MB RSS, 785–842 MB footprint** | **PASS, ~4× headroom** |
 | Sidebar frame ≤ 8.33 ms (120 fps) | 09-17, M4: **0.05 ms** median, **0.97 ms** p95 | **PASS, 8× headroom** |
@@ -466,13 +466,55 @@ adaptive lessons, 22 open tabs and 333 closed ones.
   page and the miss wanted its sign-in page), one to another site.
 - **1: an open tab of another site led.**
 
-What would fix most of it is the rule Firefox's address bar uses: two letters that begin the
-host of a page in history put that host first, ahead of tabs matched in the middle of a word.
-Simulated on the same 30 — the most frecent history page whose host starts with the two
-letters, put first — the site is the first row for **22 / 30 (73 %)**. Matching tabs by the start of a word or a host label,
-as the history index already does, rather than anywhere in the string, is the other half.
-
 On this history a query's sources, store search and merge take **14 ms** at the median.
+
+#### 2026-10-03: a visited site leads
+
+The fix is the rule Firefox's address bar and Safari's top hit use. When what was typed begins
+the host of a site the Space has been to, that site is the first row, its address is completed
+in the field, and the search row is second (`CommandBarRanking+Lead`). The sites come from
+`BrowserStore.visitedSites`: one row per host, its front page when it has been visited and
+its best page otherwise, ordered by the points of typed and bookmarked visits first. The bar
+reads the list when it opens and matches it on the keystroke itself, so the completion no
+longer waits for the history search, which could not have found it anyway: its two dozen best
+pages for `lo` were `login` pages. A page the adaptive table learned for exactly the typed
+letters still leads; a lesson learned for a longer string no longer does. A tab that holds the
+letters only inside a word (`gi` in `Digital`) now ranks below the closed tabs.
+
+The same check, two days on, so 30 newer typed pages (the newest 30 change as the history
+grows). Before and after on the same day and the same database:
+
+| first row is | at 2 characters | by 3 | by 4 |
+|---|---|---|---|
+| the page, before | 9 / 30 (30 %) | 13 / 30 (43 %) | 15 / 30 (50 %) |
+| the page, after | **21 / 30 (70 %)** | 21 / 30 (70 %) | 22 / 30 (73 %) |
+| a page of its site, before | 15 / 30 (50 %) | 22 / 30 (73 %) | 25 / 30 (83 %) |
+| a page of its site, after | **27 / 30 (90 %)** | **28 / 30 (93 %)** | **29 / 30 (97 %)** |
+
+Ordering the sites by every visit instead of typed visits first gave 21 / 30, 26 / 30 and
+27 / 30 for the site: a site reached by links all day is not the one the user types. Letting
+a lesson learned for a longer string pick the site gave 21 / 30 at two characters — the table
+holds one-off choices for longer strings that outvote a site typed every day.
+
+What is left at two characters is two sites the user types that begin with the same letters,
+where the more frecent one leads (3 of 30); the other page misses are the right site
+opening its front page or its best page when another page of it was meant (6). Both are what
+a frecency ranking does.
+
+The list costs nothing on the keystroke: 69 sites in the checked Space, read in **4–11 ms**,
+once per opening, off the main thread. On a synthetic Space of 29,000 pages, 3,000 sites and
+about 72,000 visits the read takes **130 ms**, still off the main thread, while the previous
+list answers. Scanning 5,000 sites none of which match stays under 5 ms per keystroke
+(`CommandBarLeadTests`). The keystroke budget, same session, load average 7–30 from other
+builds (`BudgetTests.testCommandBarKeystroke`, three runs after, one before):
+
+| | local rows, median | p95 | with the store's rows, median | p95 |
+|---|---|---|---|---|
+| before | 13.4 ms | 18.1 ms | 33.1 ms | 47.5 ms |
+| after | **11.7–15.4 ms** | **18.6–24.6 ms** | **32.3–35.0 ms** | **40.9–51.3 ms** |
+
+Inside the 16 / 33 and 50 / 100 ms budgets. A key now also completes the field, which it
+seldom did before.
 
 ## Sidebar
 

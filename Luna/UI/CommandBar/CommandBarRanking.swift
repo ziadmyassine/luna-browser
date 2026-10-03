@@ -44,6 +44,10 @@ struct CommandBarSources: Sendable {
     /// Filled by the asynchronous `BrowserStore.searchHistory` pass, empty on the
     /// synchronous one. Already scoped to the Space by the query.
     var history: [HistoryHit] = []
+    /// Every site the Space has been to, best first (`BrowserStore.visitedSites`).
+    /// Read when the bar opens rather than per keystroke, so §9.4 can complete
+    /// an address in the keystroke's own frame — see `leadRow`.
+    var sites: [VisitedSite] = []
     var commands: [AppCommand] = AppCommand.allCases
     /// The registrable domain of the page in the active tab, or nil when it
     /// shows no site. Clear Cookies is offered only with one.
@@ -116,11 +120,17 @@ enum CommandBarRanking {
         }
         rows.append(contentsOf: suggestionRows(query: query, sources: sources))
 
-        return Array(searchFirst(dedupe(order(rows), adoptingOpenTabs: !hasDirect), query: rawQuery).prefix(limit))
+        let ordered = order(rows)
+        guard let lead = leadRow(query: query, sources: sources) else {
+            return Array(searchFirst(dedupe(ordered, adoptingOpenTabs: !hasDirect), query: rawQuery).prefix(limit))
+        }
+        // Before the dedupe, so an open tab on the very page the lead opens
+        // hands it `Switch to tab` rather than appearing as a second row.
+        return Array(dedupe(leading(lead, in: ordered), adoptingOpenTabs: !hasDirect).prefix(limit))
     }
 
-    /// The search row on top whenever the query reads as a search, and the
-    /// tiers below it in their own order.
+    /// With no site to lead: the search row on top whenever the query reads as
+    /// a search, and the tiers below it in their own order.
     ///
     /// Left at its tier it was never seen on a query that history answers well:
     /// `apple ads` filled all eight rows with old visits — one of them a
@@ -175,17 +185,19 @@ enum CommandBarRanking {
         let needle = query.lowercased()
         return sources.adaptive
             .filter { $0.typed.lowercased().hasPrefix(needle) }
-            .map { entry in
-                CommandBarResult(
-                    source: .adaptive,
-                    title: title(for: entry.url, sources: sources),
-                    subtitle: CommandBarURL.displayForm(of: entry.url),
-                    action: .open(entry.url),
-                    url: entry.url,
-                    score: entry.useCount,
-                    symbolName: "arrow.up.forward"
-                )
-            }
+            .map { adaptiveRow($0, sources: sources) }
+    }
+
+    static func adaptiveRow(_ entry: AdaptiveEntry, sources: CommandBarSources) -> CommandBarResult {
+        CommandBarResult(
+            source: .adaptive,
+            title: title(for: entry.url, sources: sources),
+            subtitle: CommandBarURL.displayForm(of: entry.url),
+            action: .open(entry.url),
+            url: entry.url,
+            score: entry.useCount,
+            symbolName: "arrow.up.forward"
+        )
     }
 
     private static func directRow(_ url: URL) -> CommandBarResult {
@@ -216,7 +228,7 @@ enum CommandBarRanking {
             // "Invoices" should not keep answering to whatever the page calls itself.
             let haystack = "\(tab.listTitle) \(CommandBarURL.displayForm(of: tab.url))"
             guard matches(tokens, haystack) else { return nil }
-            return CommandBarResult(
+            var row = CommandBarResult(
                 source: archived ? .archive : .openTab,
                 title: tab.listTitle.isEmpty ? CommandBarURL.displayForm(of: tab.url) : tab.listTitle,
                 subtitle: archived ? Self.reopens : Self.switches,
@@ -226,6 +238,8 @@ enum CommandBarRanking {
                 score: (archived ? tab.archivedAt ?? tab.lastActiveAt : tab.lastActiveAt).timeIntervalSinceReferenceDate,
                 symbolName: archived ? "archivebox" : "square.on.square"
             )
+            row.isLooseMatch = !matchesWordStarts(tokens, haystack)
+            return row
         }
     }
 
@@ -342,8 +356,16 @@ enum CommandBarRanking {
     /// so the tier lives with the cases rather than in a switch that can drift.
     /// Score only ever breaks ties within a tier — an adaptive `useCount` of 3
     /// and a frecency score of 340 are not the same unit and are never compared.
+    ///
+    /// A tab that holds the letters only inside a word waits below the closed
+    /// tabs: with a few hundred of them, two letters are inside most of them
+    /// (`gi` in `Digital`, `my` in a user name), and above history they buried
+    /// every page whose address begins with what was typed.
     private static func order(_ rows: [CommandBarResult]) -> [CommandBarResult] {
-        rows.sorted { lhs, rhs in
+        func band(_ row: CommandBarResult) -> CommandBarSource { row.isLooseMatch ? .archive : row.source }
+        return rows.sorted { lhs, rhs in
+            if band(lhs) != band(rhs) { return band(lhs) < band(rhs) }
+            if lhs.isLooseMatch != rhs.isLooseMatch { return !lhs.isLooseMatch }
             if lhs.source != rhs.source { return lhs.source < rhs.source }
             if lhs.score != rhs.score { return lhs.score > rhs.score }
             return lhs.id < rhs.id

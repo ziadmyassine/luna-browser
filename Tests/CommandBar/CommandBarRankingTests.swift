@@ -44,12 +44,15 @@ final class CommandBarRankingTests: XCTestCase {
     /// The fixture every ordering test below reads. Query is "git" throughout.
     ///
     /// Adaptive (§9.3, matched by remembered input starts with what you typed):
-    ///   "git"    → github.com/luna   useCount 2.71
+    ///   "gith"   → github.com/luna   useCount 2.71
     ///   "gitlab" → gitlab.com        useCount 5.20
     ///   "news"   → news.example      does not match "git"
     /// Open tabs: github.com/luna (also the adaptive winner), git-scm.com.
     /// Archived: gitea.example.
     /// History: gitbig.example 9999, git-scm.com 340, gitbook.example 120.
+    ///
+    /// No lesson is for exactly "git" and there are no sites, so nothing leads
+    /// (`CommandBarLeadTests`) and the tiers below are the whole order.
     private func fixture() -> (sources: CommandBarSources, githubTab: Tab) {
         let githubTab = tab("https://github.com/luna", title: "Luna", minutesAgo: 1)
         var sources = CommandBarSources()
@@ -60,7 +63,7 @@ final class CommandBarRankingTests: XCTestCase {
             tab("https://gitea.example/", title: "Gitea", minutesAgo: 90, archived: true)
         ]
         sources.adaptive = [
-            AdaptiveEntry(typed: "git", url: url("https://github.com/luna"), useCount: 2.71),
+            AdaptiveEntry(typed: "gith", url: url("https://github.com/luna"), useCount: 2.71),
             AdaptiveEntry(typed: "gitlab", url: url("https://gitlab.com/"), useCount: 5.20),
             AdaptiveEntry(typed: "news", url: url("https://news.example/"), useCount: 9.0)
         ]

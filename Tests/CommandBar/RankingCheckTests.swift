@@ -10,7 +10,7 @@
 //  typed for them was the words, not an address. The query is what a person
 //  types for a page: its host without `www.`, cut to 2, 3 and 4 characters.
 //  Each one is ranked by the real thing — `BrowserStore.searchHistory` and
-//  `CommandBarRanking.merge` over the Space's tabs, adaptive lessons, commands
+//  `CommandBarRanking.merge` over the Space's tabs, sites, adaptive lessons, commands
 //  and settings — and the first row is compared with the page, and with its
 //  site.
 //
@@ -46,9 +46,6 @@ final class RankingCheckTests: XCTestCase {
         var pageFirst: [Int: Bool] = [:]
         var siteFirst: [Int: Bool] = [:]
         var rows: [Int: [CommandBarResult]] = [:]
-        /// What-if, not what the bar does: the site first at 2 characters
-        /// if the most frecent history page whose host starts with them led.
-        var hostPrefixSiteFirst = false
     }
 
     func testTheThirtyNewestTypedPages() async throws {
@@ -68,39 +65,44 @@ final class RankingCheckTests: XCTestCase {
         var lines: [String] = []
         var outcomes: [Outcome] = []
         var searchTimes: [Double] = []
+        // Read once per Space, as the bar reads it once per opening.
+        var sites: [UUID: [VisitedSite]] = [:]
+        var siteTimes: [Double] = []
         for target in targets {
+            if sites[target.space] == nil {
+                let start = CFAbsoluteTimeGetCurrent()
+                sites[target.space] = try await store.visitedSites(inSpace: target.space)
+                siteTimes.append((CFAbsoluteTimeGetCurrent() - start) * 1000)
+            }
             var outcome = Outcome()
             for length in 2...4 {
                 let query = String(target.typed.prefix(length))
                 let start = CFAbsoluteTimeGetCurrent()
-                let rows = try await Self.rows(for: query, inSpace: target.space, store: store)
+                let rows = try await Self.rows(for: query, inSpace: target.space, sites: sites[target.space] ?? [], store: store)
                 searchTimes.append((CFAbsoluteTimeGetCurrent() - start) * 1000)
                 let first = rows.first
                 outcome.rows[length] = rows
                 outcome.pageFirst[length] = first?.url.map(CommandBarURL.dedupeKey) == CommandBarURL.dedupeKey(target.url)
                 outcome.siteFirst[length] = first?.url.flatMap(Self.typedHost) == target.typed
             }
-            let prefix = String(target.typed.prefix(2))
-            let hits = try await store.searchHistory(prefix, limit: CommandBarMetrics.historyLimit, inSpace: target.space)
-            outcome.hostPrefixSiteFirst = hits.first { Self.typedHost($0.url)?.hasPrefix(prefix) == true }
-                .flatMap { Self.typedHost($0.url) } == target.typed
             outcomes.append(outcome)
-            if outcome.pageFirst[2] != true {
-                let shown = (outcome.rows[2] ?? []).prefix(3).map { "\($0.source) \($0.url?.absoluteString ?? $0.title)" }
-                let place = (outcome.rows[2] ?? []).firstIndex {
-                    $0.url.map(CommandBarURL.dedupeKey) == CommandBarURL.dedupeKey(target.url)
-                }
-                lines.append(
-                    "MISS \"\(target.typed.prefix(2))\" wanted \(target.url.absoluteString)"
-                        + (outcome.siteFirst[2] == true ? " (its site was first)" : "")
-                        + "; the page was \(place.map { "row \($0 + 1)" } ?? "not in the list")"
-                        + ", first at \(Self.firstLength(outcome.pageFirst).map { "\($0) chars" } ?? "no prefix up to 4")"
-                        + "\n     rows: " + shown.joined(separator: " | ")
-                )
-            }
+            if outcome.pageFirst[2] != true { lines.append(Self.miss(target, outcome)) }
         }
-        lines.insert(Self.summary(outcomes, searchTimes: searchTimes), at: 0)
+        let siteCount = sites.values.map(\.count).reduce(0, +)
+        lines.insert(Self.summary(outcomes, searchTimes: searchTimes, siteTimes: siteTimes, siteCount: siteCount), at: 0)
         try lines.joined(separator: "\n").appending("\n").write(toFile: Self.output, atomically: true, encoding: .utf8)
+    }
+
+    private static func miss(_ target: Target, _ outcome: Outcome) -> String {
+        let shown = (outcome.rows[2] ?? []).prefix(3).map { "\($0.source) \($0.url?.absoluteString ?? $0.title)" }
+        let place = (outcome.rows[2] ?? []).firstIndex {
+            $0.url.map(CommandBarURL.dedupeKey) == CommandBarURL.dedupeKey(target.url)
+        }
+        return "MISS \"\(target.typed.prefix(2))\" wanted \(target.url.absoluteString)"
+            + (outcome.siteFirst[2] == true ? " (its site was first)" : "")
+            + "; the page was \(place.map { "row \($0 + 1)" } ?? "not in the list")"
+            + ", first at \(firstLength(outcome.pageFirst).map { "\($0) chars" } ?? "no prefix up to 4")"
+            + "\n     rows: " + shown.joined(separator: " | ")
     }
 
     // MARK: - The pages
@@ -148,8 +150,11 @@ final class RankingCheckTests: XCTestCase {
 
     /// The bar's rows for `query`, from the same sources it opens with. No
     /// suggestions: they come from the network, and the check is offline.
-    private static func rows(for query: String, inSpace space: UUID, store: BrowserStore) async throws -> [CommandBarResult] {
+    private static func rows(
+        for query: String, inSpace space: UUID, sites: [VisitedSite], store: BrowserStore
+    ) async throws -> [CommandBarResult] {
         var sources = CommandBarSources()
+        sources.sites = sites
         sources.tabs = try await store.tabs(inSpace: space, includeArchived: true)
         sources.adaptive = try await store.inputHistory(inSpace: space).map {
             AdaptiveEntry(typed: $0.typed, url: $0.url, useCount: $0.useCount)
@@ -164,7 +169,7 @@ final class RankingCheckTests: XCTestCase {
         (2...4).first { hits[$0] == true }
     }
 
-    private static func summary(_ outcomes: [Outcome], searchTimes: [Double]) -> String {
+    private static func summary(_ outcomes: [Outcome], searchTimes: [Double], siteTimes: [Double], siteCount: Int) -> String {
         func count(_ hit: (Outcome) -> Bool) -> String {
             let hits = outcomes.filter(hit).count
             return "\(hits)/\(outcomes.count) (\(Int((Double(hits) / Double(max(outcomes.count, 1)) * 100).rounded())) %)"
@@ -177,8 +182,7 @@ final class RankingCheckTests: XCTestCase {
             + "Site first at 2 chars \(count { $0.siteFirst[2] == true }), "
             + "by 3 \(count { firstLength($0.siteFirst).map { $0 <= 3 } ?? false }), "
             + "by 4 \(count { firstLength($0.siteFirst) != nil }). "
-            + "What-if, the most frecent host-prefix match leading: site first at 2 chars "
-            + "\(count { $0.hostPrefixSiteFirst }). "
-            + String(format: "Sources, store search and merge per query: median %.1f ms.", median)
+            + String(format: "Sources, store search and merge per query: median %.1f ms. ", median)
+            + String(format: "Sites read: %d in %d Space(s), slowest %.1f ms.", siteCount, siteTimes.count, siteTimes.max() ?? 0)
     }
 }

@@ -148,6 +148,9 @@ struct CommandBarResult: Identifiable, Sendable, Hashable {
     /// adaptive, and a tab's recency for an open tab. Never compared across tiers.
     var score: Double
     var symbolName: String
+    /// A tab row that holds what was typed only inside a word, never at the
+    /// start of one — `gi` in `Digital`. Ranked below the closed tabs.
+    var isLooseMatch = false
 
     init(
         source: CommandBarSource,

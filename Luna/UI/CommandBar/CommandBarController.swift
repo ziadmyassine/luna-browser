@@ -66,6 +66,10 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
     /// asynchronous results may only be appended (§9.7).
     private var selectionIsUserDriven = false
 
+    /// The Space `sources.sites` was read for. A list from the Space next door
+    /// would complete its addresses here, so a switch empties it at once.
+    private var sitesSpace: UUID?
+
     /// One `AdaptiveHistory` per `BrowserStore` — see its header.
     init(session: BrowserSession, windowID: UUID, adaptive: AdaptiveHistory) {
         self.session = session
@@ -267,6 +271,8 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
         // and a command can stop applying — Back with nothing behind it — so
         // this one is asked again each time the bar opens.
         sources.shortcuts = BrowserCommand.commandBarEntries
+        if sitesSpace != activeSpaceID { sources.sites = [] }
+        loadSites(inSpace: activeSpaceID)
 
         // The adaptive table is read once per Space. The bar is already usable
         // while this runs; on every open but the first in a Space it is a no-op.
@@ -500,6 +506,37 @@ extension CommandBarController {
     fileprivate func stopWatchingForSecondClick() {
         if let secondClickMonitor { NSEvent.removeMonitor(secondClickMonitor) }
         secondClickMonitor = nil
+    }
+}
+
+// MARK: - §9.4's sites
+
+extension CommandBarController {
+
+    /// Reads the Space's sites again on every open, so a site visited since the
+    /// last one completes too. The read is SQLite's, off the main thread; the
+    /// previous list answers in the meantime.
+    ///
+    /// When it lands under a query it would lead differently, the query runs
+    /// again — the adaptive table's rule, and for the same reason: the lead is
+    /// decided on the keystroke's own pass, never by a late merge.
+    fileprivate func loadSites(inSpace space: UUID) {
+        let store = session.store
+        Task { [weak self] in
+            guard let sites = try? await store.visitedSites(inSpace: space), let self, self.activeSpaceID == space else {
+                return
+            }
+            let before = self.sources
+            self.sources.sites = sites
+            self.sitesSpace = space
+            guard self.isPresented, !self.selectionIsUserDriven, let field = self.panel?.field,
+                  !field.typedText.isEmpty,
+                  CommandBarRanking.leadRow(query: field.typedText, sources: before)
+                    != CommandBarRanking.leadRow(query: field.typedText, sources: self.sources)
+            else { return }
+            if field.hasAutofill { field.cancelAutofill() }
+            self.runQuery(field.typedText)
+        }
     }
 }
 
