@@ -27,6 +27,15 @@ final class ScriptMessageRelay: NSObject, WKScriptMessageHandler {
         // §14. The coordinator re-checks the frame's origin before it acts on
         // anything here — the relay only routes.
         case PasswordForms.messageName: owner?.passwords.handle(message)
+        default: routePageTool(message)
+        }
+    }
+
+    /// The messages of the tools a user turns on over a page — picking, reading,
+    /// Picture in Picture, the Web Store's button — split from the always-on
+    /// ones above only to keep each switch readable.
+    private func routePageTool(_ message: WKScriptMessage) {
+        switch message.name {
         case TabController.pickMessageName: owner?.handlePickMessage(message)
         case TabController.readingMessageName: owner?.handleReadingMessage(message)
         case TabController.pictureInPictureMessageName: owner?.handlePictureInPictureMessage(message)
