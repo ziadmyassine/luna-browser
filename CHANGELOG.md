@@ -5,6 +5,11 @@ under Unreleased; a release will take the entries since the last one.
 
 ## Unreleased
 
+### 2026-10-03
+
+- **Saved passwords appear under the sign-in box, as in Safari** (§14.3): also on the name-only first step of Microsoft, Google and Apple sign-ins, and when the page puts the cursor there itself; ↓ and ↑ choose an account, Return fills it, Escape puts the list away. The account you chose on the first step comes first on the password step.
+- **Luna asks to save a password only once the sign-in worked** (§14.4): a password the site refused is no longer offered, and a password typed on its own page is saved under the name from the step before.
+
 ### 2026-10-01
 
 - **Typing the start of a site you visit takes you there** (§9.3): the Command Bar puts that site on the top row and fills in its address, so Return opens it; "Search … for …" is right under it, and text that starts no site you visit still searches first. Measured on a real history: the right site first for 27 of 30 sites after two letters, up from 15.

@@ -16,6 +16,9 @@ public struct PasswordOffer: Sendable {
     public let viaRedirect: Bool
     /// The page is not on HTTPS. A password typed here goes out in clear.
     public let isInsecure: Bool
+    /// The field is a name-only first step: a pick fills the name, reads no
+    /// password and so asks for no Touch ID.
+    public var fillsUsernameOnly = false
 }
 
 /// A signup form where §14.5 has something to offer.
@@ -88,6 +91,37 @@ public final class PasswordCoordinator {
     /// The last submit the page reported, awaiting the §14.4 chip's answer.
     private var pendingSave: PasswordSaveRequest?
 
+    /// A password that went out and has not yet been judged. Only a sign-in
+    /// that took is worth saving, and whether it took is known afterwards: a
+    /// page that comes back without a password box took it, one that still
+    /// has the box refused it or is asking again.
+    private var heldSubmit: HeldSubmit?
+
+    /// The name sent on a name-only first step, for the password step that
+    /// follows it on the same site.
+    private var identified: Identified?
+
+    struct HeldSubmit {
+        let username: String
+        let password: String
+        let url: URL
+        let site: String
+        let at: Date
+    }
+
+    struct Identified {
+        let site: String
+        let username: String
+        let at: Date
+    }
+
+    /// How long a sent password waits for its page to settle. Past this the
+    /// user has moved on, and a chip would be asking about something else.
+    static let submitPatience: TimeInterval = 45
+
+    /// How long a name from a first step is carried to the password step.
+    static let identifiedPatience: TimeInterval = 600
+
     /// Whether a picker is currently up for this tab. Tracked here rather than
     /// asked of the view layer: `BrowserKit` cannot see AppKit, and the engine
     /// is the thing that knows whether it raised an offer.
@@ -106,29 +140,85 @@ public final class PasswordCoordinator {
 
         switch event {
         case let .formDetected(form):
-            // A detected form is not an offer. The page reports one on
-            // load, on every DOM mutation and on every frame of a scroll, so
-            // offering here would pop a picker over a page nobody has touched
-            // and then rebuild it sixty times a second while the user scrolls
-            // past. All a detection does is keep the form — and move a picker
-            // that is already up, because its anchor has moved with the page.
-            self.form = form
-            formFrame = message.frameInfo
-            if isOffering { tab.map { $0.delegate?.tabController($0, wantsToMovePasswordUITo: form.fieldRect) } }
+            formDetected(form, frame: message.frameInfo)
         case let .fieldFocused(form):
-            // Focus is the user arriving at the field, and it is the only
-            // thing that raises an offer.
-            self.form = form
-            formFrame = message.frameInfo
-            offerIfPossible(form, in: webView)
+            fieldFocused(form, frame: message.frameInfo, in: webView)
         case let .submitted(username, password):
             noteSubmit(username: username, password: password, in: webView)
+        case let .identified(username):
+            noteIdentified(username, in: webView)
         case .dismissed:
-            form = nil
-            formFrame = nil
-            isOffering = false
-            tab.map { $0.delegate?.tabControllerDidDismissPasswordUI($0) }
+            dropForm()
+        case .formGone:
+            dropForm()
+            // A sign-in done in place closes its form the moment the button
+            // is pressed and puts it back if the server says no, so the page
+            // is given a moment to change its mind.
+            settleSubmit(after: 1.5)
+        case let .pageLoaded(hasPasswordForm):
+            pageLoaded(hasPasswordForm: hasPasswordForm, frame: message.frameInfo)
         }
+    }
+
+    /// A detected form is not an offer. The page reports one on load, on
+    /// every DOM mutation and on every frame of a scroll, so offering here
+    /// would pop a picker over a page nobody has touched and then rebuild it
+    /// sixty times a second while the user scrolls past. All a detection does
+    /// is keep the form — and move a picker that is already up, because its
+    /// anchor has moved with the page.
+    private func formDetected(_ form: PasswordForms.Form, frame: WKFrameInfo) {
+        self.form = form
+        formFrame = frame
+        if isOffering { tab.map { $0.delegate?.tabController($0, wantsToMovePasswordUITo: form.fieldRect) } }
+    }
+
+    /// Focus is the user arriving at the field, and it is the only thing that
+    /// raises an offer. A second report for the field a picker already hangs
+    /// from is a click into it, and moves it.
+    private func fieldFocused(_ form: PasswordForms.Form, frame: WKFrameInfo, in webView: WKWebView) {
+        let same = self.form?.id == form.id
+        self.form = form
+        formFrame = frame
+        if isOffering, same {
+            tab.map { $0.delegate?.tabController($0, wantsToMovePasswordUITo: form.fieldRect) }
+            return
+        }
+        offerIfPossible(form, in: webView)
+    }
+
+    private func noteIdentified(_ username: String, in webView: WKWebView) {
+        guard let site = PublicSuffix.siteKey(forHost: webView.url?.host()) else { return }
+        identified = Identified(site: site, username: username, at: Date())
+    }
+
+    /// A login form that arrives late is still a login form: a new document
+    /// gets a second to build one before it counts as a sign-in that took.
+    private func pageLoaded(hasPasswordForm: Bool, frame: WKFrameInfo) {
+        guard frame.isMainFrame, !hasPasswordForm else { return }
+        // The form the last document reported is not on this one.
+        if formFrame?.isMainFrame ?? true { dropForm() }
+        settleSubmit(after: 1)
+    }
+
+    private func dropForm() {
+        form = nil
+        formFrame = nil
+        isOffering = false
+        tab.map { $0.delegate?.tabControllerDidDismissPasswordUI($0) }
+    }
+
+    /// The picker was put away by the user — Escape — rather than by the page.
+    /// A click back into the field raises it again.
+    public func pickerClosed() {
+        isOffering = false
+    }
+
+    /// The name a first step sent, when it was sent on this site recently.
+    private func recentName(on site: String) -> String? {
+        guard let identified, identified.site == site,
+              Date().timeIntervalSince(identified.at) < Self.identifiedPatience
+        else { return nil }
+        return identified.username
     }
 
     /// §14.8's origin rule.
@@ -174,24 +264,57 @@ public final class PasswordCoordinator {
         }
 
         Task { [weak self] in
-            let matches = await CredentialStore.shared.credentials(forSite: site)
+            var matches = await CredentialStore.shared.credentials(forSite: site)
             guard let self, !matches.isEmpty, self.form?.id == form.id else { return }
+            // The account named on the first step comes first on the second.
+            if let name = self.recentName(on: site), let index = matches.firstIndex(where: { $0.username == name }) {
+                matches.insert(matches.remove(at: index), at: 0)
+            }
             self.isOffering = true
             tab.delegate?.tabController(tab, wantsToOfferCredentials: PasswordOffer(
                 credentials: matches,
                 fieldRect: form.fieldRect,
                 site: site,
                 viaRedirect: self.sawServerRedirect,
-                isInsecure: insecure
+                isInsecure: insecure,
+                fillsUsernameOnly: form.isUsernameOnly
             ))
         }
     }
 
     // MARK: - §14.4
 
+    /// A password went out. Held, not offered: see `heldSubmit`.
+    ///
+    /// The site and address are taken now, while the page is still the
+    /// sign-in page. A moment later it may be somewhere else entirely, and that
+    /// is not where the password belongs.
     private func noteSubmit(username: String, password: String, in webView: WKWebView) {
         guard PasswordSettings.offersToSave else { return }
-        guard let tab, let url = webView.url, let site = PublicSuffix.siteKey(forHost: url.host()) else { return }
+        guard let url = webView.url, let site = PublicSuffix.siteKey(forHost: url.host()) else { return }
+        // A password step whose name was asked for on the step before has no
+        // name box of its own to read it from.
+        let name = username.isEmpty ? recentName(on: site) ?? "" : username
+        heldSubmit = HeldSubmit(username: name, password: password, url: url, site: site, at: Date())
+    }
+
+    /// Offers to save the held password once the page has had `delay` to put
+    /// a sign-in back. One that did refused it, or is asking again.
+    private func settleSubmit(after delay: TimeInterval) {
+        guard let held = heldSubmit else { return }
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard let self, let still = self.heldSubmit, still.at == held.at else { return }
+            if let form = self.form, !form.isUsernameOnly { return }
+            self.heldSubmit = nil
+            guard Date().timeIntervalSince(held.at) < Self.submitPatience else { return }
+            self.offerToSave(held)
+        }
+    }
+
+    private func offerToSave(_ held: HeldSubmit) {
+        let (username, password, url, site) = (held.username, held.password, held.url, held.site)
+        guard let tab else { return }
         // "Never for this site" (§14.4), in the same `siteSettings` row every
         // other per-site answer lives in.
         guard tab.sitePermissions.isAllowed(.savePasswords, forHost: url.host()) else { return }
@@ -252,6 +375,16 @@ public final class PasswordCoordinator {
         // built: a page can navigate between Luna deciding to offer and the
         // user clicking, and the credential must not follow it somewhere else.
         guard PublicSuffix.isSameSite(webView.url?.host(), credential.site) else { return }
+
+        // A name-only step takes the name and nothing secret, so there is
+        // nothing to unlock. The password waits for the step that asks for it.
+        if requested.isUsernameOnly {
+            identified = Identified(site: credential.site, username: credential.username, at: Date())
+            await PasswordForms.fill(
+                requested, username: credential.username, password: nil, in: webView, frame: formFrame
+            )
+            return
+        }
 
         // Touch ID before the Keychain read, so a cancelled prompt means
         // the password was never fetched into this process at all.

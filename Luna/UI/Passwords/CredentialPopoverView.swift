@@ -2,8 +2,9 @@
 //  CredentialPopoverView.swift
 //  Luna
 //
-//  The inside of §14.3's picker: a header naming the site, one row per saved
-//  username, and — when §14.8 has something to say — a caution line.
+//  The inside of §14.3's picker: one row per saved account, a way out to every
+//  saved password, and — when §14.8 has something to say — a caution line. Its
+//  rows share one selection, which the pointer and the arrow keys both move.
 //
 //  The caution line is the point of this view, not decoration. §14.8 asks that
 //  a fill into a page reached through a redirect chain be treated as
@@ -24,6 +25,20 @@ final class CredentialPopoverView: NSView {
     private let onPick: (Credential) -> Void
     private let onAcceptGenerated: (String) -> Void
     private let stack = NSStackView()
+    private var rows: [PickerRowView] = []
+
+    /// The row Return or a click would take, if any.
+    private(set) var selectedIndex: Int? {
+        didSet {
+            for (index, row) in rows.enumerated() { row.isSelected = index == selectedIndex }
+        }
+    }
+
+    /// Whether the selection was made with the arrow keys. Only then does
+    /// Return take it: a picker that opened under a resting pointer has a
+    /// row highlighted that the user never chose, and the Return they meant
+    /// for the page's own button must not fill instead.
+    private(set) var selectionIsFromKeyboard = false
 
     init(
         content: CredentialPopover.Content,
@@ -75,31 +90,26 @@ final class CredentialPopoverView: NSView {
             stack.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
 
-        stack.addArrangedSubview(header())
-
         switch content {
         case let .saved(offer):
+            let pick: (Credential) -> Void = { [weak self] in self?.onPick($0) }
             for credential in offer.credentials.prefix(Tokens.Metric.passwordPopoverMaxRows) {
-                let row = CredentialRowView(credential: credential) { [weak self] in self?.onPick($0) }
-                stack.addArrangedSubview(row)
-                row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+                add(CredentialRowView(credential: credential, showsBiometric: !offer.fillsUsernameOnly, onPick: pick))
             }
+            // Safari's picker ends with a way out of it, and so does this one —
+            // otherwise a user whose account is not in the list has nowhere to
+            // go from here. It matters most when there are more saved
+            // credentials than `passwordPopoverMaxRows` will draw.
+            let rule = separator()
+            stack.addArrangedSubview(rule)
+            rule.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+            add(allPasswordsRow())
         case let .generated(suggestion):
-            let row = GeneratedPasswordRowView(password: suggestion.generated) { [weak self] password in
-                self?.onAcceptGenerated(password)
-            }
-            stack.addArrangedSubview(row)
-            row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-        }
-
-        // Safari's picker ends with a way out of it, and so does this one —
-        // otherwise a user whose account is not in the list has nowhere to go
-        // from here. It matters most when there are more saved credentials
-        // than `passwordPopoverMaxRows` will draw.
-        if case .saved = content {
-            let more = allPasswordsRow()
-            stack.addArrangedSubview(more)
-            more.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+            stack.addArrangedSubview(header())
+            let accept: (String) -> Void = { [weak self] in self?.onAcceptGenerated($0) }
+            add(GeneratedPasswordRowView(
+                password: suggestion.generated, width: Tokens.Metric.passwordPopover.width, onAccept: accept
+            ))
         }
 
         if let caution = cautionLine() { stack.addArrangedSubview(caution) }
@@ -111,6 +121,65 @@ final class CredentialPopoverView: NSView {
             : String(localized: "Saved passwords for \(site)"))
     }
 
+    private func add(_ row: PickerRowView) {
+        let index = rows.count
+        rows.append(row)
+        row.onHover = { [weak self] inside in
+            guard let self else { return }
+            if inside {
+                selectionIsFromKeyboard = false
+                selectedIndex = index
+            } else if selectedIndex == index, !selectionIsFromKeyboard {
+                selectedIndex = nil
+            }
+        }
+        stack.addArrangedSubview(row)
+        row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+    }
+
+    // MARK: - The keyboard
+
+    /// ↓ from nothing selects the first row and ↑ the last, as a menu does;
+    /// past either end the selection stays put.
+    func moveSelection(by step: Int) {
+        guard !rows.isEmpty else { return }
+        selectionIsFromKeyboard = true
+        guard let current = selectedIndex else {
+            selectedIndex = step > 0 ? 0 : rows.count - 1
+            return
+        }
+        selectedIndex = min(max(current + step, 0), rows.count - 1)
+    }
+
+    /// Takes the row the arrow keys chose. False when they chose none, so the
+    /// key goes on to the page.
+    func activateKeyboardSelection() -> Bool {
+        guard selectionIsFromKeyboard, let selectedIndex, rows.indices.contains(selectedIndex) else { return false }
+        rows[selectedIndex].activate()
+        return true
+    }
+
+    // MARK: - Pieces
+
+    /// A hairline between the accounts and the row that leaves them, inset to
+    /// the rows' highlight so it reads as part of the list.
+    private func separator() -> NSView {
+        let host = NSView()
+        let line = NSView()
+        line.wantsLayer = true
+        line.layer?.backgroundColor = Tokens.Line.hairline.cgColor
+        line.translatesAutoresizingMaskIntoConstraints = false
+        host.addSubview(line)
+        NSLayoutConstraint.activate([
+            host.heightAnchor.constraint(equalToConstant: 9),
+            line.heightAnchor.constraint(equalToConstant: 1),
+            line.leadingAnchor.constraint(equalTo: host.leadingAnchor, constant: 12),
+            line.trailingAnchor.constraint(equalTo: host.trailingAnchor, constant: -12),
+            line.centerYAnchor.constraint(equalTo: host.centerYAnchor)
+        ])
+        return host
+    }
+
     /// The way out of the picker: Settings, at the Passwords section.
     ///
     /// Deliberately not "Other Passwords for this site", which is what
@@ -118,7 +187,7 @@ final class CredentialPopoverView: NSView {
     /// app; Luna cannot, and a row promising a list Luna has no way to fetch
     /// would be a lie in the one piece of chrome that has to be trustworthy
     /// (see `docs/PASSWORDS.md` §3).
-    private func allPasswordsRow() -> NSView {
+    private func allPasswordsRow() -> PickerRowView {
         PopoverActionRowView(
             title: String(localized: "All saved passwords…"),
             symbol: "list.bullet"
@@ -128,13 +197,10 @@ final class CredentialPopoverView: NSView {
         }
     }
 
-    /// The site, spelled out. This is the eTLD+1 the credential is filed
-    /// under, not the page's full URL — the whole match rule is "same site",
-    /// so the site is what the user should be checking.
+    /// What a generated password is and for which site. A saved account's
+    /// row names its own site, so only this offer needs a header.
     private func header() -> NSView {
-        let label = NSTextField(labelWithString: offer == nil
-            ? String(localized: "Suggested password · \(site)")
-            : site)
+        let label = NSTextField(labelWithString: String(localized: "Suggested password · \(site)"))
         label.font = Tokens.TypeScale.settingsCaption
         label.textColor = Tokens.Text.tertiary
         return inset(label, top: 2, bottom: 4)

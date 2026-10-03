@@ -39,7 +39,8 @@ final class CredentialPopoverTests: XCTestCase {
         usernames: [String] = ["hrmerdi@gmail.com"],
         site: String = "github.com",
         insecure: Bool = false,
-        redirect: Bool = false
+        redirect: Bool = false,
+        nameOnly: Bool = false
     ) -> PasswordOffer {
         PasswordOffer(
             credentials: usernames.map {
@@ -47,12 +48,16 @@ final class CredentialPopoverTests: XCTestCase {
                            originURL: URL(string: "https://\(site)/login"),
                            createdAt: .now, modifiedAt: .now, isSynced: false)
             },
-            fieldRect: .zero, site: site, viaRedirect: redirect, isInsecure: insecure
+            fieldRect: .zero, site: site, viaRedirect: redirect, isInsecure: insecure,
+            fillsUsernameOnly: nameOnly
         )
     }
 
-    private func laidOut(_ content: CredentialPopover.Content) -> CredentialPopoverView {
-        let view = CredentialPopoverView(content: content, onPick: { _ in }, onAcceptGenerated: { _ in })
+    private func laidOut(
+        _ content: CredentialPopover.Content,
+        onPick: @escaping (Credential) -> Void = { _ in }
+    ) -> CredentialPopoverView {
+        let view = CredentialPopoverView(content: content, onPick: onPick, onAcceptGenerated: { _ in })
         view.frame = NSRect(x: 0, y: 0, width: Tokens.Metric.passwordPopover.width, height: 400)
         view.layoutSubtreeIfNeeded()
         return view
@@ -77,15 +82,15 @@ final class CredentialPopoverTests: XCTestCase {
 
     // MARK: - The row
 
-    /// The username and the site, on two lines. One saved account can be the
-    /// right one on `github.com` and the wrong one on a page that merely looks
-    /// like it, so the row says which site it is filing under.
+    /// The username and the site, on two lines, in Safari's words. One saved
+    /// account can be the right one on `github.com` and the wrong one on a
+    /// page that merely looks like it, so the row says which site it is
+    /// filing under.
     func testARowNamesBothTheAccountAndTheSite() {
         let view = laidOut(.saved(offer(usernames: ["hrmerdi@gmail.com"])))
         let text = labels(in: view)
         XCTAssertTrue(text.contains("hrmerdi@gmail.com"), "no username in \(text)")
-        XCTAssertEqual(text.filter { $0 == "github.com" }.count, 2,
-                       "expected the site in the header and under the username: \(text)")
+        XCTAssertTrue(text.contains("Password for github.com"), "no site under the username: \(text)")
     }
 
     /// A credential with no username is real — plenty of sites have only a
@@ -109,6 +114,49 @@ final class CredentialPopoverTests: XCTestCase {
         PasswordSettings.requiresAuthentication = false
         let view = laidOut(.saved(offer()))
         XCTAssertFalse(hasIdentifier("password-row-biometric", in: view))
+    }
+
+    /// A name-only first step fills the name and reads no password, so no
+    /// prompt comes and no fingerprint says one will.
+    func testANameOnlyStepDrawsNoFingerprint() {
+        PasswordSettings.requiresAuthentication = true
+        let view = laidOut(.saved(offer(nameOnly: true)))
+        XCTAssertFalse(hasIdentifier("password-row-biometric", in: view))
+    }
+
+    // MARK: - The keyboard
+
+    /// ↓ chooses the first account and Return takes it, as in Safari.
+    func testDownThenReturnPicksTheFirstAccount() {
+        var picked: [String] = []
+        let view = laidOut(.saved(offer(usernames: ["ada", "grace"]))) { picked.append($0.username) }
+        view.moveSelection(by: 1)
+        XCTAssertTrue(view.activateKeyboardSelection())
+        XCTAssertEqual(picked, ["ada"])
+
+        view.moveSelection(by: 1)
+        XCTAssertTrue(view.activateKeyboardSelection())
+        XCTAssertEqual(picked, ["ada", "grace"])
+    }
+
+    /// Return with nothing chosen by the keys goes on to the page: it is the
+    /// user submitting the form, not picking from a list they never moved in.
+    func testReturnWithNoKeyboardSelectionIsLeftToThePage() {
+        var picked = 0
+        let view = laidOut(.saved(offer())) { _ in picked += 1 }
+        XCTAssertFalse(view.activateKeyboardSelection())
+        XCTAssertEqual(picked, 0)
+    }
+
+    /// The selection stops at the ends rather than wrapping or falling off.
+    func testTheSelectionStopsAtTheEnds() {
+        let view = laidOut(.saved(offer(usernames: ["ada", "grace"])))
+        view.moveSelection(by: -1)
+        XCTAssertEqual(view.selectedIndex, 2, "↑ from nothing chooses the last row, the way out")
+        view.moveSelection(by: 1)
+        XCTAssertEqual(view.selectedIndex, 2)
+        view.moveSelection(by: -5)
+        XCTAssertEqual(view.selectedIndex, 0)
     }
 
     // MARK: - The way out

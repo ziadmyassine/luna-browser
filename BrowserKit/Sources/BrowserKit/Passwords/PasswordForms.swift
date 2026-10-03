@@ -25,8 +25,20 @@ public enum PasswordForms {
         case fieldFocused(Form)
         /// Credentials went out on a submit — the §14.4 trigger.
         case submitted(username: String, password: String)
-        /// The form or the field went away; take the popover down with it.
+        /// The caret left the field; take the popover down with it.
         case dismissed
+        /// A name went out on its own: the first step of a sign-in that asks
+        /// for the name and then, on the next page, for the password. Kept so
+        /// the second step saves the password under a name, and offers that
+        /// account first.
+        case identified(username: String)
+        /// The sign-in boxes left the page without a new document — a sign-in
+        /// done in place, or one the page took away to show its next step.
+        case formGone
+        /// A document's first look, from the main frame: whether it holds a
+        /// sign-in at all. A page arriving without one, after a password went
+        /// out, is a sign-in that took (§14.4).
+        case pageLoaded(hasPasswordForm: Bool)
     }
 
     /// A login form as the page describes it.
@@ -49,6 +61,10 @@ public enum PasswordForms {
         /// True when the field the user is in is the password field rather
         /// than the username field.
         public let isPasswordField: Bool
+        /// A name box with no password box anywhere on the page: the first
+        /// step of a sign-in that asks for the name alone. A pick fills the
+        /// name and reads no password.
+        public var isUsernameOnly = false
     }
 
     /// Decodes a `WKScriptMessage` body. Returns nil for anything malformed —
@@ -59,6 +75,8 @@ public enum PasswordForms {
         switch kind {
         case "dismissed":
             return .dismissed
+        case "gone", "loaded", "identified":
+            return stepEvent(kind, dict)
         case "submitted":
             guard let password = dict["password"] as? String, !password.isEmpty else { return nil }
             return .submitted(username: dict["username"] as? String ?? "", password: password)
@@ -67,6 +85,19 @@ public enum PasswordForms {
             return kind == "detected" ? .formDetected(form) : .fieldFocused(form)
         default:
             return nil
+        }
+    }
+
+    /// The events that follow a sign-in from one step to the next.
+    private static func stepEvent(_ kind: String, _ dict: [String: Any]) -> Event? {
+        switch kind {
+        case "gone":
+            return .formGone
+        case "loaded":
+            return .pageLoaded(hasPasswordForm: dict["hasPassword"] as? Bool ?? false)
+        default:
+            guard let username = dict["username"] as? String, !username.isEmpty else { return nil }
+            return .identified(username: username)
         }
     }
 
@@ -82,7 +113,8 @@ public enum PasswordForms {
             isSignup: dict["isSignup"] as? Bool ?? false,
             passwordRules: dict["passwordRules"] as? String,
             hasOneTimeCode: dict["hasOneTimeCode"] as? Bool ?? false,
-            isPasswordField: dict["isPasswordField"] as? Bool ?? false
+            isPasswordField: dict["isPasswordField"] as? Bool ?? false,
+            isUsernameOnly: dict["isUsernameOnly"] as? Bool ?? false
         )
     }
 
@@ -186,6 +218,9 @@ extension PasswordForms {
 
       var counter = 0;
       var current = null;
+      // The box the picker hangs from, so a re-scan can find a name-only
+      // step's box again: it has no password box to be found through.
+      var anchored = null;
       var lastSent = '';
       var lastSubmit = '';
       var lastSubmitAt = 0;
@@ -228,6 +263,62 @@ extension PasswordForms {
         return s.visibility !== 'hidden' && s.display !== 'none' && s.opacity !== '0';
       };
 
+      var anyPassword = function () {
+        return [].slice.call(document.querySelectorAll('input[type="password"]')).some(visible);
+      };
+
+      // The name box of a sign-in that asks for the name first and the
+      // password on the next step (Microsoft, Google, Apple). The page says so
+      // in `autocomplete`, or the box's own name does. A bare email box is not
+      // enough: that is every newsletter form on the web.
+      var nameOnly = function (el) {
+        if (!el || el.tagName !== 'INPUT' || !visible(el)) { return false; }
+        var type = (el.getAttribute('type') || 'text').toLowerCase();
+        if (['text', 'email', 'tel'].indexOf(type) < 0) { return false; }
+        var auto = (el.getAttribute('autocomplete') || '').toLowerCase();
+        if (/(^|\\s)(username|webauthn)(\\s|$)/.test(auto)) { return true; }
+        var hay = ((el.name || '') + ' ' + (el.id || '')).toLowerCase();
+        return /user|login|ident|signin/.test(hay);
+      };
+
+      // Whether a focused element is a box Luna can fill. A name-only box
+      // counts only while the page shows no password box: with one, the
+      // sign-in is the password's form and its own name box was tagged by
+      // the scan.
+      var signInKind = function (el) {
+        if (!el || el.tagName !== 'INPUT') { return null; }
+        if (el.type === 'password') { return 'password'; }
+        if (el.getAttribute('data-luna-field') === 'username') { return 'username'; }
+        return nameOnly(el) && !anyPassword() ? 'name' : null;
+      };
+
+      var formID = function (scope) {
+        var id = scope.getAttribute && scope.getAttribute('data-luna-form');
+        if (id) { return id; }
+        counter += 1;
+        id = 'luna-' + counter + '-' + Date.now();
+        if (scope.setAttribute) { scope.setAttribute('data-luna-form', id); }
+        return id;
+      };
+
+      var reportName = function (field, focusedNow) {
+        var scope = field.form || field.closest('form') || document.body;
+        current = formID(scope);
+        field.setAttribute('data-luna-field', 'username');
+        anchored = field;
+        var r = field.getBoundingClientRect();
+        post({
+          kind: focusedNow ? 'focused' : 'detected',
+          id: current,
+          rect: { x: r.left, y: r.top, width: r.width, height: r.height },
+          isSignup: false,
+          passwordRules: null,
+          hasOneTimeCode: false,
+          isPasswordField: false,
+          isUsernameOnly: true
+        });
+      };
+
       // A username field is whatever sits closest above the password field.
       // Matching on name/id keywords alone fails on the many sites that call it
       // `login[identity]` or nothing at all; position is the more reliable
@@ -264,7 +355,10 @@ extension PasswordForms {
       var scan = function (focused) {
         var passwords = [].slice.call(document.querySelectorAll('input[type="password"]')).filter(visible);
         if (!passwords.length) {
-          if (current) { current = null; lastSent = ''; post({ kind: 'dismissed' }); }
+          var named = (focused && nameOnly(focused)) ? focused
+            : (anchored && anchored.isConnected && nameOnly(anchored) ? anchored : null);
+          if (named) { reportName(named, focused === named); return; }
+          if (current) { current = null; anchored = null; lastSent = ''; post({ kind: 'gone' }); }
           return;
         }
         var passwordEl = passwords[0];
@@ -280,14 +374,7 @@ extension PasswordForms {
         var scoped = [].slice.call(scope.querySelectorAll('input[type="password"]')).filter(visible);
         if (!scoped.length) { scoped = [passwordEl]; }
 
-        if (!scope.getAttribute || !scope.getAttribute('data-luna-form')) {
-          counter += 1;
-          var id = 'luna-' + counter + '-' + Date.now();
-          if (scope.setAttribute) { scope.setAttribute('data-luna-form', id); }
-          current = id;
-        } else {
-          current = scope.getAttribute('data-luna-form');
-        }
+        current = formID(scope);
 
         var userEl = findUsername(scope, passwordEl);
         if (userEl) { userEl.setAttribute('data-luna-field', 'username'); }
@@ -300,6 +387,7 @@ extension PasswordForms {
         // user is in, or the username field when nobody is focused yet.
         var anchorEl = (focused && (focused === userEl || focused === passwordEl))
           ? focused : (userEl || passwordEl);
+        if (focused) { anchored = anchorEl; }
         var r = anchorEl.getBoundingClientRect();
 
         post({
@@ -321,7 +409,13 @@ extension PasswordForms {
         if (!scope || !scope.querySelector) { return; }
         var pass = scope.querySelector('[data-luna-field="password"]')
           || scope.querySelector('input[type="password"]');
-        if (!pass || !pass.value) { return; }
+        if (!pass || !pass.value) {
+          // No password with it: a name-only first step, sent on its own.
+          var name = scope.querySelector('[data-luna-field="username"]')
+            || [].slice.call(scope.querySelectorAll('input')).filter(nameOnly)[0];
+          if (name && name.value && !anyPassword()) { post({ kind: 'identified', username: name.value }); }
+          return;
+        }
         // The username needs the same fallback the password has. The tag is
         // only there if this form was scanned, and the scan follows the first
         // password field in the document, so on a page with two forms the
@@ -344,21 +438,36 @@ extension PasswordForms {
         if (!el || !el.closest) { return; }
         var button = el.closest('button, input[type="submit"], [role="button"]');
         if (!button) { return; }
-        var scope = button.closest('form') || document.querySelector('[data-luna-form]');
+        var scope = button.closest('form') || document.querySelector('[data-luna-form]') || document.body;
+        if (scope) { setTimeout(function () { reportSubmit(scope); }, 0); }
+      }, true);
+
+      // Enter in a sign-in box sends it, and a page that handles the key
+      // itself never fires `submit` or a click.
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') { return; }
+        var el = e.target;
+        if (!el || !el.getAttribute || !el.getAttribute('data-luna-field')) { return; }
+        var scope = el.closest('[data-luna-form]');
         if (scope) { setTimeout(function () { reportSubmit(scope); }, 0); }
       }, true);
 
       document.addEventListener('focusin', function (e) {
+        if (signInKind(e.target)) { scan(e.target); }
+      }, true);
+
+      // A click into the box the caret is already in. A page that focuses its
+      // name box on load leaves no focus to arrive by, and a picker put away
+      // with Escape comes back on a click, as Safari's does.
+      document.addEventListener('mousedown', function (e) {
         var el = e.target;
-        if (!el || !el.tagName || el.tagName !== 'INPUT') { return; }
-        if (el.type === 'password' || el.getAttribute('data-luna-field') === 'username') {
-          scan(el);
-        }
+        if (el && el === document.activeElement && signInKind(el)) { lastSent = ''; scan(el); }
       }, true);
 
       document.addEventListener('focusout', function (e) {
         var el = e.target;
         if (el && el.getAttribute && el.getAttribute('data-luna-field')) {
+          anchored = null;
           lastSent = '';
           post({ kind: 'dismissed' });
         }
@@ -383,6 +492,10 @@ extension PasswordForms {
       });
       observer.observe(document.documentElement, { childList: true, subtree: true });
       scan(null);
+      // A page that put the caret in its sign-in box before this ran.
+      var active = document.activeElement;
+      if (signInKind(active)) { scan(active); }
+      if (window === window.top) { post({ kind: 'loaded', hasPassword: anyPassword() }); }
     })();
     """
 }

@@ -46,6 +46,7 @@ extension BrowserSession {
             // credential (§14.8).
             Task { await controller?.passwords.fill(credential) }
         }
+        passwordUI.popover.onClose = { [weak controller] in controller?.passwords.pickerClosed() }
         passwordUI.popover.present(.saved(offer), over: webView)
     }
 
@@ -59,6 +60,7 @@ extension BrowserSession {
         passwordUI.popover.onAcceptGenerated = { [weak controller] password in
             Task { await controller?.passwords.fillGenerated(password) }
         }
+        passwordUI.popover.onClose = { [weak controller] in controller?.passwords.pickerClosed() }
         passwordUI.popover.present(.generated(suggestion), over: webView)
     }
 

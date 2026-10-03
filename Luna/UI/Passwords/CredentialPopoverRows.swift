@@ -2,8 +2,10 @@
 //  CredentialPopoverRows.swift
 //  Luna
 //
-//  The three kinds of row §14.3's picker is built from: a saved username, §14.5's
-//  generated password, and a row that does something other than fill.
+//  The rows §14.3's picker is built from: a saved account, §14.5's generated
+//  password, and a row that does something other than fill. They share
+//  `PickerRowView`, which owns the highlight and the pointer, so the picker
+//  can move one selection across all three with the arrow keys.
 //
 //  Split out of `CredentialPopoverView.swift` for that file's length limit. They
 //  are `internal` rather than `private` only because Swift's `private` is
@@ -13,25 +15,98 @@
 import AppKit
 import BrowserKit
 
-// MARK: - One saved username
+// MARK: - The shared row
+
+/// One selectable line of the picker. A list row, not a button: it highlights
+/// and does not swell (see `CLAUDE.md`).
+@MainActor
+class PickerRowView: NSView {
+
+    /// The pointer arrived (`true`) or left. The picker decides what that
+    /// selects, because a keyboard selection elsewhere has to give way to it.
+    var onHover: ((Bool) -> Void)?
+
+    private let action: () -> Void
+    private let highlight = NSView()
+    private var tracking: NSTrackingArea?
+
+    init(action: @escaping () -> Void) {
+        self.action = action
+        super.init(frame: .zero)
+        wantsLayer = true
+        highlight.wantsLayer = true
+        highlight.layer?.backgroundColor = Tokens.Surface.hover.cgColor
+        highlight.layer?.cornerRadius = 7
+        highlight.layer?.cornerCurve = .continuous
+        highlight.alphaValue = 0
+        highlight.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(highlight)
+        NSLayoutConstraint.activate([
+            highlight.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
+            highlight.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
+            highlight.topAnchor.constraint(equalTo: topAnchor, constant: 1),
+            highlight.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -1)
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    var isSelected = false {
+        didSet {
+            guard isSelected != oldValue else { return }
+            Tokens.Motion.animate(Tokens.Motion.rowHover) { _ in
+                highlight.animator().alphaValue = isSelected ? 1 : 0
+            }
+        }
+    }
+
+    func activate() { action() }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let tracking { removeTrackingArea(tracking) }
+        let area = NSTrackingArea(
+            rect: bounds, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
+            owner: self
+        )
+        addTrackingArea(area)
+        tracking = area
+    }
+
+    override func mouseEntered(with event: NSEvent) { onHover?(true) }
+    override func mouseExited(with event: NSEvent) { onHover?(false) }
+
+    override func mouseUp(with event: NSEvent) {
+        guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
+        action()
+    }
+
+    override func accessibilityPerformPress() -> Bool {
+        action()
+        return true
+    }
+}
+
+// MARK: - One saved account
 
 @MainActor
-final class CredentialRowView: NSView {
+final class CredentialRowView: PickerRowView {
 
     /// Named so a test can ask whether the fingerprint is drawn without
     /// guessing at image ordering.
     static let biometricIdentifier = "password-row-biometric"
 
     private let credential: Credential
-    private let onPick: (Credential) -> Void
-    private let highlight = NSView()
-    private var tracking: NSTrackingArea?
 
-    init(credential: Credential, onPick: @escaping (Credential) -> Void) {
+    /// - Parameter showsBiometric: whether picking this row asks for Touch ID.
+    ///   Not on a name-only step, which fills no password.
+    init(credential: Credential, showsBiometric: Bool, onPick: @escaping (Credential) -> Void) {
         self.credential = credential
-        self.onPick = onPick
-        super.init(frame: .zero)
-        build()
+        super.init { onPick(credential) }
+        build(showsBiometric: showsBiometric)
     }
 
     @available(*, unavailable)
@@ -73,12 +148,12 @@ final class CredentialRowView: NSView {
         return title
     }
 
-    /// The site under the username, because one saved account can be the right
-    /// one on `github.com` and the wrong one on a page that merely looks like
-    /// it. §14.8 already refuses the cross-site fill; this says the same thing
-    /// where the user can read it.
+    /// What the row is and for which site, in Safari's words. One saved
+    /// account can be the right one on `github.com` and the wrong one on a
+    /// page that merely looks like it; §14.8 already refuses the cross-site
+    /// fill, and this says the same thing where the user can read it.
     private func makeSubtitle() -> NSTextField {
-        let subtitle = NSTextField(labelWithString: credential.site)
+        let subtitle = NSTextField(labelWithString: String(localized: "Password for \(credential.site)"))
         subtitle.font = Tokens.TypeScale.settingsCaption
         subtitle.textColor = Tokens.Text.secondary
         subtitle.lineBreakMode = .byTruncatingMiddle
@@ -86,16 +161,7 @@ final class CredentialRowView: NSView {
         return subtitle
     }
 
-    private func build() {
-        wantsLayer = true
-        highlight.wantsLayer = true
-        highlight.layer?.backgroundColor = Tokens.Surface.hover.cgColor
-        highlight.layer?.cornerRadius = 7
-        highlight.layer?.cornerCurve = .continuous
-        highlight.alphaValue = 0
-        highlight.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(highlight)
-
+    private func build(showsBiometric: Bool) {
         let glyph = makeGlyph()
         let title = makeTitle()
         let subtitle = makeSubtitle()
@@ -103,23 +169,19 @@ final class CredentialRowView: NSView {
         addSubview(glyph)
         addSubview(title)
         addSubview(subtitle)
-        activateConstraints(glyph: glyph, title: title, subtitle: subtitle)
+        activateConstraints(glyph: glyph, title: title, subtitle: subtitle, showsBiometric: showsBiometric)
 
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(String(localized: "Fill \(credential.username) for \(credential.site)"))
     }
 
-    /// Where the row's four pieces sit, and the two the fingerprint displaces.
+    /// Where the row's pieces sit, and the two the fingerprint displaces.
     /// Split from `build` for its length limit; the arithmetic is the half that
     /// changes when a placement does.
-    private func activateConstraints(glyph: NSView, title: NSView, subtitle: NSView) {
+    private func activateConstraints(glyph: NSView, title: NSView, subtitle: NSView, showsBiometric: Bool) {
         var constraints: [NSLayoutConstraint] = [
             heightAnchor.constraint(equalToConstant: 42),
-            highlight.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
-            highlight.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
-            highlight.topAnchor.constraint(equalTo: topAnchor, constant: 1),
-            highlight.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -1),
             glyph.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
             glyph.centerYAnchor.constraint(equalTo: centerYAnchor),
             glyph.widthAnchor.constraint(equalToConstant: 16),
@@ -132,9 +194,9 @@ final class CredentialRowView: NSView {
 
         // The fingerprint says what the click will cost before it is spent —
         // a prompt nobody expected is the thing that makes people distrust a
-        // picker. Absent entirely when the preference is off, rather than
-        // drawn dim: a symbol that means nothing is worse than no symbol.
-        if PasswordSettings.requiresAuthentication {
+        // picker. Absent entirely when no prompt will come, rather than drawn
+        // dim: a symbol that means nothing is worse than no symbol.
+        if showsBiometric, PasswordSettings.requiresAuthentication {
             let biometric = NSImageView(
                 image: NSImage(systemSymbolName: "touchid", accessibilityDescription: nil) ?? NSImage()
             )
@@ -169,36 +231,6 @@ final class CredentialRowView: NSView {
         }
         return SidebarIcons.shared.favicon(for: URL(string: "https://\(credential.site)"))
     }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let tracking { removeTrackingArea(tracking) }
-        let area = NSTrackingArea(
-            rect: bounds, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
-            owner: self
-        )
-        addTrackingArea(area)
-        tracking = area
-    }
-
-    override func mouseEntered(with event: NSEvent) { setHighlighted(true) }
-    override func mouseExited(with event: NSEvent) { setHighlighted(false) }
-
-    private func setHighlighted(_ on: Bool) {
-        Tokens.Motion.animate(Tokens.Motion.rowHover) { _ in
-            highlight.animator().alphaValue = on ? 1 : 0
-        }
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
-        onPick(credential)
-    }
-
-    override func accessibilityPerformPress() -> Bool {
-        onPick(credential)
-        return true
-    }
 }
 
 // MARK: - §14.5's generated password
@@ -212,48 +244,20 @@ final class CredentialRowView: NSView {
 /// `byCharWrapping`, because the one thing a person does with a generated
 /// password on screen is check a character they think they misread.
 @MainActor
-final class GeneratedPasswordRowView: NSView {
+final class GeneratedPasswordRowView: PickerRowView {
 
-    private let password: String
-    private let onAccept: (String) -> Void
-    private let highlight = NSView()
-    private var tracking: NSTrackingArea?
-
-    init(password: String, onAccept: @escaping (String) -> Void) {
-        self.password = password
-        self.onAccept = onAccept
-        super.init(frame: .zero)
-        build()
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("Luna builds its chrome in code; there is no nib to decode.")
-    }
-
-    private func build() {
-        wantsLayer = true
-        highlight.wantsLayer = true
-        highlight.layer?.backgroundColor = Tokens.Surface.hover.cgColor
-        highlight.layer?.cornerRadius = 7
-        highlight.layer?.cornerCurve = .continuous
-        highlight.alphaValue = 0
-        highlight.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(highlight)
+    init(password: String, width: CGFloat, onAccept: @escaping (String) -> Void) {
+        super.init { onAccept(password) }
 
         let value = NSTextField(wrappingLabelWithString: password)
         value.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
         value.textColor = Tokens.Text.primary
         value.lineBreakMode = .byCharWrapping
-        value.preferredMaxLayoutWidth = Tokens.Metric.passwordPopover.width - 32
+        value.preferredMaxLayoutWidth = width - 32
         value.translatesAutoresizingMaskIntoConstraints = false
         addSubview(value)
 
         NSLayoutConstraint.activate([
-            highlight.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
-            highlight.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
-            highlight.topAnchor.constraint(equalTo: topAnchor, constant: 1),
-            highlight.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -1),
             value.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
             value.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
             value.topAnchor.constraint(equalTo: topAnchor, constant: 7),
@@ -268,69 +272,21 @@ final class GeneratedPasswordRowView: NSView {
         setAccessibilityHelp(password.map(String.init).joined(separator: " "))
     }
 
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let tracking { removeTrackingArea(tracking) }
-        let area = NSTrackingArea(
-            rect: bounds, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
-            owner: self
-        )
-        addTrackingArea(area)
-        tracking = area
-    }
-
-    override func mouseEntered(with event: NSEvent) { setHighlighted(true) }
-    override func mouseExited(with event: NSEvent) { setHighlighted(false) }
-
-    private func setHighlighted(_ on: Bool) {
-        Tokens.Motion.animate(Tokens.Motion.rowHover) { _ in
-            highlight.animator().alphaValue = on ? 1 : 0
-        }
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
-        onAccept(password)
-    }
-
-    override func accessibilityPerformPress() -> Bool {
-        onAccept(password)
-        return true
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 }
 
 // MARK: - A row that does something other than fill
 
-/// The picker's non-credential row. Same hover behaviour as
-/// ``CredentialRowView`` so the list reads as one list, but it carries no
-/// credential and can never fill one.
+/// The picker's non-credential row. It carries no credential and can never
+/// fill one.
 @MainActor
-final class PopoverActionRowView: NSView {
-
-    private let onActivate: () -> Void
-    private let highlight = NSView()
-    private var tracking: NSTrackingArea?
+final class PopoverActionRowView: PickerRowView {
 
     init(title: String, symbol: String, onActivate: @escaping () -> Void) {
-        self.onActivate = onActivate
-        super.init(frame: .zero)
-        build(title: title, symbol: symbol)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("Luna builds its chrome in code; there is no nib to decode.")
-    }
-
-    private func build(title: String, symbol: String) {
-        wantsLayer = true
-        highlight.wantsLayer = true
-        highlight.layer?.backgroundColor = Tokens.Surface.hover.cgColor
-        highlight.layer?.cornerRadius = 7
-        highlight.layer?.cornerCurve = .continuous
-        highlight.alphaValue = 0
-        highlight.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(highlight)
+        super.init(action: onActivate)
 
         let glyph = NSImageView(
             image: NSImage(systemSymbolName: symbol, accessibilityDescription: nil) ?? NSImage()
@@ -348,10 +304,6 @@ final class PopoverActionRowView: NSView {
         addSubview(label)
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: 30),
-            highlight.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
-            highlight.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
-            highlight.topAnchor.constraint(equalTo: topAnchor, constant: 1),
-            highlight.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -1),
             glyph.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
             glyph.centerYAnchor.constraint(equalTo: centerYAnchor),
             glyph.widthAnchor.constraint(equalToConstant: 16),
@@ -365,33 +317,8 @@ final class PopoverActionRowView: NSView {
         setAccessibilityLabel(title)
     }
 
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let tracking { removeTrackingArea(tracking) }
-        let area = NSTrackingArea(
-            rect: bounds, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
-            owner: self
-        )
-        addTrackingArea(area)
-        tracking = area
-    }
-
-    override func mouseEntered(with event: NSEvent) { setHighlighted(true) }
-    override func mouseExited(with event: NSEvent) { setHighlighted(false) }
-
-    private func setHighlighted(_ on: Bool) {
-        Tokens.Motion.animate(Tokens.Motion.rowHover) { _ in
-            highlight.animator().alphaValue = on ? 1 : 0
-        }
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
-        onActivate()
-    }
-
-    override func accessibilityPerformPress() -> Bool {
-        onActivate()
-        return true
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 }

@@ -84,6 +84,20 @@ final class PasswordFormsTests: XCTestCase {
         }
     }
 
+    func testTheSignInLifecycleEventsDecode() {
+        guard case .formGone? = PasswordForms.event(from: ["kind": "gone"]) else {
+            return XCTFail("expected the form to have gone")
+        }
+        guard case let .pageLoaded(hasPasswordForm)? = PasswordForms.event(from: ["kind": "loaded", "hasPassword": true])
+        else { return XCTFail("expected a page load") }
+        XCTAssertTrue(hasPasswordForm)
+        guard case let .identified(username)? = PasswordForms.event(from: ["kind": "identified", "username": "ada"])
+        else { return XCTFail("expected a name step") }
+        XCTAssertEqual(username, "ada")
+        // A name step with no name is nothing to carry forward.
+        XCTAssertNil(PasswordForms.event(from: ["kind": "identified", "username": ""]))
+    }
+
     // MARK: - The injected script
 
     /// The script talks to the handler `TabController` registers. If the two

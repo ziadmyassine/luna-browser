@@ -14,7 +14,8 @@
 //  lying page can do with it is put the popover somewhere silly.
 //
 //  Accessibility (§21.1): a real list of real buttons that VoiceOver reads,
-//  Escape dismisses from anywhere, and the panel comes to the field.
+//  and the panel comes to the field. While the caret is in the page, ↓ and ↑
+//  choose a row, Return takes it and Escape puts the panel away, as in Safari.
 //
 
 import AppKit
@@ -52,8 +53,25 @@ final class CredentialPopover {
     /// The user accepted §14.5's generated password.
     var onAcceptGenerated: ((String) -> Void)?
 
+    /// The user put the picker away with Escape. The engine hears it so a
+    /// click back into the field raises a fresh one.
+    var onClose: (() -> Void)?
+
+    /// How long after appearing the picker refuses a click. A page can move
+    /// its field, and so the picker, to wherever the pointer is about to
+    /// click; a row taken within this window was never aimed at. The same
+    /// half second Search measured as unnoticeable to someone who means it.
+    static let pointerGrace: TimeInterval = 0.5
+
     private var panel: NSPanel?
-    private var escapeMonitor: Any?
+    private var view: CredentialPopoverView?
+    private var keyMonitor: Any?
+    private var shownAt = Date.distantPast
+    private var pickingByKeyboard = false
+
+    private var acceptsPick: Bool {
+        pickingByKeyboard || Date().timeIntervalSince(shownAt) >= Self.pointerGrace
+    }
 
     // MARK: - Presenting
 
@@ -72,12 +90,14 @@ final class CredentialPopover {
         let content = CredentialPopoverView(
             content: offered,
             onPick: { [weak self] credential in
-                self?.dismiss()
-                self?.onPick?(credential)
+                guard let self, acceptsPick else { return }
+                dismiss()
+                onPick?(credential)
             },
             onAcceptGenerated: { [weak self] password in
-                self?.dismiss()
-                self?.onAcceptGenerated?(password)
+                guard let self, acceptsPick else { return }
+                dismiss()
+                onAcceptGenerated?(password)
             }
         )
         let size = content.fittingPopoverSize()
@@ -100,8 +120,10 @@ final class CredentialPopover {
         host.addChildWindow(panel, ordered: .above)
         panel.orderFront(nil)
         self.panel = panel
+        view = content
+        shownAt = Date()
 
-        installEscapeMonitor()
+        installKeyMonitor(typingInto: webView)
         content.animateIn()
     }
 
@@ -139,8 +161,9 @@ final class CredentialPopover {
     }
 
     func dismiss() {
-        if let escapeMonitor { NSEvent.removeMonitor(escapeMonitor) }
-        escapeMonitor = nil
+        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+        keyMonitor = nil
+        view = nil
         guard let panel else { return }
         self.panel = nil
         // Out the way it came in — see `Motion.fadePanelOut`.
@@ -192,15 +215,41 @@ final class CredentialPopover {
         return panel
     }
 
-    /// Escape dismisses from anywhere — including while focus is in the page,
-    /// which is where it always is when this panel is up. A local monitor,
-    /// because the panel deliberately never becomes key and so never sees a
-    /// `keyDown` of its own.
-    private func installEscapeMonitor() {
-        escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard event.keyCode == 53 else { return event }
-            self?.dismiss()
+    /// The picker's keys, read while the caret is in the page — which is
+    /// where it always is when this panel is up. A local monitor, because the
+    /// panel deliberately never becomes key and so never sees a `keyDown` of
+    /// its own.
+    ///
+    /// Only while the web view is first responder: with the Command Bar or
+    /// Find open over the page, Escape and the arrows are theirs, and taking
+    /// them would leave those unable to close.
+    private func installKeyMonitor(typingInto webView: NSView) {
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self, weak webView] event in
+            guard let self, let view, let webView, Self.isTyping(in: webView, event) else { return event }
+            guard event.modifierFlags.isDisjoint(with: [.command, .option, .control, .shift]) else { return event }
+            switch event.keyCode {
+            case 53:
+                dismiss()
+                onClose?()
+            case 125:
+                view.moveSelection(by: 1)
+            case 126:
+                view.moveSelection(by: -1)
+            case 36, 76:
+                pickingByKeyboard = true
+                defer { pickingByKeyboard = false }
+                return view.activateKeyboardSelection() ? nil : event
+            default:
+                return event
+            }
             return nil
         }
+    }
+
+    private static func isTyping(in webView: NSView, _ event: NSEvent) -> Bool {
+        guard let window = webView.window, event.window === window,
+              let responder = window.firstResponder as? NSView
+        else { return false }
+        return responder === webView || responder.isDescendant(of: webView)
     }
 }

@@ -319,7 +319,8 @@ copied from Safari is the *shape*, all of which is free:
 | | |
 |---|---|
 | The site's favicon | from §4.7's cache, falling back to a key glyph |
-| Account and site on two lines | one account can be right on one site and wrong on a lookalike |
+| Account and "Password for site" on two lines, no header | one account can be right on one site and wrong on a lookalike |
+| ↓ ↑ to choose, Return to take, Escape to put away | while the caret is in the page; Return only takes a row the arrow keys chose, so a picker that opened under a resting pointer never eats the Return meant for the form |
 | A fingerprint on the row | says what the click costs before it is spent |
 | "All saved passwords…" | **not** Safari's "Other Passwords for this site" — Luna cannot read those, and a row promising a list it cannot fetch would be a lie in the one piece of chrome that has to be trustworthy |
 
@@ -332,15 +333,41 @@ autofill; if there is no lock at all, the fill proceeds, because refusing would
 protect nothing. It is on by default and `passwords.requireAuthentication`
 turns it off.
 
+### When it comes up, and when Luna asks to save
+
+The mechanism follows Search (driceroland/Search, `Forms.swift`), which follows
+Safari:
+
+- **The caret in a sign-in box raises it** — a password box, the name box of
+  its form, or a name box on a page with no password box at all. That last one
+  is the first step of Microsoft's, Google's and Apple's sign-ins; it counts
+  when the page marks it `autocomplete="username"` (or `webauthn`) or its name
+  says *user*, *login*, *ident* or *signin*. A bare email box does not: that is
+  every newsletter form on the web. A pick there fills the name only, reads no
+  password and asks for no Touch ID.
+- **A box the page focused itself**, before Luna's script ran, raises it too,
+  and so does a click into the box the caret is already in.
+- **The name sent on a first step is carried to the second** (ten minutes, same
+  site): that account comes first in the list, and the password is saved under
+  it — the password page has no name box to read it from.
+- **Saving is offered once the sign-in took.** A password that goes out is
+  held. A new document without a password box (given a second to build a late
+  one), or a form taken away in place and not put back within 1.5 s, is a
+  sign-in that took, and only then does the chip come up. A page that comes
+  back with its password box refused it, and nothing is asked. After 45 s the
+  held password is dropped.
+- **A click in the first half second is refused.** A page can move its field,
+  and so the picker, under a pointer that is about to click.
+
 ---
 
 ## 6. §14.8's security rules, and where each is enforced
 
 | Rule | Enforced in |
 |---|---|
-| Never persist without an explicit user action | `PasswordCoordinator` never writes; only `confirmSave`, called by the chip's button, does |
+| Never persist without an explicit user action | `PasswordCoordinator` never writes; only `confirmSave`, called by the chip's button, does — and the chip is only offered once the sign-in took |
 | Never fill cross-origin, or an iframe whose origin differs from the page | `PasswordCoordinator.isFrameTrusted`, against `WKFrameInfo.securityOrigin` — scheme, host **and** port, not eTLD+1 |
-| Require a recent user gesture before filling | There is no code path from a page event to a filled field; a fill begins only with a click on Luna's own popover |
+| Require a recent user gesture before filling | There is no code path from a page event to a filled field; a fill begins only with a click on Luna's own popover (refused in its first half second) or Return on a row the arrow keys chose |
 | Never expose credentials to page JavaScript | `callAsyncJavaScript` with bound arguments, never string interpolation |
 | Treat a fill after a redirect chain as suspicious | `sawServerRedirect`, set in `didReceiveServerRedirect…`, cleared in `didStartProvisionalNavigation`, shown in the popover |
 | Match on eTLD+1 with a public-suffix list, never a substring | `PublicSuffix`, with the PSL's own algorithm including wildcards and exceptions |
