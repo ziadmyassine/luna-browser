@@ -185,25 +185,23 @@ final class CredentialPopoverView: NSView {
 
     // MARK: - Touch ID
 
-    /// Hangs the picker's live Touch ID view at the trailing end of the
-    /// account a finger would fill, in the room that row left for it.
-    func showTouchID(_ view: NSView) {
+    /// Puts the fingerprint on the account a finger would fill, in the room
+    /// that row left for it; it follows the choice from row to row.
+    func showTouchID() {
         touchView?.removeFromSuperview()
-        touchView = view
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.setAccessibilityIdentifier(CredentialRowView.biometricIdentifier)
-        addSubview(view)
+        let badge = TouchIDBadge()
+        touchView = badge
+        addSubview(badge)
         placeTouchID()
     }
 
     private func placeTouchID() {
         guard let touchView, rows.indices.contains(touchIndex) else { return }
         NSLayoutConstraint.deactivate(touchPlacement)
-        let side = CredentialRowView.fingerprintSide
         touchPlacement = [
-            touchView.widthAnchor.constraint(equalToConstant: side),
-            touchView.heightAnchor.constraint(equalToConstant: side),
-            touchView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            touchView.centerXAnchor.constraint(
+                equalTo: trailingAnchor, constant: -(12 + CredentialRowView.fingerprintSide / 2)
+            ),
             touchView.centerYAnchor.constraint(equalTo: rows[touchIndex].centerYAnchor)
         ]
         NSLayoutConstraint.activate(touchPlacement)

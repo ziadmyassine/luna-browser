@@ -322,7 +322,7 @@ copied from Safari is the *shape*, all of which is free:
 | Account and "Password for site" on two lines, no header | one account can be right on one site and wrong on a lookalike |
 | ↓ ↑ to choose, Return to take, Escape to put away | while the caret is in the page; Return only takes a row the arrow keys chose, so a picker that opened under a resting pointer never eats the Return meant for the form |
 | A fingerprint on the row, red | says what the click costs before it is spent |
-| The first account chosen, in the accent | Safari's chosen row; with Touch ID it is `LAAuthenticationView`, so a finger on the sensor fills that row with no dialog (`CredentialPopover.awaitTouch`). It is armed only while Luna is the app in front, and called off when the list goes, a row is clicked or Luna loses focus; a click still asks through the usual dialog |
+| The first account chosen, in the accent | Safari's chosen row; with Touch ID a finger on the sensor fills that row with no dialog (`CredentialPopover.awaitTouch`). The request rides an `LAAuthenticationView`, which only works in the key window, so it stands in the browser window under the picker and the picker draws its own red fingerprint on a white disc. It is armed only while Luna is the app in front, and called off when the list goes, a row is clicked or Luna loses focus; a click still asks through the usual dialog |
 | "All saved passwords…" | **not** Safari's "Other Passwords for this site" — Luna cannot read those, and a row promising a list it cannot fetch would be a lie in the one piece of chrome that has to be trustworthy |
 
 Touch ID is `LocalAuthentication`, which needs no entitlement and works in a

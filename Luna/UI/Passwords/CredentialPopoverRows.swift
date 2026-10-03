@@ -114,8 +114,8 @@ final class CredentialRowView: PickerRowView {
         case none
         /// A prompt will come when the row is picked: the system's symbol.
         case symbol
-        /// Room for the picker's live Touch ID view, which a finger on the
-        /// sensor answers without a dialog. The picker places it.
+        /// A finger on the sensor fills without a dialog. The picker puts the
+        /// badge on the chosen account only, since that is the one it fills.
         case inline
     }
 
@@ -232,14 +232,7 @@ final class CredentialRowView: PickerRowView {
             trailing = Self.fingerprintSide + 20
         case .symbol:
             trailing = Self.fingerprintSide + 20
-            let config = NSImage.SymbolConfiguration(pointSize: 20, weight: .regular)
-            let biometric = NSImageView(
-                image: NSImage(systemSymbolName: "touchid", accessibilityDescription: nil)?
-                    .withSymbolConfiguration(config) ?? NSImage()
-            )
-            biometric.contentTintColor = Tokens.Accent.danger
-            biometric.translatesAutoresizingMaskIntoConstraints = false
-            biometric.setAccessibilityIdentifier(Self.biometricIdentifier)
+            let biometric = TouchIDBadge()
             addSubview(biometric)
             constraints += [
                 biometric.centerXAnchor.constraint(equalTo: trailingAnchor, constant: -(12 + Self.fingerprintSide / 2)),
@@ -255,8 +248,8 @@ final class CredentialRowView: PickerRowView {
 
     static let height: CGFloat = 46
 
-    /// The Touch ID mark's box: `LAAuthenticationView` at `.small` measures
-    /// 32 pt and the symbol is drawn to match it.
+    /// The room a row leaves for the Touch ID mark: `LAAuthenticationView`
+    /// at `.small` measures 32 pt, and the badge is centred in the same box.
     static let fingerprintSide: CGFloat = 32
 
     /// The site's icon from the favicon cache §4.7 already fills.
@@ -369,5 +362,46 @@ final class PopoverActionRowView: PickerRowView {
     override func inkDidChange() {
         glyph.contentTintColor = ink(Tokens.Text.secondary)
         label.textColor = ink(Tokens.Text.secondary)
+    }
+}
+
+// MARK: - The fingerprint
+
+/// The Touch ID symbol in red on a white disc. The system's own
+/// `LAAuthenticationView` draws its fingerprint faint and pink, and on the
+/// accent-filled chosen row it all but disappeared; the disc keeps the red
+/// legible on the accent and on the glass alike.
+@MainActor
+final class TouchIDBadge: NSView {
+
+    static let side: CGFloat = 28
+
+    init() {
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.white.cgColor
+        layer?.cornerRadius = Self.side / 2
+        translatesAutoresizingMaskIntoConstraints = false
+        setAccessibilityIdentifier(CredentialRowView.biometricIdentifier)
+
+        let config = NSImage.SymbolConfiguration(pointSize: 18, weight: .medium)
+        let glyph = NSImageView(
+            image: NSImage(systemSymbolName: "touchid", accessibilityDescription: nil)?
+                .withSymbolConfiguration(config) ?? NSImage()
+        )
+        glyph.contentTintColor = Tokens.Accent.danger
+        glyph.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(glyph)
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: Self.side),
+            heightAnchor.constraint(equalToConstant: Self.side),
+            glyph.centerXAnchor.constraint(equalTo: centerXAnchor),
+            glyph.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 }

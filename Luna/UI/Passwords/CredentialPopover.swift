@@ -79,6 +79,9 @@ final class CredentialPopover {
     /// the app in front: a request outliving its view is one macOS may
     /// answer with a dialog of its own, over whatever the user went to.
     private var touchContext: LAContext?
+    /// The system's Touch ID view for that request, standing in the browser
+    /// window under the picker. See `awaitTouch`.
+    private var touchStand: NSView?
     private var resignObserver: (any NSObjectProtocol)?
 
     private var acceptsPick: Bool {
@@ -156,7 +159,7 @@ final class CredentialPopover {
         }
         if case let .saved(offer) = offered, content.touchCredential != nil,
            CredentialPopoverView.fingerprint(for: offer, inline: inline) == .inline {
-            awaitTouch(on: content, site: offer.site)
+            awaitTouch(on: content, site: offer.site, in: host)
         }
         // Grows out of the field: from the corner nearest it, which is the top
         // when the picker hangs below and the bottom when it had to go above.
@@ -176,13 +179,27 @@ final class CredentialPopover {
         NSApp.isActive && LAContext().canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
     }
 
-    /// Puts the system's own Touch ID view on the chosen row and asks the
-    /// sensor, as Safari's autofill does. While `LAAuthenticationView` is on
-    /// screen the request shows no dialog: the red fingerprint is the prompt,
-    /// and a finger on the sensor fills the account it sits on.
-    private func awaitTouch(on content: CredentialPopoverView, site: String) {
+    /// Asks the sensor while the list is up, as Safari's autofill does: a
+    /// finger on Touch ID fills the account the red fingerprint sits on, with
+    /// no dialog.
+    ///
+    /// The request is tied to an `LAAuthenticationView`, which keeps the
+    /// system's dialog away only while it is visible — and it counts as
+    /// visible only in the key window. The picker is a panel that never
+    /// becomes key, so the view could not live there: in it the request sat
+    /// paused ("is not visible to user because NSPanel is not key") and a
+    /// finger did nothing. It stands instead in the browser window, which
+    /// is key while the user types into the page, under the picker's middle
+    /// where the picker covers it; the fingerprint the user sees is the
+    /// picker's own `TouchIDBadge`.
+    private func awaitTouch(on content: CredentialPopoverView, site: String, in host: NSWindow) {
         let context = LAContext()
-        content.showTouchID(LAAuthenticationView(context: context, controlSize: .small))
+        content.showTouchID()
+        let stand = LAAuthenticationView(context: context, controlSize: .small)
+        stand.setAccessibilityElement(false)
+        host.contentView?.addSubview(stand)
+        touchStand = stand
+        placeTouchStand()
         touchContext = context
         let reason = String(localized: "fill your saved password for \(site)")
         let request = ObjectIdentifier(context)
@@ -195,6 +212,17 @@ final class CredentialPopover {
                 onPick?(credential, true)
             }
         }
+    }
+
+    /// Under the middle of the picker, kept inside the browser window's
+    /// content so the view is never clipped out of sight.
+    private func placeTouchStand() {
+        guard let stand = touchStand, let panel, let content = stand.superview, let host = content.window else { return }
+        let side = CredentialRowView.fingerprintSide
+        let middle = content.convert(host.convertPoint(fromScreen: CGPoint(x: panel.frame.midX, y: panel.frame.midY)), from: nil)
+        let x = min(max(middle.x, side / 2), content.bounds.width - side / 2)
+        let y = min(max(middle.y, side / 2), content.bounds.height - side / 2)
+        stand.frame = CGRect(x: x - side / 2, y: y - side / 2, width: side, height: side)
     }
 
     /// Repositions a picker that is already up, because the field it points at
@@ -213,6 +241,7 @@ final class CredentialPopover {
         Tokens.Motion.immediately {
             panel.setFrame(Self.frame(under: onScreen, size: panel.frame.size, on: host.screen), display: true)
         }
+        placeTouchStand()
     }
 
     /// A field's rect, which the page measures in CSS pixels from the
@@ -242,6 +271,8 @@ final class CredentialPopover {
     func dismiss() {
         touchContext?.invalidate()
         touchContext = nil
+        touchStand?.removeFromSuperview()
+        touchStand = nil
         if let resignObserver { NotificationCenter.default.removeObserver(resignObserver) }
         resignObserver = nil
         if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
