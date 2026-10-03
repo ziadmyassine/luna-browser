@@ -47,6 +47,13 @@ extension TabController: WKNavigationDelegate {
         ContentBlocker.shared.apply(
             to: webView.configuration.userContentController, host: url.host(), scope: sitePermissions
         )
+        // Recomputed from the destination every main-frame navigation, so the
+        // Chrome Web Store's Chrome UA is set on arrival and dropped on the way
+        // out by construction — no enter/leave pair to strand a session on it.
+        // ponytail: if the store flashes its "Install Chrome" header on first
+        // paint, this set needs the cancel-then-reload the HTTPS upgrade uses
+        // below; that is a live-store check the GUI app has to make.
+        webView.customUserAgent = WebViewFactory.userAgent(for: url)
         // §17.2. The rule lists above are swapped per navigation; the YouTube
         // script has to be too, and for the same reason — "disable blocking here"
         // has to mean here.

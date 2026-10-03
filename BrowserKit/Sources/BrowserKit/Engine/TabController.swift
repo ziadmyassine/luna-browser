@@ -20,7 +20,7 @@ public final class TabController: NSObject {
 
     /// The Space's extension controller, put on every web view this tab builds
     /// (§16.1). Nil in a private window, where extensions do not run.
-    private let webExtensionController: WKWebExtensionController?
+    let webExtensionController: WKWebExtensionController?
 
     /// The last session we managed to capture. Kept outside the web view on purpose:
     /// once the WebContent process is gone `webView.interactionState` reads back nil, so
@@ -49,9 +49,10 @@ public final class TabController: NSObject {
     /// make us rebuild it forever.
     private(set) var recoveries: [Date] = []
 
-    /// Whether §17.2's YouTube script is in the current script set — see
-    /// `refreshUserScriptsIfNeeded(host:)`, which is the only thing that reads it.
-    private var youTubeScriptInstalled = false, fileSeedInstalled = false
+    /// Whether §17.2's YouTube script, the file-storage seed, and the Chrome Web
+    /// Store button-hijack are in the current script set — see
+    /// `refreshUserScriptsIfNeeded(host:)`, which is the only thing that reads them.
+    var youTubeScriptInstalled = false, fileSeedInstalled = false, webStoreScriptInstalled = false
     /// Whether `FileStorageSeed`'s script is in the set — only while the tab is
     /// on a `file:` page.
     /// The hidden-elements stylesheet in the current script set, empty when there is
@@ -116,6 +117,13 @@ public final class TabController: NSObject {
     /// subframes, before WebKit decides whether to show or download it. Luna
     /// Control's network log is the one reader.
     public var onNavigationResponse: ((WKNavigationResponse) -> Void)?
+
+    /// The Chrome Web Store hybrid's two signals (`TabController+WebStore.swift`):
+    /// the hijacked "Add to Chrome" button placed itself, and the user pressed
+    /// it. The app cancels its toast fallback on the first and installs on the
+    /// second; the URL is `webView.url`, read by native, not sent by the page.
+    public var onWebStoreButtonReady: ((URL) -> Void)?
+    public var onWebStoreAddRequested: ((URL) -> Void)?
     /// Set by the page's Open Link in New Tab just before it sends WebKit's own
     /// new-window item: the tab `createWebViewWith` asks for then stays behind
     /// this one. The host reads and clears it.
@@ -136,7 +144,7 @@ public final class TabController: NSObject {
     /// The relay's names in the page world, added on attach and taken off on detach.
     private static let relayedMessageNames = [
         mediaMessageName, ContentBlocker.blockedMessageName, scrollMessageName, PasswordForms.messageName,
-        ContentBlocker.youTubeMessageName, popupMessageName
+        ContentBlocker.youTubeMessageName, popupMessageName, webStoreMessageName
     ]
 
     /// §14's password state for this tab: the form the page is showing, the
@@ -420,6 +428,7 @@ public final class TabController: NSObject {
                 )
             )
         }
+        installWebStoreScript(into: controller, host: host)
         installHiddenStyle(into: controller, host: host)
         addedUserScripts.forEach(controller.addUserScript)
     }
@@ -437,7 +446,9 @@ public final class TabController: NSObject {
         guard let controller = webView?.configuration.userContentController else { return }
         let blocks = ContentBlocker.shared.blocksYouTubeAds(forHost: host, in: sitePermissions)
         let seeds = isFile && FileStorageSeed.userScript() != nil
-        guard blocks != youTubeScriptInstalled || seeds != fileSeedInstalled || hiddenStyleIsStale(for: host) else { return }
+        let store = wantsWebStoreScript(host: host)
+        guard blocks != youTubeScriptInstalled || seeds != fileSeedInstalled
+            || store != webStoreScriptInstalled || hiddenStyleIsStale(for: host) else { return }
         installUserScripts(into: controller, host: host, isFile: isFile)
     }
 
@@ -682,32 +693,5 @@ extension TabController {
     /// isolation can be asserted with sources that actually throw.
     static func isolated(_ sources: [String]) -> String {
         sources.map { "try {\n\($0)\n} catch (error) {}" }.joined(separator: "\n")
-    }
-}
-
-// MARK: - Reload
-
-extension TabController {
-
-    /// Past the cache for a page on this Mac (`NavigationPolicy.isLocalDevelopment`).
-    /// A text file shown by `localText` is loaded again instead: its page is
-    /// the text as it was read, and reloading that shows the same copy.
-    /// A Markdown document from the web is fetched again: WebKit's reload
-    /// would show the page Luna rendered from the first copy.
-    public func reload() {
-        guard let url = webView?.url, NavigationPolicy.isLocalDevelopment(url) || markdownDocument != nil
-        else { webView?.reload(); return }
-        reloadFromOrigin()
-    }
-
-    public func reloadFromOrigin() {
-        guard let webView else { return }
-        if let document = markdownDocument, !document.url.isFileURL {
-            fetchMarkdown(at: document.url, into: webView)
-        } else if let url = webView.url, Self.isLocalText(url) {
-            Self.load(url, into: webView)
-        } else {
-            webView.reloadFromOrigin()
-        }
     }
 }

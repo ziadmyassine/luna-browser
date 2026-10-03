@@ -30,6 +30,7 @@ final class ScriptMessageRelay: NSObject, WKScriptMessageHandler {
         case TabController.pickMessageName: owner?.handlePickMessage(message)
         case TabController.readingMessageName: owner?.handleReadingMessage(message)
         case TabController.pictureInPictureMessageName: owner?.handlePictureInPictureMessage(message)
+        case TabController.webStoreMessageName: owner?.handleWebStoreMessage(message)
         default: break
         }
     }
