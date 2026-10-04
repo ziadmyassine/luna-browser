@@ -250,6 +250,16 @@ passkeys work. Nothing needs editing.
   at the instant of a fill and is never in `TabState`, never logged, never in a
   JS source string. `NewCredential` is the only type that holds one and is
   deliberately not `Codable` or `CustomStringConvertible`.
+- **Import and export are a CSV file** (#5, P2.3), from the two buttons on
+  Settings → Passwords. Import reads the CSV that Chrome, Arc, Dia, the
+  Passwords app, 1Password and Bitwarden write (`PasswordCSV`, columns found by
+  header name) and saves each row through `CredentialStore.save`, so a site and
+  username Luna already holds takes the imported password. Exporting from the
+  Passwords app first and importing the file is the user moving their own data,
+  which §3's rule does not forbid; Luna still never reads Safari's items. Export
+  asks for Touch ID whatever "Require Touch ID to fill" says, warns that the file
+  is unencrypted, writes Chrome's `name,url,username,password,note` with mode
+  0600, and contains only Luna's own items.
 
 ---
 

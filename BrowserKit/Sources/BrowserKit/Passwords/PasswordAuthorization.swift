@@ -47,4 +47,11 @@ public enum PasswordAuthorization {
         guard PasswordSettings.requiresAuthentication else { return true }
         return await evaluate(String(localized: "use your saved password for \(site)"))
     }
+
+    /// Whether every saved password may be written to a file. Asked whatever
+    /// "Require Touch ID to fill" says: that switch guards one site at a
+    /// time, and an export is all of them in plain text.
+    public static func confirmExport() async -> Bool {
+        await evaluate(String(localized: "export your saved passwords"))
+    }
 }

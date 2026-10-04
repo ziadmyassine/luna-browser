@@ -92,4 +92,17 @@ final class PasswordAuthorizationTests: XCTestCase {
         // somehow succeed: nothing filled, nothing read.
         XCTAssertFalse(asked)
     }
+
+    /// Export writes every password in plain text, so the switch that lets a
+    /// fill skip the prompt does not let an export skip it.
+    func testExportAsksEvenWithThePreferenceOff() async {
+        PasswordSettings.requiresAuthentication = false
+        var asked = false
+        PasswordAuthorization.evaluate = { _ in asked = true; return false }
+
+        let allowed = await PasswordAuthorization.confirmExport()
+
+        XCTAssertTrue(asked)
+        XCTAssertFalse(allowed)
+    }
 }
