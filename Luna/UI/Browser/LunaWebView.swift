@@ -14,6 +14,9 @@ import WebKit
 @MainActor
 final class LunaWebView: WKWebView {
 
+    /// Set for the length of `takeFocus`, Luna's own hand-over of the keyboard.
+    var isTakingFocusDeliberately = false
+
     /// WebKit's own item. There is no public way to learn which link was
     /// right-clicked, so Open Link in New Tab sends this one and marks the tab
     /// it makes as a background one (`TabController.nextNewTabIsBackground`).

@@ -7,6 +7,7 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-04
 
+- **A page finishing its load no longer takes the keyboard from ⌘T's bar** (§9.1): a page that focuses its own search box or sign-in field cannot pull the keyboard out of the Command Bar, Find or a rename; it gets it when you click into it or press Tab.
 - **The Web Inspector looks like part of Luna** (§3.9): docked in the card, it is the window's own glass carried on under the page, in light and dark, with pill tabs, round search fields and soft lines instead of WebKit's grey panels and borders.
 - **A folder picks an emoji from its name** (§3.4b): name a folder "Running shoes" and it gets 👟, "Gaming" 🎮, "Skole" 🏫. It reads English and Danish words, and any emoji you type in the name. An icon you chose yourself is never replaced.
 - **Folders sit as close together as tabs** (§3.4b): a closed folder's row is now a tab's height, so a run of folders in Pinned is spaced like the tabs below it.

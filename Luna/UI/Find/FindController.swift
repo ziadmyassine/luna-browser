@@ -238,7 +238,7 @@ final class FindController: WindowScoped {
     private func focusPage() {
         guard let webView = activeTabID.flatMap({ session.controller(for: $0)?.webView }),
               let window = surface.window, webView.window === window else { return }
-        window.makeFirstResponder(webView)
+        if let page = webView as? LunaWebView { page.takeFocus() } else { window.makeFirstResponder(webView) }
     }
 
     private static func page(_ url: URL?) -> URL? {

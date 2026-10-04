@@ -25,6 +25,13 @@ final class LunaWindow: NSWindow {
 
     private var escape = DoubleEscape()
 
+    /// A page may not take the keyboard from a field in Luna's chrome — see
+    /// `LunaWebView+Focus.swift`.
+    override func makeFirstResponder(_ responder: NSResponder?) -> Bool {
+        if let page = responder as? LunaWebView, !page.mayTakeFocus() { return false }
+        return super.makeFirstResponder(responder)
+    }
+
     /// An Escape nothing else took reaches the window, and `NSWindow`'s own
     /// `cancelOperation` leaves fullscreen on it. One stray press — meant for a
     /// page, a field or a pop-out that had already closed — threw the window

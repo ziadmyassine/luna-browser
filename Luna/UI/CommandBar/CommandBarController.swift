@@ -249,7 +249,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
         // Not to a rename: the tab's name field has it, and a page given focus
         // on the way there took it straight back and ended the rename.
         if !renaming, let id = activeTabID, let content = session.webView(for: id) {
-            window?.makeFirstResponder(content)
+            if let page = content as? LunaWebView { page.takeFocus() } else { window?.makeFirstResponder(content) }
         }
     }
 
