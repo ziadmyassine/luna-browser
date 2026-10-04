@@ -43,6 +43,9 @@ public protocol TabControllerDelegate: AnyObject {
     /// The WebContent process died and was rebuilt from `interactionState` (§19.3).
     /// Show the "restored" toast here.
     func tabControllerDidRecoverFromProcessTermination(_ controller: TabController)
+    /// The tab built itself another web view — crossing between an extension's
+    /// pages and the web — and whoever shows it has to show the new one.
+    func tabControllerDidReplaceWebView(_ controller: TabController)
 
     func tabController(_ controller: TabController, runJavaScriptAlert message: String) async
     func tabController(_ controller: TabController, runJavaScriptConfirm message: String) async -> Bool
@@ -137,6 +140,7 @@ public extension TabControllerDelegate {
     func tabController(_ controller: TabController, wantsToOpenInNewTab url: URL, inBackground: Bool) {}
 
     func tabControllerDidRecoverFromProcessTermination(_ controller: TabController) {}
+    func tabControllerDidReplaceWebView(_ controller: TabController) {}
 
     func tabController(_ controller: TabController, runJavaScriptAlert message: String) async {}
 

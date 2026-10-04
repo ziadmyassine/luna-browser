@@ -116,9 +116,12 @@ extension TabController: WKNavigationDelegate {
             decisionHandler(.allow)
             return
         }
-        // A link that opens its own tab, or an extension's sign-in coming back
-        // (`chrome.identity`), whose address is the answer: nothing loads here.
-        if openedInNewTab(navigationAction, url: url) || ExtensionAuthFlows.finish(url, fromTab: id) {
+        // A link that opens its own tab, an extension's sign-in coming back
+        // (`chrome.identity`), whose address is the answer, or a page crossing
+        // between an extension and the web, which another view loads: nothing
+        // loads here.
+        if openedInNewTab(navigationAction, url: url) || ExtensionAuthFlows.finish(url, fromTab: id)
+            || crossedExtensionBoundary(navigationAction, to: url, in: webView) {
             decisionHandler(.cancel)
             return
         }
