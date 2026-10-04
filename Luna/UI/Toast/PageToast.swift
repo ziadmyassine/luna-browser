@@ -86,6 +86,21 @@ struct PageToast: Equatable {
     static let pageReloaded = PageToast(symbol: "arrow.clockwise", text: String(localized: "Page reloaded"))
     static let escapeAgain = PageToast(symbol: "escape", text: String(localized: "Press Esc again to exit full screen"))
 
+    /// A ⌘-click or Open Link in New Tab: the tab was made behind the one in
+    /// front, where nothing on the page says it happened. Show goes to it.
+    static func openedInBackground(_ host: String?, show: @escaping @MainActor () -> Void) -> PageToast {
+        PageToast(
+            symbol: "plus.square.on.square",
+            text: String(localized: "Opened in a new tab"),
+            detail: host,
+            actions: [Action(
+                title: String(localized: "Show"),
+                label: String(localized: "Show the new tab"),
+                run: show
+            )]
+        )
+    }
+
     static func savedToDownloads(_ name: String) -> PageToast {
         PageToast(symbol: "square.and.arrow.down", text: String(localized: "Saved to Downloads"), detail: name)
     }

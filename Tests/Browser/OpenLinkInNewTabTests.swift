@@ -49,6 +49,18 @@ final class OpenLinkInNewTabTests: XCTestCase {
         XCTAssertTrue(controller.nextNewTabIsBackground, "the tab it makes was not marked for the background")
     }
 
+    /// Nothing on the page says a tab opened behind it, so a toast does, and
+    /// its one word goes to the tab.
+    func testATabOpenedBehindSaysSoAndOffersToShowIt() {
+        var shown = 0
+        let toast = PageToast.openedInBackground("example.com") { shown += 1 }
+        XCTAssertEqual(toast.text, "Opened in a new tab")
+        XCTAssertEqual(toast.detail, "example.com")
+        XCTAssertEqual(toast.actions.map(\.title), ["Show"])
+        toast.actions.first?.run()
+        XCTAssertEqual(shown, 1)
+    }
+
     func testALinkOpenedInTheBackgroundLeavesTheFrontTabInFront() async throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let store = try BrowserStore(path: directory.appending(path: "luna.sqlite"))

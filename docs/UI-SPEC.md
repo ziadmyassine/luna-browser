@@ -2575,7 +2575,7 @@ something happened, over the page, is one of these — never a panel, chip or ba
   Picture in Picture, Reader, hiding parts of a page, a page Luna reloaded because its web
   process died (§19.3, front tab only), and §17's blocked pop-ups
   (`PageToast.popupBlocked`, Open and Always Allow; it was a floating chip with a placement setting
-  until 2026-09-29), Mute All / Unmute All, and §15.5's slow PDF (`PageToast.openingPDF`, Download: a PDF of 10 MB or more
+  until 2026-09-29), Mute All / Unmute All, a tab opened behind the one in front (`PageToast.openedInBackground`, Show), and §15.5's slow PDF (`PageToast.openingPDF`, Download: a PDF of 10 MB or more
   as it starts, or one of unknown size still arriving after 3 s), and §14.4's offer to save a
   password (`PageToast.savePassword`: the account and site as detail, Save and Never; leaving it
   unanswered is Not Now — it was a three-button chip in the window's corner until 2026-10-03).

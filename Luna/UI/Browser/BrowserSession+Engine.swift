@@ -148,7 +148,14 @@ extension BrowserSession {
             controller.load(url ?? Self.blankPage)
             webView = nil
         }
-        if inBackground { unseenBackgroundTabIDs.insert(child.id) } else { activeTabBySpace[spaceID] = child.id }
+        if inBackground {
+            unseenBackgroundTabIDs.insert(child.id)
+            PageToast.openedInBackground(child.url.host(percentEncoded: false)) { [weak self] in
+                self?.activateTab(child.id)
+            }.show(in: hostWindow)
+        } else {
+            activeTabBySpace[spaceID] = child.id
+        }
         promote(child.id)
         enforceLiveTabBudget()
         notifyChange()
