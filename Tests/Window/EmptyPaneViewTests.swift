@@ -36,4 +36,17 @@ final class EmptyPaneViewTests: XCTestCase {
         XCTAssertGreaterThan(frame.width, 600)
         XCTAssertEqual(frame.minX, (600 - frame.width) * EmptyPaneView.horizontalAnchor, accuracy: 0.5)
     }
+
+    /// The line under the headline names New Tab's shortcut as it is bound
+    /// now, and the headline is not cut short at a laptop's width.
+    func testTheWordsNameTheNewTabShortcutAndFit() throws {
+        let pane = EmptyPaneView(frame: NSRect(x: 0, y: 0, width: 1280, height: 800))
+        pane.layoutSubtreeIfNeeded()
+        pane.layout()
+        let shortcut = try XCTUnwrap(KeyBindings.primary(for: .newTab)?.display)
+        XCTAssertTrue(pane.hint.stringValue.contains(shortcut), pane.hint.stringValue)
+        let headline = pane.headline
+        let needed = headline.cell?.cellSize(forBounds: CGRect(x: 0, y: 0, width: 10_000, height: 10_000)).width ?? 0
+        XCTAssertGreaterThanOrEqual(headline.frame.width + 0.5, needed)
+    }
 }
