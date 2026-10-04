@@ -106,6 +106,25 @@ extension InternalPages {
     /// place of the card (`scene` in the stylesheet).
     static let paintedKinds = Set(InternalPageError.Kind.allCases)
 
+    /// The painting's file name, `error-<kind>-<appearance>`. `https` is the
+    /// one kind whose name is not its case's.
+    static func paintingName(_ kind: InternalPageError.Kind, dark: Bool) -> String {
+        let stem = kind == .httpsDowngrade ? "https" : kind.rawValue
+        return "error-\(stem)-\(dark ? "dark" : "light")"
+    }
+
+    /// The `scene` class, and each painting's sky colour for the page bar to
+    /// find under it (`InternalPageSky`). Built from numbers this process
+    /// measured, never from the failed page, so nothing here needs escaping.
+    @MainActor
+    private static func scene(for kind: InternalPageError.Kind) -> String {
+        guard paintedKinds.contains(kind) else { return "" }
+        let skies = [("--sky-light", false), ("--sky-dark", true)].compactMap { name, dark in
+            InternalPageSky.css(forPainting: paintingName(kind, dark: dark)).map { "\(name):\($0)" }
+        }
+        return skies.isEmpty ? " scene" : " scene\" style=\"\(skies.joined(separator: ";"))"
+    }
+
     @MainActor
     static func errorHTML(_ error: InternalPageError) -> String {
         let copy = Self.copy(for: error.kind)
@@ -116,7 +135,7 @@ extension InternalPages {
         // blocklist's name — so it is not dressed as the address.
         let detail = error.detail.map { "<p class=\"note\">\(HTML.escape($0))</p>" } ?? ""
         let body = """
-        <main class="error \(error.kind.rawValue)\(paintedKinds.contains(error.kind) ? " scene" : "")">
+        <main class="error \(error.kind.rawValue)\(scene(for: error.kind))">
         <div class="card pane lifted">
         <span class="mark well" aria-hidden="true">\(mark(for: error.kind))</span>
         <h1>\(HTML.escape(copy.title))</h1>

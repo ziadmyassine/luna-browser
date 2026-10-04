@@ -66,14 +66,47 @@ struct InternalPagesTests {
             .deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "assets/error-pages")
         for kind in InternalPages.paintedKinds {
-            let stem = kind == .httpsDowngrade ? "https" : kind.rawValue
-            for appearance in ["light", "dark"] {
-                let name = "error-\(stem)-\(appearance)"
+            for dark in [false, true] {
+                let name = InternalPages.paintingName(kind, dark: dark)
                 #expect(InternalPages.stylesheet.contains("luna://art/\(name)\""), "\(name) is not in the stylesheet")
                 let file = assets.appending(path: "\(name).jpg").path(percentEncoded: false)
                 #expect(FileManager.default.fileExists(atPath: file), "\(name).jpg is not in assets/error-pages")
             }
         }
+    }
+
+    /// The page bar finds a painted page's sky under its painting, so that
+    /// colour has to be the painting's top edge: pale over the day paintings,
+    /// dark over the night ones. The empty pane's two are read the same way.
+    @Test func aPaintingsSkyIsReadOffItsTopEdge() throws {
+        let assets = URL(filePath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appending(path: "assets/error-pages")
+        for dark in [false, true] {
+            for name in [InternalPages.paintingName(.dns, dark: dark), dark ? "empty-dark" : "empty-light"] {
+                let jpeg = try Data(contentsOf: assets.appending(path: "\(name).jpg"))
+                let sky = try #require(InternalPageSky.topEdge(jpeg))
+                let lightness = (sky.r + sky.g + sky.b) / 3
+                #expect(dark ? lightness < 60 : lightness > 200, "\(name) reads \(sky)")
+            }
+        }
+    }
+
+    /// The colour reaches the page as the `--sky-*` the stylesheet reads.
+    @Test @MainActor func aPaintedPageCarriesItsSky() {
+        let saved = InternalPages.artwork
+        defer { InternalPages.artwork = saved }
+        let assets = URL(filePath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appending(path: "assets/error-pages")
+        InternalPages.artwork = { try? Data(contentsOf: assets.appending(path: "\($0).jpg")) }
+        let html = InternalPages.errorHTML(InternalPageError(kind: .offline, url: URL(string: "https://a.test/")))
+        #expect(html.contains("--sky-light:rgb("))
+        #expect(html.contains("--sky-dark:rgb("))
+        #expect(InternalPages.stylesheet.contains("var(--sky-light"))
+        #expect(InternalPages.stylesheet.contains("var(--sky-dark"))
     }
 
     /// The gadget this whole indirection exists to close: an error page hands

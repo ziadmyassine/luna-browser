@@ -302,7 +302,12 @@ extension InternalPages {
        read as a form laid on top of a picture.
 
        The painting is anchored left of centre: a narrow window crops the
-       sides, and the subject on the left is the part that tells the story. */
+       sides, and the subject on the left is the part that tells the story.
+
+       Under each painting is the colour of its top edge, measured off the
+       painting (`InternalPageSky`) and set on the element as `--sky-light`
+       and `--sky-dark`. Nothing sees it but the page bar, which steps over
+       the picture to it and so wears the painting's sky. */
     @media (prefers-color-scheme: light) and (prefers-contrast: no-preference){
       .error.offline{background-image:url("luna://art/error-offline-light")}
       .error.dns{background-image:url("luna://art/error-dns-light")}
@@ -310,6 +315,7 @@ extension InternalPages {
       .error.blocked{background-image:url("luna://art/error-blocked-light")}
       .error.httpsDowngrade{background-image:url("luna://art/error-https-light")}
       .error.generic{background-image:url("luna://art/error-generic-light")}
+      .error.scene{background-color:var(--sky-light,transparent)}
     }
     @media (prefers-color-scheme: dark) and (prefers-contrast: no-preference){
       .error.offline{background-image:url("luna://art/error-offline-dark")}
@@ -318,6 +324,7 @@ extension InternalPages {
       .error.blocked{background-image:url("luna://art/error-blocked-dark")}
       .error.httpsDowngrade{background-image:url("luna://art/error-https-dark")}
       .error.generic{background-image:url("luna://art/error-generic-dark")}
+      .error.scene{background-color:var(--sky-dark,transparent)}
     }
     @media (prefers-contrast: no-preference){
       .error.scene{
