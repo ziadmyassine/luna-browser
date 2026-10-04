@@ -140,6 +140,10 @@ final class TabListController: NSObject {
     /// here to be carried from, and the gap it opens is still the list's to
     /// draw. See `beginIncomingDrag()`.
     var isDragging = false
+    /// Set while the rows slide after a change to the list — a fold, a tab
+    /// opening or closing — so the pills move on the rows' own clock rather
+    /// than their usual spring, which settled after the rows and trailed them.
+    var pillClock: MotionSpec?
     /// Where the lift would land, in row space — or nil while it is over the
     /// §3.3 grid, where the list's answer is "nowhere, close up".
     var gapRow: Int?
@@ -250,6 +254,8 @@ final class TabListController: NSObject {
         )
         let diff = next.rows.difference(from: list.rows)
         list = next
+        pillClock = replacing || diff.isEmpty ? nil : Tokens.Motion.tabInsert
+        defer { pillClock = nil }
         if replacing {
             table.reloadData()
             table.needsLayout = true

@@ -33,14 +33,14 @@ extension TabListController {
         guard !isDragging else { return }
         selectionPill.isFocused = table.window?.firstResponder === table
         let selected = table.selectedRow >= 0 ? table.selectedRow : nil
-        place(selectionPill, at: selected, spec: animated ? Tokens.Motion.selectedRowMove : nil)
+        place(selectionPill, at: selected, spec: animated ? Tokens.Motion.selectedRowMove : nil, clock: pillClock)
         // No folder header takes the hover pill, open or folded: §3.4b's plate
         // is its whole answer to the pointer, and a header lit on top of it
         // was two.
         let hovered = hoveredRow.flatMap {
             list.isSelectable($0) && $0 != selected && list.group(at: $0) == nil ? $0 : nil
         }
-        place(hoverPill, at: hovered, spec: animated ? Tokens.Motion.rowHover : nil)
+        place(hoverPill, at: hovered, spec: animated ? Tokens.Motion.rowHover : nil, clock: pillClock)
         placePlate(groupPlate, in: groupPlateBox(), animated: animated)
         placeControlPlates(animated: animated)
         placeTabGlows(animated: animated)
@@ -188,11 +188,25 @@ extension TabListController {
         return plate
     }
 
-    private func place(_ pill: RowPillView, at row: Int?, spec: MotionSpec?) {
-        place(pill, in: row.flatMap { $0 < table.numberOfRows ? pillBox(ofRow: $0) : nil }, spec: spec)
+    /// - Parameter clock: the rows' own animation, when they are sliding: the
+    ///   pill rides with its row on the same duration and curve instead of
+    ///   following it on a spring.
+    private func place(_ pill: RowPillView, at row: Int?, spec: MotionSpec?, clock: MotionSpec? = nil) {
+        let box = row.flatMap { $0 < table.numberOfRows ? pillBox(ofRow: $0) : nil }
+        if let box, let clock, spec != nil, pill.alphaValue == 1 {
+            guard pill.frame != box else { return }
+            return pill.stretch(to: box, spec: clock)
+        }
+        place(pill, in: box, spec: spec)
     }
 
     private func place(_ pill: RowPillView, in box: NSRect?, spec: MotionSpec?) {
+        // A pill already bound for this box keeps the animation taking it
+        // there. The rows' layout pass places every pill again while the rows
+        // slide, and selection and refresh each place them once more: landing
+        // it snapped it to the end, and a fresh spring restarted it, and either
+        // way it trailed its row and caught up in a jump.
+        if let box, pill.frame == box, pill.alphaValue == 1 { return }
         guard let box else {
             // Parked on the same terms it is moved on. A Space switch
             // reaches here twice with no spec — once as `reloadData` drops the
