@@ -8,10 +8,11 @@ under Unreleased; a release will take the entries since the last one.
 ### 2026-10-04
 
 - **Error pages are moon paintings** (§4.5): each of the six (offline, can't find the site, not private, blocked, not secure, didn't load) is a painted moonscape with its own little scene, by day in light mode and by night in dark, with a big headline set in the sky and one answer under it instead of a box with buttons. Increase Contrast keeps the plain card.
+- **An extension's page can send you to its website** (§16): 1Password's Sign in button on its welcome page did nothing; a tab now swaps to the right kind of page view when it crosses between an extension's pages and the web, either way.
 - **A tab opened behind says so** (§6.5): ⌘-click a link, or Open Link in New Tab, and a toast says "Opened in a new tab" with the site and Show, which takes you to it.
 - **A page finishing its load no longer takes the keyboard from ⌘T's bar** (§9.1): a page that focuses its own search box or sign-in field cannot pull the keyboard out of the Command Bar, Find or a rename; it gets it when you click into it or press Tab.
 - **The Web Inspector looks like part of Luna** (§3.9): docked in the card, it is the window's own glass carried on under the page, in light and dark, with pill tabs, round search fields and soft lines instead of WebKit's grey panels and borders.
-- **A folder picks an emoji from its name** (§3.4b): name a folder "Running shoes" and it gets 👟, "Gaming" 🎮, "Skole" 🏫. It reads English and Danish words, and any emoji you type in the name. An icon you chose yourself is never replaced.
+- **A folder picks an emoji from its name** (§3.4b): name a folder "Running shoes" and it gets 👟, "Gaming" 🎮, "Skole" 🏫. It reads English and Danish words, and any emoji you type in the name. An icon you chose yourself is never replaced. A folder's emoji is drawn a favicon's size, level with its name.
 - **Folders sit as close together as tabs** (§3.4b): a closed folder's row is now a tab's height, so a run of folders in Pinned is spaced like the tabs below it.
 - **A folder's name and the tab highlight move with the rows** (§3.4b): the name holds still while a folder opens and closes, the highlight on the tab you are on slides with its row instead of trailing it, and the arrow after the name steps aside while you rename the folder instead of sitting under the new name.
 

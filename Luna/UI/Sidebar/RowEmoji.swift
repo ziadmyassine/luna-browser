@@ -43,9 +43,14 @@ enum RowEmoji {
     ///
     /// Never a template image: a template is a shape tinted with the row's ink,
     /// and an emoji tinted flat is a black blob where a picture was.
-    static func image(_ string: String, pointSize: CGFloat) -> NSImage? {
+    /// - Parameter ink: how big the picture itself is drawn inside the
+    ///   `pointSize` square, which defaults to all of it. A folder passes a
+    ///   favicon's size: an emoji filling the folder's larger slot stood above
+    ///   and below the name beside it, where the folder symbol drawn in the
+    ///   same slot inks only about three quarters of it.
+    static func image(_ string: String, pointSize: CGFloat, ink inkSide: CGFloat? = nil) -> NSImage? {
         guard isEmoji(string) else { return nil }
-        let key = "\(string)@\(pointSize)"
+        let key = "\(string)@\(pointSize)/\(inkSide ?? pointSize)"
         if let cached = cache[key] { return cached }
 
         // The square the row's icon slot is, not the glyph's own bounds: every
@@ -54,7 +59,7 @@ enum RowEmoji {
         let side = ceil(pointSize)
         let image = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
             guard let context = NSGraphicsContext.current?.cgContext else { return false }
-            let line = Self.line(string, at: Self.fontSize(for: string, filling: side, in: context))
+            let line = Self.line(string, at: Self.fontSize(for: string, filling: inkSide ?? side, in: context))
             let ink = CTLineGetImageBounds(line, context)
             // Centred on the ink rather than on the line. A line's own box is
             // the font's ascent and descent and it is not where the picture is:

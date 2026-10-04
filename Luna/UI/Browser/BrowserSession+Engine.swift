@@ -260,6 +260,10 @@ extension BrowserSession: TabControllerDelegate {
         notifyTabState(controller.id, live.state)
     }
 
+    func tabControllerDidReplaceWebView(_ controller: TabController) {
+        notifyChange()
+    }
+
     func tabControllerDidRecoverFromProcessTermination(_ controller: TabController) {
         notifyChange()
         newsOfRecovery(of: controller.id)?.show(in: hostWindow)
