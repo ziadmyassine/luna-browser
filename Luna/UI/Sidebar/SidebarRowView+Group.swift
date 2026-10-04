@@ -31,7 +31,10 @@ extension SidebarRowView {
             chevron.isHidden = true
             return
         }
-        chevron.isHidden = false
+        // The chevron stands after the old name and the field runs to the
+        // end of the row, so a new name being typed ran over it; it steps out
+        // for the length of the edit and comes back after the new one.
+        chevron.isHidden = isRenaming
         chevron.image = NSImage(
             systemSymbolName: state == .expanded ? "chevron.down" : "chevron.right",
             accessibilityDescription: nil

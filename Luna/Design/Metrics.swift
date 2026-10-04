@@ -233,7 +233,7 @@ extension Tokens {
         /// its trailing glyphs, than a loose tab: `groupPlateFoot`, so a
         /// folder's tab stands as far off the plate's side as its last tab
         /// stands off the plate's foot. It was the column's own 8, which with
-        /// the 4 pt foot left the side twice the bottom. The leading side
+        /// the plate's foot left the side several times the bottom. The leading side
         /// already stands `groupIndent` in.
         ///
         /// The plate itself stands no further out than the pills it holds: a
@@ -241,33 +241,31 @@ extension Tokens {
         /// this much on every side, it reads as a heavier, taller block than
         /// the row it is lighting.
         static let groupMemberTrailingInset = groupPlateFoot
-        /// A §3.4b folder's own row: a tab row and 4 pt more, so its plate is
-        /// 39 tall against a tab pill's 35.
-        ///
-        /// Measured at a tab's pitch, the plate kept 9 pt above the folder's
-        /// icon, against 9.5 round a favicon and 17.5 under an open folder's
-        /// last tab: folded it sat tighter than a tab, and open it was twice
-        /// as deep at the foot as at the head. The 4 pt goes to the header, so
-        /// folding still moves only the plate's bottom edge.
-        static let groupHeaderRowHeight = tabRowHeight + 4
-        /// An open folder's own row, 8 pt shorter than folded: the name keeps
-        /// its place and the first tab comes up under it. At a full row's pitch
-        /// the name stood 39 pt from its first tab against about 20 from the
-        /// plate's edges, and read as a heading floating over the folder
-        /// rather than leading it. The name never moves on a fold; only the
-        /// rows under it do, and they slide anyway.
-        static let groupHeaderOpenRowHeight = tabRowHeight - 4
+        /// A §3.4b folder's own row, folded: a tab's pitch, so a column of
+        /// folders steps exactly as a column of tabs does. It was 4 pt taller,
+        /// to give the folder's larger icon room in its plate, and a run of
+        /// folded folders in Pinned read as spaced wider than the tabs under
+        /// it.
+        static let groupHeaderRowHeight = tabRowHeight
+        /// An open folder's own row, 6 pt shorter than folded: the name keeps
+        /// its place and the first tab comes up under it, the name's centre
+        /// 13.5 pt above the row's foot. At a full row's pitch the name stood
+        /// 39 pt from its first tab against about 20 from the plate's edges,
+        /// and read as a heading floating over the folder rather than leading
+        /// it. The name never moves on a fold; only the rows under it do, and
+        /// they slide anyway.
+        static let groupHeaderOpenRowHeight = tabRowHeight - 6
         /// An open folder's plate corner: the tab pill's corner plus the room
         /// round it, so the pill inside nests in the plate. The same radius a
         /// `groupPlateFoot` inside looked pinched at the corners.
         static let groupPlateCornerRadius = rowCornerRadius + groupPlateFoot
         /// How far the plate reaches below the last tab's pill, and beside a
         /// folder's tabs (`groupMemberTrailingInset`). With the favicon's own
-        /// 9.5 it leaves 13.5 under the last tab's icon, against the 11.5 the
-        /// taller header leaves over the folder's: the same room at both ends,
-        /// give or take the icons' sizes. It was 8, which left the foot twice
-        /// the head.
-        static let groupPlateFoot: CGFloat = 4
+        /// 9.5 it leaves 11.5 under the last tab's icon, against the 10 a
+        /// header at a tab's pitch leaves over the folder's: the same room at
+        /// both ends, give or take the icons' sizes. It was 8, then 4 under a
+        /// header 4 pt taller; each time the foot outgrew the head.
+        static let groupPlateFoot: CGFloat = 2
         /// The room an open, non-empty §3.4b folder leaves under its last tab.
         ///
         /// The plate reaches `groupPlateFoot` below that tab's pill, which is

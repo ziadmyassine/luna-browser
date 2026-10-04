@@ -5,6 +5,12 @@ under Unreleased; a release will take the entries since the last one.
 
 ## Unreleased
 
+### 2026-10-04
+
+- **A folder picks an emoji from its name** (§3.4b): name a folder "Running shoes" and it gets 👟, "Gaming" 🎮, "Skole" 🏫. It reads English and Danish words, and any emoji you type in the name. An icon you chose yourself is never replaced.
+- **Folders sit as close together as tabs** (§3.4b): a closed folder's row is now a tab's height, so a run of folders in Pinned is spaced like the tabs below it.
+- **A folder's name holds still while it opens and closes** (§3.4b), and the arrow after the name steps aside while you rename the folder instead of sitting under the new name.
+
 ### 2026-10-03
 
 - **The password list looks like Safari's, and Touch ID fills from it** (§14.3): the first account is chosen in your accent colour with a bold red fingerprint, and a finger on Touch ID fills it with no extra dialog — the fingerprint turns into a green tick, or shakes for a finger it does not know; sites show their own icon or a coloured key. The list now hangs just under the field instead of over it, also on zoomed pages, and its top corners are no longer cut off. It grows out of the field with a short spring and fade instead of flashing in.

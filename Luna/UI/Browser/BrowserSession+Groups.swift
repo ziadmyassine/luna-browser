@@ -89,14 +89,27 @@ extension BrowserSession {
 
     /// Names a group. A blank name is refused rather than stored, for
     /// `createGroup`'s reason: there would be nothing on the row to read.
+    ///
+    /// A folder still wearing the plain folder symbol takes the emoji its new
+    /// name suggests (`FolderEmoji`), and so does one wearing the emoji its old
+    /// name suggested: that one was Luna's guess, and a renamed folder is
+    /// about something else. An icon the user chose is never replaced.
     func renameGroup(_ id: UUID, to name: String) {
         guard var group = list.group(id) else { return }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed != group.name else { return }
-        let previous = group.name
+        let previous = (name: group.name, icon: group.symbolName)
+        let guessed = group.symbolName == TabGroup.defaultSymbolName
+            || group.symbolName == FolderEmoji.suggestion(for: group.name)
+        if guessed {
+            group.symbolName = FolderEmoji.suggestion(for: trimmed) ?? TabGroup.defaultSymbolName
+        }
         group.name = trimmed
         commit(group)
-        registerUndo("Rename Folder") { $0.renameGroup(id, to: previous) }
+        registerUndo("Rename Folder") { session in
+            session.renameGroup(id, to: previous.name)
+            session.setIcon(previous.icon, forGroup: id)
+        }
     }
 
     /// Gives a group another icon. Not validated here and cannot usefully be —

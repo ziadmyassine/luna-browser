@@ -356,11 +356,17 @@ final class SidebarRowView: NSView {
         Tokens.Motion.immediately { placeContents() }
     }
 
+    /// Measured from the top. A folder's row changes height as it opens or
+    /// folds, and the table animates that; measured from the bottom, every
+    /// frame of the animation carried the name with the row's moving foot, and
+    /// it jumped while the folder opened and settled back after.
+    override var isFlipped: Bool { true }
+
     /// Where the row's contents are centred. A folder's name stands the same
     /// distance under its row's top whether the folder is open, when the row
     /// is `groupHeaderOpenRowHeight`, or folded, so a fold never moves it.
     var contentMidY: CGFloat {
-        content.disclosure == nil ? bounds.height / 2 : bounds.height - Tokens.Metric.groupHeaderRowHeight / 2
+        content.disclosure == nil ? bounds.height / 2 : Tokens.Metric.groupHeaderRowHeight / 2
     }
 
     private func placeContents() {
@@ -411,6 +417,7 @@ final class SidebarRowView: NSView {
         // and `fade` are what end the line.
         let natural = ceil(title.intrinsicContentSize.width)
         placeChevron(afterTitleEnding: box.minX + min(natural, box.width))
+        chevron.isHidden = content.disclosure == nil || isRenaming
         let inner = NSRect(x: 0, y: 0, width: max(natural, box.width), height: box.height)
         title.frame = inner
         shimmer.frame = inner
