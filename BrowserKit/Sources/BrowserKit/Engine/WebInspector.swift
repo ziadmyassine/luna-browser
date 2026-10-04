@@ -63,6 +63,41 @@ public enum WebInspector {
         send("toggleElementSelection", to: webView)
     }
 
+    /// Lays `css` over a docked inspector's own page, and makes the view
+    /// clear so what is behind it shows through the planes the stylesheet
+    /// empties.
+    ///
+    /// Sent now and again a moment later, because WebKit adds the view before
+    /// its page has a document, and installed as a script too, for the page
+    /// loading again under it. The style element is replaced, not added, so
+    /// repeating it costs nothing.
+    public static func restyle(_ inspector: WKWebView, css: String) {
+        if inspector.responds(to: NSSelectorFromString("_setDrawsBackground:")) {
+            inspector.setValue(false, forKey: "drawsBackground")
+        }
+        guard let literal = try? String(data: JSONEncoder().encode(css), encoding: .utf8) else { return }
+        let source = """
+        (function () {
+          var style = document.getElementById('luna-inspector-style');
+          if (!style) {
+            style = document.createElement('style');
+            style.id = 'luna-inspector-style';
+            (document.head || document.documentElement).appendChild(style);
+          }
+          style.textContent = \(literal);
+        })();
+        """
+        let controller = inspector.configuration.userContentController
+        if !controller.userScripts.contains(where: { $0.source == source }) {
+            controller.addUserScript(WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
+        }
+        for delay in [0.0, 0.3, 1.0] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak inspector] in
+                inspector?.evaluateJavaScript(source, completionHandler: nil)
+            }
+        }
+    }
+
     private static func inspector(of webView: WKWebView) -> NSObject? {
         let getter = NSSelectorFromString("_inspector")
         guard webView.responds(to: getter) else { return nil }

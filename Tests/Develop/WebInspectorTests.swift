@@ -39,6 +39,15 @@ final class WebInspectorTests: XCTestCase {
             "the page \(webView.frame) covers the inspector \(inspector.frame)"
         )
 
+        // Restyled as the chrome: the card stops painting behind it so the
+        // window's glass shows, and Luna's stylesheet is in its page.
+        card.updateLayer()
+        XCTAssertEqual(card.layer?.backgroundColor?.alpha ?? 1, 0, "the card paints over the glass behind the inspector")
+        try await Task.sleep(for: .milliseconds(1200))
+        let page = try XCTUnwrap(inspector as? WKWebView)
+        let styled = try await page.evaluateJavaScript("!!document.getElementById('luna-inspector-style')") as? Bool
+        XCTAssertEqual(styled, true, "the inspector was not restyled")
+
         window?.setContentSize(NSSize(width: 800, height: 600))
         card.layoutSubtreeIfNeeded()
         try await Task.sleep(for: .milliseconds(300))

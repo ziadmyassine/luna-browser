@@ -7,6 +7,7 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-04
 
+- **The Web Inspector looks like part of Luna** (§3.9): docked in the card, it is the window's own glass carried on under the page, in light and dark, with pill tabs, round search fields and soft lines instead of WebKit's grey panels and borders.
 - **A folder picks an emoji from its name** (§3.4b): name a folder "Running shoes" and it gets 👟, "Gaming" 🎮, "Skole" 🏫. It reads English and Danish words, and any emoji you type in the name. An icon you chose yourself is never replaced.
 - **Folders sit as close together as tabs** (§3.4b): a closed folder's row is now a tab's height, so a run of folders in Pinned is spaced like the tabs below it.
 - **A folder's name and the tab highlight move with the rows** (§3.4b): the name holds still while a folder opens and closes, the highlight on the tab you are on slides with its row instead of trailing it, and the arrow after the name steps aside while you rename the folder instead of sitting under the new name.

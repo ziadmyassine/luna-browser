@@ -17,6 +17,7 @@
 //
 
 import AppKit
+import BrowserKit
 import WebKit
 
 /// The one edge of the page's pane that meets the chrome rather than the
@@ -129,7 +130,7 @@ final class ContentCardView: NSView {
     private var contentEdges: [NSLayoutConstraint] = []
     private var contentFollowsFrames = false
     /// WebKit's docked inspector, told how much of it §3.2b's bar covers.
-    private weak var dockedInspector: WKWebView?
+    private weak var dockedInspector: WKWebView? { didSet { needsDisplay = true } }
     private var pageBarInset: CGFloat = 0
     /// Cancels the watchdog when a transition ends the ordinary way.
     private var transitionWatchdog: Task<Void, Never>?
@@ -461,7 +462,10 @@ final class ContentCardView: NSView {
 
     override func updateLayer() {
         guard let layer else { return }
-        layer.backgroundColor = Tokens.Surface.base.cgColor
+        // Clear while an inspector is docked: it is restyled to be the chrome
+        // carried on into the card (`InspectorStyle`), so the window's glass
+        // has to be what is behind it. The page paints its own background.
+        layer.backgroundColor = dockedInspector == nil ? Tokens.Surface.base.cgColor : NSColor.clear.cgColor
         // The glass edge (§3.6). The pane is opaque, so the chrome's
         // material stops dead at its leading edge and the two planes meet with
         // nothing between them. `Line.border` is that edge — the same hairline
@@ -497,6 +501,7 @@ extension ContentCardView {
         guard Self.isDockedInspector(subview) else { return }
         followFrames(true)
         dockedInspector = subview as? WKWebView
+        if let inspector = dockedInspector { WebInspector.restyle(inspector, css: InspectorStyle.css) }
         subview.postsFrameChangedNotifications = true
         NotificationCenter.default.addObserver(
             self, selector: #selector(inspectorMoved), name: NSView.frameDidChangeNotification, object: subview
