@@ -102,6 +102,10 @@ extension InternalPages {
     // six are the same event — Luna could not give you what you asked for, and
     // here is the one thing you can do about it.
 
+    /// The kinds the app has a painting for, drawn behind the words in
+    /// place of the card (`scene` in the stylesheet).
+    static let paintedKinds = Set(InternalPageError.Kind.allCases)
+
     @MainActor
     static func errorHTML(_ error: InternalPageError) -> String {
         let copy = Self.copy(for: error.kind)
@@ -112,7 +116,7 @@ extension InternalPages {
         // blocklist's name — so it is not dressed as the address.
         let detail = error.detail.map { "<p class=\"note\">\(HTML.escape($0))</p>" } ?? ""
         let body = """
-        <main class="error \(error.kind.rawValue)">
+        <main class="error \(error.kind.rawValue)\(paintedKinds.contains(error.kind) ? " scene" : "")">
         <div class="card pane lifted">
         <span class="mark well" aria-hidden="true">\(mark(for: error.kind))</span>
         <h1>\(HTML.escape(copy.title))</h1>
@@ -135,15 +139,21 @@ extension InternalPages {
             // goes to the way out rather than to the way through; every other
             // kind is a failure nobody chose and trying again is the answer.
             let role = error.offersBypass ? "button plate" : "button key plate"
-            buttons.append("<a class=\"\(role)\" href=\"\(HTML.action(host, url: url))\">\(label)</a>")
+            buttons.append("<a class=\"\(role)\" href=\"\(HTML.action(host, url: url))\"><span>\(label)</span></a>")
         }
         // The recommendation, when there is no other button to carry it: an
         // address with no page behind it has nothing to retry and nothing to
         // continue past, so saying where you meant to go is the only move.
         let home = buttons.isEmpty || error.offersBypass ? "button key plate" : "button plate"
-        // §9.1, not a page. There is nowhere to send somebody who is stuck on
-        // an error except somewhere they can say where they want to go.
-        buttons.append("<a class=\"\(home)\" href=\"\(scheme)://commandbar\">New Tab</a>")
+        // A painted page keeps a single answer: beside Try Again, New Tab was
+        // a second button on a page that is meant to be a picture, and ⌘T
+        // does the same. Not beside Continue Anyway, which must never be the
+        // only way off the page.
+        if buttons.isEmpty || error.offersBypass || !paintedKinds.contains(error.kind) {
+            // §9.1, not a page. There is nowhere to send somebody who is stuck
+            // on an error except somewhere they can say where they want to go.
+            buttons.append("<a class=\"\(home)\" href=\"\(scheme)://commandbar\"><span>New Tab</span></a>")
+        }
         return buttons.joined()
     }
 

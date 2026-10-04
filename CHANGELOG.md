@@ -7,6 +7,7 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-04
 
+- **Error pages are moon paintings** (§4.5): each of the six (offline, can't find the site, not private, blocked, not secure, didn't load) is a painted moonscape with its own little scene, by day in light mode and by night in dark, with a big headline set in the sky and one answer under it instead of a box with buttons. Increase Contrast keeps the plain card.
 - **A tab opened behind says so** (§6.5): ⌘-click a link, or Open Link in New Tab, and a toast says "Opened in a new tab" with the site and Show, which takes you to it.
 - **A page finishing its load no longer takes the keyboard from ⌘T's bar** (§9.1): a page that focuses its own search box or sign-in field cannot pull the keyboard out of the Command Bar, Find or a rename; it gets it when you click into it or press Tab.
 - **The Web Inspector looks like part of Luna** (§3.9): docked in the card, it is the window's own glass carried on under the page, in light and dark, with pill tabs, round search fields and soft lines instead of WebKit's grey panels and borders.

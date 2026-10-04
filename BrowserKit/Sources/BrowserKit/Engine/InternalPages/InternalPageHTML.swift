@@ -288,5 +288,109 @@ extension InternalPages {
       color:var(--luna-text-primary,CanvasText);
     }
     .button.key:hover{background:var(--luna-surface-selected,Canvas)}
+
+    /* A painted error page (`scene` on `.error`): the painting is the page,
+       served by the app at `luna://art/error-<kind>-<appearance>`, and the
+       words are set in its sky with nothing around them. Never under
+       Increase Contrast, where the plain plane is the point; there a painted
+       kind is the ordinary card.
+
+       Set like a poster, not a dialog: display type ranged left, so the
+       words and the moon hold opposite corners of the sky and the subject on
+       the ground sits below them. Every frame drawn over the painting (a
+       card, a pill round the address, plates for the buttons) was tried and
+       read as a form laid on top of a picture.
+
+       The painting is anchored left of centre: a narrow window crops the
+       sides, and the subject on the left is the part that tells the story. */
+    @media (prefers-color-scheme: light) and (prefers-contrast: no-preference){
+      .error.offline{background-image:url("luna://art/error-offline-light")}
+      .error.dns{background-image:url("luna://art/error-dns-light")}
+      .error.tls{background-image:url("luna://art/error-tls-light")}
+      .error.blocked{background-image:url("luna://art/error-blocked-light")}
+      .error.httpsDowngrade{background-image:url("luna://art/error-https-light")}
+      .error.generic{background-image:url("luna://art/error-generic-light")}
+    }
+    @media (prefers-color-scheme: dark) and (prefers-contrast: no-preference){
+      .error.offline{background-image:url("luna://art/error-offline-dark")}
+      .error.dns{background-image:url("luna://art/error-dns-dark")}
+      .error.tls{background-image:url("luna://art/error-tls-dark")}
+      .error.blocked{background-image:url("luna://art/error-blocked-dark")}
+      .error.httpsDowngrade{background-image:url("luna://art/error-https-dark")}
+      .error.generic{background-image:url("luna://art/error-generic-dark")}
+    }
+    @media (prefers-contrast: no-preference){
+      .error.scene{
+        background-size:cover;background-position:25% bottom;
+        align-items:flex-start;text-align:left;
+        padding:0 9vw 26vh;
+      }
+      .error.scene .card,.error.scene .target,.error.scene .button{
+        background:none;border:none;box-shadow:none;padding:0;
+      }
+      .error.scene .card{
+        max-width:none;align-items:flex-start;gap:0;
+        animation:luna-rise calc(var(--luna-motion-hover) * 2.5) ease-out both;
+      }
+      @keyframes luna-rise{
+        from{opacity:0;transform:translateY(calc(var(--luna-gap) * 2))}
+        to{opacity:1;transform:none}
+      }
+      /* The painting says what happened; a glyph over it would be a second
+         picture of the same thing. */
+      .error.scene .mark{display:none}
+      /* Sized to the window, so the headline is the size of the sky it is
+         in rather than the size of a dialog's title; it breaks onto two
+         lines at any width a window has. */
+      .error.scene h1{
+        max-width:11ch;
+        font-size:clamp(calc(var(--luna-size-title) * 1.75), 7.5vw, calc(var(--luna-size-title) * 4.5));
+        font-weight:800;line-height:0.95;letter-spacing:-0.05ch;
+        text-wrap:balance;
+      }
+      .error.scene p{
+        margin-top:calc(var(--luna-gap-wide) * 1.5);
+        font-size:clamp(var(--luna-size-body), 1.6vw, calc(var(--luna-size-body) * 1.5));
+        line-height:1.4;max-width:34ch;text-wrap:pretty;
+      }
+      .error.scene .target{
+        margin-top:var(--luna-gap);
+        font-size:clamp(var(--luna-size-row), 1.15vw, calc(var(--luna-size-body) * 1.2));
+        font-weight:500;
+      }
+      /* The one answer, as words and an arrow. It answers the pointer by
+         underlining itself and moving the arrow on, and the press with
+         §6's swell, since there is no plate to wash. */
+      .error.scene .actions{margin-top:calc(var(--luna-gap-wide) * 2.5)}
+      .error.scene .button{
+        height:auto;font-weight:700;
+        font-size:clamp(var(--luna-size-body), 1.5vw, calc(var(--luna-size-body) * 1.4));
+        color:var(--luna-text-primary,CanvasText);
+        transition:transform var(--luna-motion-hover,0s) ease-out;
+      }
+      /* On the label, not the link: WebKit carries a link's underline into
+         the arrow as a second, separate rule. */
+      .error.scene .button span{
+        text-decoration:underline transparent;
+        text-decoration-thickness:calc(var(--luna-hairline) * 2);
+        text-underline-offset:calc(var(--luna-gap) * 0.6);
+        transition:text-decoration-color var(--luna-motion-hover,0s) ease-out;
+      }
+      .error.scene .button:hover span{text-decoration-color:currentColor}
+      .error.scene .button::after{
+        content:"\\2192";display:inline-block;
+        margin-left:calc(var(--luna-gap) * 0.75);
+        transition:transform var(--luna-motion-hover,0s) ease-out;
+      }
+      .error.scene .button:hover::after{transform:translateX(calc(var(--luna-gap) * 0.75))}
+      .error.scene .button:active{transform:scale(var(--luna-press-swell))}
+      /* The two pages Luna stopped on purpose offer a way past as well as the
+         way out. It is the quieter of the two, second, with no arrow: going
+         on is never the recommendation. */
+      .error.scene .actions{gap:calc(var(--luna-gap-wide) * 2);align-items:baseline}
+      .error.scene .button.key{order:-1}
+      .error.scene .button:not(.key){font-weight:500;color:var(--luna-text-secondary,CanvasText)}
+      .error.scene .button:not(.key)::after{content:none}
+    }
     """
 }

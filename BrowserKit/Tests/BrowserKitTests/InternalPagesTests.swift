@@ -48,6 +48,34 @@ struct InternalPagesTests {
         #expect(InternalPages.route(URL(string: "luna://favicon")!) == .notFound)
     }
 
+    /// The name is looked up as a file in the app's bundle, so anything that
+    /// could walk out of it never becomes a route.
+    @Test func routesArtworkByPlainNameOnly() {
+        #expect(InternalPages.route(URL(string: "luna://art/error-dns-light")!) == .artwork(name: "error-dns-light"))
+        for hostile in ["", "..%2F..%2Fsecret", "Error", "a.jpg", "a/b"] {
+            #expect(InternalPages.route(URL(string: "luna://art/\(hostile)")!) == .notFound, "\(hostile)")
+        }
+    }
+
+    /// Every painted kind names a painting for both appearances, and the app
+    /// ships each one. A missing file fails the sub-resource, and the page
+    /// would show its words on a bare plane with nothing to say why.
+    @Test func everyPaintedKindHasAPaintingForBothAppearances() {
+        let assets = URL(filePath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appending(path: "assets/error-pages")
+        for kind in InternalPages.paintedKinds {
+            let stem = kind == .httpsDowngrade ? "https" : kind.rawValue
+            for appearance in ["light", "dark"] {
+                let name = "error-\(stem)-\(appearance)"
+                #expect(InternalPages.stylesheet.contains("luna://art/\(name)\""), "\(name) is not in the stylesheet")
+                let file = assets.appending(path: "\(name).jpg").path(percentEncoded: false)
+                #expect(FileManager.default.fileExists(atPath: file), "\(name).jpg is not in assets/error-pages")
+            }
+        }
+    }
+
     /// The gadget this whole indirection exists to close: an error page hands
     /// its buttons a URL an attacker chose, and those buttons are loaded.
     @Test func retryAndProceedRefuseNonWebSchemes() {

@@ -12,7 +12,7 @@
 //  navigates to it any more. `luna://archive`, the address it had before the
 //  rename, resolves here too.
 //
-//  `BrowserKit` cannot reach the tab list or `Luna/Design/`, so the three things
+//  `BrowserKit` cannot reach the tab list or `Luna/Design/`, so the things
 //  internal pages need from the app are set here, once, and read live
 //  afterwards. Everything captures the session weakly: these are process-wide
 //  statics and a strong capture would outlive the window.
@@ -28,6 +28,13 @@ enum InternalPagesInstaller {
         // §8.1's tokens, as CSS. Generated once: light, dark and both contrast
         // variants all ship in the block and the page picks with `prefers-*`.
         InternalPages.palette = InternalPageTheme.css()
+
+        // The error pages' paintings, from `assets/error-pages/`. Read per
+        // request rather than held: a page that fails is rare, and half a
+        // megabyte each is not worth keeping in memory between them.
+        InternalPages.artwork = { name in
+            Bundle.main.url(forResource: name, withExtension: "jpg").flatMap { try? Data(contentsOf: $0) }
+        }
 
         InternalPages.content = { [weak session] in
             guard let session else { return InternalPageContent() }

@@ -54,6 +54,8 @@ final class InternalPageHandler: NSObject, WKURLSchemeHandler {
             respond(urlSchemeTask, html: InternalPages.html(for: page), status: 200)
         case let .favicon(host):
             serveFavicon(urlSchemeTask, host: host)
+        case let .artwork(name):
+            serveArtwork(urlSchemeTask, name: name)
         case .action, .notFound:
             // An action URL is cancelled by the navigation policy and never
             // reaches here; anything else is a typo or a probe. Both get the
@@ -88,6 +90,19 @@ final class InternalPageHandler: NSObject, WKURLSchemeHandler {
         }
         send(task, data: png, status: 200, headers: [
             "Content-Type": "image/png",
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff"
+        ])
+    }
+
+    /// A miss fails the sub-resource, and the page keeps its plain plane.
+    private func serveArtwork(_ task: any WKURLSchemeTask, name: String) {
+        guard let jpeg = InternalPages.artwork?(name) else {
+            task.didFailWithError(URLError(.resourceUnavailable))
+            return
+        }
+        send(task, data: jpeg, status: 200, headers: [
+            "Content-Type": "image/jpeg",
             "Cache-Control": "no-store",
             "X-Content-Type-Options": "nosniff"
         ])

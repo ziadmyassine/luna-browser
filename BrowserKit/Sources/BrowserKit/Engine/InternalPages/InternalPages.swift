@@ -78,6 +78,9 @@ public enum InternalPages {
         /// A cached favicon, served as a sub-resource of an internal page —
         /// exactly the case §4.4's gotcha is about.
         case favicon(host: String)
+        /// An error page's painting, by name — a sub-resource like the favicon,
+        /// and served from the app, which owns every picture Luna shows.
+        case artwork(name: String)
         case action(Action)
         case notFound
     }
@@ -96,8 +99,17 @@ public enum InternalPages {
         case "favicon":
             let host = String(url.path().trimmingPrefix("/"))
             return host.isEmpty ? .notFound : .favicon(host: host)
+        case "art":
+            let name = String(url.path().trimmingPrefix("/"))
+            return isArtworkName(name) ? .artwork(name: name) : .notFound
         case let host: return action(host, query).map(Route.action) ?? .notFound
         }
+    }
+
+    /// Lower-case words and hyphens only. The name becomes a file lookup in
+    /// the app's bundle, so nothing that could be read as a path gets that far.
+    private static func isArtworkName(_ name: String) -> Bool {
+        !name.isEmpty && name.unicodeScalars.allSatisfy { ("a"..."z").contains($0) || $0 == "-" }
     }
 
     private static func action(_ host: String?, _ query: (String) -> String?) -> Action? {
@@ -165,11 +177,14 @@ public enum InternalPages {
     // MARK: - App-supplied seams
     //
     // `BrowserKit` cannot reach `Luna/Design/` (no AppKit) or the tab list, so the
-    // two things internal pages need from outside are set once at assembly by
+    // things internal pages need from outside are set once at assembly by
     // `Luna/Features/InternalPages/InternalPagesInstaller`.
 
     /// CSS custom properties generated from `Luna/Design/Tokens.swift`.
     @MainActor public static var palette = ""
+
+    /// The JPEG behind `luna://art/<name>`, or nil when the app has none.
+    @MainActor public static var artwork: (@MainActor (String) -> Data?)?
 
     /// The archived tabs `luna://history` renders, read live.
     @MainActor public static var content: (@MainActor () -> InternalPageContent)?
