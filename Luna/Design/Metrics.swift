@@ -261,11 +261,11 @@ extension Tokens {
         static let groupPlateCornerRadius = rowCornerRadius + groupPlateFoot
         /// How far the plate reaches below the last tab's pill, and beside a
         /// folder's tabs (`groupMemberTrailingInset`). With the favicon's own
-        /// 9.5 it leaves 11.5 under the last tab's icon, against the 10 a
-        /// header at a tab's pitch leaves over the folder's: the same room at
-        /// both ends, give or take the icons' sizes. It was 8, then 4 under a
-        /// header 4 pt taller; each time the foot outgrew the head.
-        static let groupPlateFoot: CGFloat = 2
+        /// 9.5 it leaves 13.5 under the last tab's icon, against the 10 a
+        /// header at a tab's pitch leaves over the folder's. It was 8, which
+        /// left the foot twice the head; at 2 the folder's tabs stood so close
+        /// to the plate's side that their close buttons touched it.
+        static let groupPlateFoot: CGFloat = 4
         /// The room an open, non-empty §3.4b folder leaves under its last tab.
         ///
         /// The plate reaches `groupPlateFoot` below that tab's pill, which is

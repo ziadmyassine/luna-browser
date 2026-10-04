@@ -195,7 +195,10 @@ final class SidebarGroupPlateTests: XCTestCase {
         let middle = controller.table.convert(NSPoint(x: 0, y: row.contentMidY), from: row).y
         let head = middle - drawnFolder / 2 - plate.minY
         let foot = plate.maxY - (lastPill.midY + Tokens.Metric.faviconSize / 2)
-        XCTAssertEqual(head, foot, accuracy: 2.01, "head \(head), foot \(foot)")
+        // Within 3.5: the folded header stands at a tab's pitch so folders
+        // step like tabs, and the plate keeps 4 pt round its tabs so their
+        // glyphs clear its side; the foot is what gives.
+        XCTAssertEqual(head, foot, accuracy: 3.51, "head \(head), foot \(foot)")
         XCTAssertEqual(plate.maxY - lastPill.maxY, Tokens.Metric.groupPlateFoot, accuracy: 0.01)
         XCTAssertEqual(plate.maxX - lastPill.maxX, plate.maxY - lastPill.maxY, accuracy: 0.01, "the side is not the foot")
         let next = try XCTUnwrap(controller.list.row(ofGroup: work.id))

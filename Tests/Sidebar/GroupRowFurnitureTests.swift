@@ -72,4 +72,20 @@ final class GroupRowFurnitureTests: XCTestCase {
         XCTAssertEqual(centre.alphaComponent, 1, accuracy: 0.01, "nothing was drawn")
         XCTAssertLessThan(corner, 0.5, "the emoji is drawn past the edge of its slot and is cut off")
     }
+
+    /// A folder's emoji is drawn a favicon's size in the folder's larger
+    /// slot, centred: filling the slot it stood above and below the name.
+    func testAFoldersEmojiIsAFaviconsSizeCentredInItsSlot() throws {
+        let slot = Tokens.Metric.groupIconSize
+        let image = try XCTUnwrap(RowEmoji.image("⬛", pointSize: slot, ink: Tokens.Metric.faviconSize))
+        let bitmap = try XCTUnwrap(image.tiffRepresentation.flatMap(NSBitmapImageRep.init(data:)))
+        let scale = CGFloat(bitmap.pixelsHigh) / slot
+        let inked = (0 ..< bitmap.pixelsHigh).filter { y in
+            (bitmap.colorAt(x: bitmap.pixelsWide / 2, y: y)?.alphaComponent ?? 0) > 0.5
+        }
+        let top = CGFloat(try XCTUnwrap(inked.first)) / scale
+        let bottom = CGFloat(try XCTUnwrap(inked.last) + 1) / scale
+        XCTAssertEqual(bottom - top, Tokens.Metric.faviconSize, accuracy: 2, "the emoji is not a favicon's size")
+        XCTAssertEqual((top + bottom) / 2, slot / 2, accuracy: 1, "the emoji is not centred in its slot")
+    }
 }

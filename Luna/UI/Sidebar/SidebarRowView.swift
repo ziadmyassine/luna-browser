@@ -202,7 +202,7 @@ final class SidebarRowView: NSView {
         // and an emoji is never a template — see `RowEmoji`.
         let slot = Self.iconSlot(for: next)
         icon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: slot, weight: .regular)
-        let emoji = RowEmoji.image(next.symbolName, pointSize: slot)
+        let emoji = RowEmoji.image(next.symbolName, pointSize: slot, ink: Tokens.Metric.faviconSize)
         icon.image = next.favicon
             ?? emoji
             ?? NSImage(systemSymbolName: next.symbolName, accessibilityDescription: nil)
