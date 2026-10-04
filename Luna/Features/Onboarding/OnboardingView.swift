@@ -322,7 +322,12 @@ final class OnboardingView: NSView {
     }
 
     private func applyTokens() {
-        left.layer?.backgroundColor = Tokens.Surface.base.cgColor
+        // Resolved against this view's own appearance. `cgColor` answers for
+        // whatever appearance is current, and inside an appearance change that
+        // is still the old one: the plate stayed dark under Light's black ink.
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            left.layer?.backgroundColor = Tokens.Surface.base.cgColor
+        }
         title.textColor = Tokens.Text.primary
         body.textColor = Tokens.Text.secondary
         empty.textColor = Tokens.Text.secondary
@@ -331,6 +336,8 @@ final class OnboardingView: NSView {
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         applyTokens()
+        // The mark's shadow is resolved in `place()`.
+        needsLayout = true
     }
 }
 

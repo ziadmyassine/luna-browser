@@ -4,11 +4,10 @@
 //
 //  The window first run happens in, and the import it starts.
 //
-//  A window rather than a sheet over the browser: the browser window is
-//  restoring a session behind it, and a sheet would pin the user to a form
-//  before they have seen the thing the form is about. Closing it is an answer
-//  — "not now" — and it never asks again on its own; Help ▸ Welcome to Luna
-//  puts it back up.
+//  A window of its own: at first run there is no browser yet to hang a sheet
+//  on — it opens once this closes (`AppDelegate.presentFirstRun`). Closing it
+//  is an answer — "not now" — and it never asks again on its own; Help ▸
+//  Welcome to Luna puts it back up, over the browser.
 //
 
 import AppKit
@@ -121,9 +120,9 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
         self.onClose = onClose
         markAsRun()
         if let host { window?.setFrameOrigin(centred(over: host)) }
-        // It arrives rather than appears: the browser window is already up
-        // behind it, and a second window cutting in at full strength on the
-        // same frame reads as a dialog the app has thrown.
+        // It arrives rather than appears: from Help it lands over the browser,
+        // and a second window cutting in at full strength on the same frame
+        // reads as a dialog the app has thrown.
         window?.alphaValue = 0
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
@@ -140,7 +139,7 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
     }
 
     /// The last page's button. The window goes first, so macOS's own
-    /// question about the default browser is the only thing on screen.
+    /// question about the default browser lands over the browser it is about.
     private func finish() {
         markAsRun()
         close()

@@ -174,11 +174,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // host app.
         if !Self.isRunningTests { Updater.shared.start() }
 
+        // §30.17: a fresh install opens on first run, and the browser after it.
+        // Never in the test host, whose launch is the tests' fixture.
+        if OnboardingWindowController.shouldPresent(), !Self.isRunningTests {
+            presentFirstRun(opening: opening) { [weak self] in self?.openFirstWindow(opening: opening) }
+        } else {
+            openFirstWindow(opening: opening)
+        }
+        NSApp.activate()
+    }
+
+    private func openFirstWindow(opening: Task<BrowserStore, any Error>) {
         // The controller before the session, and on screen before it too: what
         // fills it is `adopt`, once there is something to put in it.
         let controller = BrowserWindowController()
         controller.showWindow(self)
-        NSApp.activate()
         LaunchTrace.mark("window")
 
         // The window is on screen before the session is restored into it:
@@ -217,13 +227,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // §19.1's "to interactive": the window has the restored session in it.
         // `Tools/perf` is polling for the file this writes.
         LaunchTrace.ready()
-        // §16.1, and after `ready()` for the same reason as onboarding below:
-        // extensions load one at a time into a browser that is already up.
+        // §16.1, and after `ready()`: extensions load one at a time into a
+        // browser that is already up.
         ExtensionsCenter.shared.attach(session)
         session.startExtensions()
-        // §30.17, and after `ready()` on purpose: first run is a window over a
-        // browser that is already up, not a gate in front of it.
-        presentOnboardingIfNeeded(store: store, session: session)
         Task { sync = await AppSync.start(store: store, session: session) }
     }
 
