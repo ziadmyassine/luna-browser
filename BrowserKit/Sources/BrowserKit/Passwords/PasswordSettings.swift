@@ -30,9 +30,11 @@ public enum PasswordSettings {
         set { UserDefaults.standard.set(newValue, forKey: Key.offerToSave) }
     }
 
-    /// §14.5's suggestion on signup forms.
+    /// §14.5's suggestion on signup forms. Off until the user turns it on;
+    /// the fallback covers only an unset key, so a stored choice either way
+    /// survives the change of default.
     public static var offersGeneratedPasswords: Bool {
-        get { UserDefaults.standard.object(forKey: Key.generate) as? Bool ?? true }
+        get { UserDefaults.standard.object(forKey: Key.generate) as? Bool ?? false }
         set { UserDefaults.standard.set(newValue, forKey: Key.generate) }
     }
 

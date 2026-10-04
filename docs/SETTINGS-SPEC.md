@@ -375,7 +375,7 @@ That copy is required, not optional.
 |---|---|---|
 | Offer to fill passwords | Toggle | `PasswordSettings.isEnabled` |
 | Offer to save passwords | Toggle | `PasswordSettings.offersToSave` |
-| Suggest strong passwords | Toggle | `PasswordSettings.offersGeneratedPasswords` |
+| Suggest strong passwords | Toggle, **off by default** | `PasswordSettings.offersGeneratedPasswords` |
 | Require Touch ID to fill | Toggle, **on by default** | `PasswordSettings.requiresAuthentication` |
 | Saved to | Status line | `CredentialStore.refreshCapability()`, re-probed on open |
 | Passkeys | Toggle, **disabled**, with its reason | `PasskeySupport.isAvailable` |
