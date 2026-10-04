@@ -27,6 +27,7 @@ under Unreleased; a release will take the entries since the last one.
 - **A folder picks an emoji from its name** (§3.4b): name a folder "Running shoes" and it gets 👟, "Gaming" 🎮, "Skole" 🏫. It reads English and Danish words, and any emoji you type in the name. An icon you chose yourself is never replaced. A folder's emoji is drawn a favicon's size, level with its name.
 - **Folders sit as close together as tabs** (§3.4b): a closed folder's row is now a tab's height, so a run of folders in Pinned is spaced like the tabs below it.
 - **A folder's name and the tab highlight move with the rows** (§3.4b): the name holds still while a folder opens and closes, the highlight on the tab you are on slides with its row instead of trailing it, and the arrow after the name steps aside while you rename the folder instead of sitting under the new name.
+- **Choose where Dia's things go before importing** (§23.2): after you tick Dia on first run, a step lists what Dia has — Favorites, bookmarks bar, bookmark folders, history — with how many of each, and you pick Favorites, Pinned folders or Skip for each. Bookmark folders no longer turn into pinned folders unless you leave them set to that, and nested folders keep both names, as "Work / Archive". Dia 1.51 keeps its own pinned tabs and pinned folders in an encrypted database, so Luna cannot bring those across.
 
 ### 2026-10-03
 

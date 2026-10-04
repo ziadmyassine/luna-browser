@@ -59,9 +59,17 @@ actor BrowserImporter {
             folderName: request.source.displayName,
             surfaces: request.surfaces,
             targetSpaceID: request.targetSpaceID,
+            mapping: request.mapping,
             dryRun: dryRun,
             progress: progress
         )
+    }
+
+    /// What the mapping step shows for one profile: its categories, counted,
+    /// with the like-for-like answers. Reads the same snapshot `run` would.
+    func mapping(for request: ImportRequest) throws -> ImportMapping {
+        let snapshot = try ImportSnapshot()
+        return try makeReader(request, snapshot: snapshot).defaultMapping()
     }
 
     /// The same import against an already-built reader. Separated because it is
@@ -75,10 +83,13 @@ actor BrowserImporter {
         folderName: String? = nil,
         surfaces: ImportSurfaces = .all,
         targetSpaceID: UUID? = nil,
+        mapping: ImportMapping? = nil,
         dryRun: Bool = false,
         progress: (@Sendable (ImportProgress) -> Void)? = nil
     ) async throws -> ImportSummary {
         var summary = ImportSummary(isDryRun: dryRun)
+        var surfaces = surfaces
+        if mapping?[.history] == .skip { surfaces.remove(.history) }
         var entry = ledger.entry(ledgerKey)
 
         // One Space for the whole import. Since `v8` an imported visit joins a
@@ -97,7 +108,12 @@ actor BrowserImporter {
             progress?(ImportProgress(phase: .bookmarks, completed: 0, total: nil))
             target = await importBookmarks(
                 reader: reader,
-                names: Names(space: spaceName, folder: folderName ?? spaceName, explicit: targetSpaceID),
+                names: Names(
+                    space: spaceName,
+                    folder: folderName ?? spaceName,
+                    explicit: targetSpaceID,
+                    mapping: mapping
+                ),
                 entry: &entry,
                 into: &summary,
                 dryRun: dryRun

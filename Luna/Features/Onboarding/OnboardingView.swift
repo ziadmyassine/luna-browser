@@ -38,6 +38,10 @@ final class OnboardingView: NSView {
     private let list: OnboardingImportList
     private var page: OnboardingPage = .welcome
     private var isImporting = false
+    /// §23.2's mapping step, per source that offers one. The transfer page
+    /// shows it between the tick and the import.
+    private var mappings: [ImportSource: ImportMapping] = [:]
+    private var mappingView: OnboardingMappingView?
 
     init(sources: [DetectedSource], preferring: ImportSource? = nil) {
         list = OnboardingImportList(sources: sources, preferring: preferring)
@@ -93,6 +97,10 @@ final class OnboardingView: NSView {
 
     private func advance() {
         if page == .transfer, !list.chosen.isEmpty, !isImporting {
+            if mappingView == nil, let source = list.chosen.first(where: { mappings[$0] != nil }) {
+                showMapping(for: source)
+                return
+            }
             beginImport()
             return
         }
@@ -104,6 +112,10 @@ final class OnboardingView: NSView {
     }
 
     private func retreat() {
+        if mappingView != nil, !isImporting {
+            hideMapping()
+            return
+        }
         guard !isImporting, let previous = page.previous else { return }
         show(previous, animated: true)
     }
@@ -151,8 +163,9 @@ final class OnboardingView: NSView {
                 view.layer?.setAffineTransform(.identity)
             }
             badge.animator().alphaValue = page == .transfer ? 0 : 1
-            list.animator().alphaValue = page == .transfer ? 1 : 0
-            empty.animator().alphaValue = page == .transfer ? 1 : 0
+            list.animator().alphaValue = page == .transfer && mappingView == nil ? 1 : 0
+            empty.animator().alphaValue = page == .transfer && mappingView == nil ? 1 : 0
+            mappingView?.animator().alphaValue = 1
             themeChoice.animator().alphaValue = page == .theme ? 1 : 0
         }, completion: { [weak self] in
             // Out of the way once faded, or its segments would still take a
@@ -180,9 +193,50 @@ final class OnboardingView: NSView {
             : String(localized: "Bring it across")
     }
 
+    // MARK: - The mapping step
+
+    /// Offered by the host once it has read what the source has.
+    func offerMapping(_ mapping: ImportMapping, for source: ImportSource) {
+        guard !mapping.categories.isEmpty else { return }
+        mappings[source] = mapping
+    }
+
+    /// The answers, edited or not. Nil for a source that offered none.
+    func mapping(for source: ImportSource) -> ImportMapping? {
+        mappings[source]
+    }
+
+    var isShowingMapping: Bool { mappingView != nil }
+
+    private func showMapping(for source: ImportSource) {
+        guard let mapping = mappings[source] else { return }
+        let step = OnboardingMappingView(mapping: mapping)
+        step.onChange = { [weak self] in self?.mappings[source] = $0 }
+        step.alphaValue = 0
+        right.content.addSubview(step)
+        mappingView = step
+        title.stringValue = String(localized: "Choose where things go")
+        body.stringValue = String(localized: "Pick where each part of \(source.displayName) lands in Luna, or skip it.")
+        needsLayout = true
+        layoutSubtreeIfNeeded()
+        crossFade()
+    }
+
+    private func hideMapping() {
+        mappingView?.removeFromSuperview()
+        mappingView = nil
+        show(.transfer, animated: true)
+    }
+
     // MARK: - The import
 
     private func beginImport() {
+        // Back to the list, which is where each browser shows its progress.
+        if mappingView != nil {
+            mappingView?.removeFromSuperview()
+            mappingView = nil
+            show(.transfer, animated: true)
+        }
         isImporting = true
         list.setRunning(true)
         refreshButtons()
@@ -252,6 +306,11 @@ final class OnboardingView: NSView {
         // own cards in from the sides, and a scroll view that stops short of
         // the edge clips the card nearest it the moment one is pressed.
         list.frame = inner
+        if let mappingView {
+            let width = max(inner.width - 2 * margin, 0)
+            let height = min(mappingView.height(forWidth: width), max(inner.height - 2 * margin, 0))
+            mappingView.frame = NSRect(x: margin, y: inner.midY - height / 2, width: width, height: height).integral
+        }
         let emptyHeight = ceil(empty.fittingSize.height)
         empty.frame = NSRect(
             x: margin,

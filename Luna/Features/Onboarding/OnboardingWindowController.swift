@@ -79,6 +79,25 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
         lights = TrafficLightLayoutManager(pinningLightsIn: window)
         view.onFinished = { [weak self] in self?.finish() }
         view.onImportRequested = { [weak self] chosen in self?.runImport(chosen) }
+        offerMappings()
+    }
+
+    /// §23.2's mapping step, read ahead so it is ready when Continue is
+    /// pressed. Dia only: its bookmark tree is what arrived as pinned folders
+    /// unasked. A profile Luna cannot read offers no step and imports as before.
+    private func offerMappings() {
+        let requests = sources.filter { $0.source == .dia }.compactMap(Self.request(for:))
+        Task { [weak self, importer] in
+            for request in requests {
+                guard let mapping = try? await importer.mapping(for: request) else { continue }
+                self?.view.offerMapping(mapping, for: request.source)
+            }
+        }
+    }
+
+    private static func request(for detected: DetectedSource) -> ImportRequest? {
+        guard let profile = detected.profiles.first(where: \.isLastUsed) ?? detected.profiles.first else { return nil }
+        return ImportRequest(source: detected.source, profile: profile)
     }
 
     @available(*, unavailable)
@@ -150,10 +169,9 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
         let requests = sources
             .filter { chosen.contains($0.source) }
             .compactMap { detected -> ImportRequest? in
-                guard let profile = detected.profiles.first(where: \.isLastUsed) ?? detected.profiles.first else {
-                    return nil
-                }
-                return ImportRequest(source: detected.source, profile: profile)
+                var request = Self.request(for: detected)
+                request?.mapping = view.mapping(for: detected.source)
+                return request
             }
         Task { [weak self] in
             guard let self else { return }

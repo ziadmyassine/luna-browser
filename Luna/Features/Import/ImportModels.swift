@@ -65,6 +65,9 @@ struct ImportedBookmark: Sendable, Hashable {
     /// folder, so for every other source this stays nil and the tree is
     /// flattened on write.
     var spaceName: String?
+    /// What it was in the source, which is what the mapping step decides by.
+    /// A `Bookmarks` tree's own two kinds unless a sidebar reader says otherwise.
+    var category: ImportCategory
 
     init(
         url: URL,
@@ -72,7 +75,8 @@ struct ImportedBookmark: Sendable, Hashable {
         dateAdded: Date? = nil,
         folderPath: [String] = [],
         placement: BookmarkPlacement = .folder,
-        spaceName: String? = nil
+        spaceName: String? = nil,
+        category: ImportCategory? = nil
     ) {
         self.url = url
         self.title = title
@@ -80,6 +84,7 @@ struct ImportedBookmark: Sendable, Hashable {
         self.folderPath = folderPath
         self.placement = placement
         self.spaceName = spaceName
+        self.category = category ?? (placement == .favorite ? .bookmarkBar : .bookmarkFolders)
     }
 
     /// A saved address, or nil for anything that is not plain web content.
@@ -199,6 +204,8 @@ struct ImportRequest: Sendable, Hashable {
     /// Where bookmarks land. `nil` reuses the Space a previous import of this
     /// profile created, or makes one named after the profile.
     var targetSpaceID: UUID?
+    /// The mapping step's answers. Nil takes the like-for-like defaults.
+    var mapping: ImportMapping?
 
     /// The Space name a fresh import creates. "Dia — Main", not "Profile 1":
     /// on this Mac Dia's `Default` is called "Work" and `Profile 1` is "Main",

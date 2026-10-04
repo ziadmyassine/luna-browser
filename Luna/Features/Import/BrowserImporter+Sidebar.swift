@@ -13,7 +13,9 @@
 //  · One folder per Arc folder, named by its path: a Luna folder holds only
 //    tabs, so `IA ▸ Physics` becomes `IA / Physics` and cannot collide.
 //  · Loose pins go in a folder named after the browser, because §3.4b's upper
-//    tier holds folders and nothing else.
+//    tier holds folders and nothing else.//
+//  Which of those each bookmark becomes, or whether it comes at all, is the
+//  mapping step's answer (`ImportMapping`); the list above is its default.
 //
 
 import BrowserKit
@@ -21,14 +23,21 @@ import Foundation
 
 extension BrowserImporter {
 
-    /// The three things an import writes under: the Space it would make, the
-    /// folder its bookmarks go in, and a Space the caller named outright.
+    /// What an import writes under: the Space it would make, the folder its
+    /// bookmarks go in, a Space the caller named outright, and the mapping
+    /// step's answers.
     struct Names: Sendable {
+        /// Where a bookmark with no Space of its own goes. Dia's are all of
+        /// these: the profile is the Space, so the sidebar names none.
         var space: String
+        /// The browser's display name. Prefixes every Space a sidebar makes,
+        /// and names the folder loose items land in.
         var folder: String
         /// Set when the caller has already decided. A sidebar's own Spaces are
         /// not made in that case: it has said where everything goes.
         var explicit: UUID?
+        /// Nil takes the like-for-like defaults.
+        var mapping: ImportMapping?
     }
 
     /// The bookmarks half, and the Space it resolved. Nil when the source had
@@ -43,7 +52,13 @@ extension BrowserImporter {
         dryRun: Bool
     ) async -> UUID? {
         do {
-            let bookmarks = try reader.bookmarks()
+            let read = try reader.bookmarks()
+            let mapping = names.mapping ?? ImportMapping(counts: ImportMapping.counts(of: read))
+            // Skipped before anything resolves a Space, so an import whose
+            // every category was skipped makes none.
+            let bookmarks = read.filter {
+                mapping.placement(of: $0.category, folderPath: $0.folderPath, browser: names.folder) != nil
+            }
             guard !bookmarks.isEmpty else { return nil }
             // Arc and Dia arrive with a shape §3.4b already has — see
             // `+Sidebar.swift`. A caller that named a Space is not asking for
@@ -51,8 +66,8 @@ extension BrowserImporter {
             guard !reader.keepsItsOwnStructure || names.explicit != nil else {
                 let result = try await writeSidebar(
                     bookmarks,
-                    browser: names.folder,
-                    ownSpaceName: names.space,
+                    mapping: mapping,
+                    names: names,
                     entry: &entry,
                     dryRun: dryRun
                 )
@@ -92,20 +107,15 @@ extension BrowserImporter {
     }
 
     /// Writes a sidebar, Space by Space.
-    ///
-    /// - Parameters:
-    ///   - browser: the browser's display name. Prefixes every Space it makes,
-    ///     and names the folder the loose pins land in.
-    ///   - ownSpaceName: where a bookmark with no Space of its own goes — the
-    ///     Space this import would have made anyway. Dia's favourites are all
-    ///     of these: the profile is the Space, so the sidebar names none.
     func writeSidebar(
         _ bookmarks: [ImportedBookmark],
-        browser: String,
-        ownSpaceName: String,
+        mapping: ImportMapping,
+        names: Names,
         entry: inout ImportLedger.Entry,
         dryRun: Bool
     ) async throws -> SidebarResult {
+        let browser = names.folder
+        let ownSpaceName = names.space
         var result = SidebarResult()
         // Grouped in first-seen order, so the Space a screen offers to show is
         // the one the source lists first rather than whichever the dictionary
@@ -133,7 +143,7 @@ extension BrowserImporter {
                     dryRun: dryRun
                 )
             }
-            let counts = try await write(theirs, intoSpace: spaceID, browser: browser, dryRun: dryRun)
+            let counts = try await write(theirs, intoSpace: spaceID, mapping: mapping, browser: browser, dryRun: dryRun)
             result.added += counts.added
             result.skipped += counts.skipped
             result.spaces += 1
@@ -152,10 +162,11 @@ extension BrowserImporter {
         return order
     }
 
-    /// One Space's worth: its tiles, then its folders.
+    /// One Space's worth, each bookmark where the mapping sends it.
     private func write(
         _ bookmarks: [ImportedBookmark],
         intoSpace spaceID: UUID,
+        mapping: ImportMapping,
         browser: String,
         dryRun: Bool
     ) async throws -> (added: Int, skipped: Int) {
@@ -168,6 +179,13 @@ extension BrowserImporter {
         var skipped = 0
 
         for bookmark in bookmarks {
+            guard let placement = mapping.placement(
+                of: bookmark.category,
+                folderPath: bookmark.folderPath,
+                browser: browser
+            ) else {
+                continue
+            }
             guard seen.insert(Self.dedupKey(bookmark.url)).inserted else {
                 skipped += 1
                 continue
@@ -175,22 +193,18 @@ extension BrowserImporter {
             added += 1
             guard !dryRun else { continue }
 
-            // Over the cap a tile becomes a saved row rather than being
-            // dropped — the same answer `v2`'s trim gives, taken on the way in
-            // so the grid is never briefly wrong.
-            let isTile = bookmark.placement == .favorite && tiles < BrowserStore.favoritesCap
+            // Over the cap a tile becomes a row in the browser's folder rather
+            // than being dropped — the same answer `v2`'s trim gives, taken on
+            // the way in so the grid is never briefly wrong.
+            let isTile = placement == .favorite && tiles < BrowserStore.favoritesCap
             if isTile { tiles += 1 }
-            let folder = isTile ? nil : try await folderName(for: bookmark, browser: browser)
+            let folder: String? = switch placement {
+            case .favorite: isTile ? nil : browser
+            case let .folder(name): name
+            }
             try await place(bookmark, inSpace: spaceID, asTile: isTile, folder: folder)
         }
         return (added, skipped)
-    }
-
-    /// A Luna folder holds tabs and not other folders, so an Arc folder's whole
-    /// path is its name — and a bookmark that was loose in the pinned tier goes
-    /// in the one named after the browser.
-    private func folderName(for bookmark: ImportedBookmark, browser: String) async throws -> String {
-        bookmark.folderPath.isEmpty ? browser : bookmark.folderPath.joined(separator: " / ")
     }
 
     private func place(
