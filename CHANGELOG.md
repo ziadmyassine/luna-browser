@@ -13,6 +13,7 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-04
 
+- **History's first day sits closer to the header** (§11.3): "Today" now starts 8 pt under the History title and search field, the same gap Downloads leaves, instead of 16; the first page is 26 pt under the header instead of 34.
 - **An empty window has a moon painting too** (§3.6): with every tab closed, the page area shows an empty deck chair facing the moon, by day in light mode and by night in dark, instead of a blank plane, with "All quiet" set large in the sky and "Press ⌘T to open a new tab" under it — your own shortcut, if you have changed it.
 - **The page bar wears the painting's sky** (§3.2b): over an error page or an empty window, the bar across the top is the colour of the painting's sky, pale by day and deep blue by night, instead of plain white or grey.
 - **Error pages are moon paintings** (§4.5): each of the six (offline, can't find the site, not private, blocked, not secure, didn't load) is a painted moonscape with its own little scene, by day in light mode and by night in dark, with a big headline set in the sky and one answer under it instead of a box with buttons. Increase Contrast keeps the plain card.

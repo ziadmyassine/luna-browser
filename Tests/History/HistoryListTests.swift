@@ -107,11 +107,34 @@ final class HistoryListTests: XCTestCase {
         let list = list(showing: dated)
         let table = try XCTUnwrap(descendants(of: list, ofType: NSTableView.self).first)
         XCTAssertEqual(table.numberOfRows, 5, "two headers and three pages")
-        XCTAssertEqual(table.rect(ofRow: 0).height, Tokens.Metric.historyDayHeaderHeight)
         XCTAssertEqual(
             pill(in: list).frame,
             table.rect(ofRow: 1).insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
         )
+    }
+
+    /// The list hangs from the panel's header, so its top is the header's
+    /// foot. The first day's label sits `PopoutMetrics.padding` under it, the
+    /// gap Downloads leaves between its header and first row, rather than also
+    /// taking the `panelInset` that parts one day from the day before.
+    func testTheFirstDaySitsAPaddingUnderTheHeader() throws {
+        let dated = entries(3).enumerated().map { index, entry in
+            HistoryEntry(
+                id: entry.id, title: entry.title, subtitle: entry.subtitle, when: entry.when,
+                host: entry.host, url: entry.url, day: index == 0 ? "Today" : "Yesterday"
+            )
+        }
+        let list = list(showing: dated)
+        let label = try XCTUnwrap(
+            descendants(of: list, ofType: HistoryDayHeaderView.self)
+                .flatMap { descendants(of: $0, ofType: NSTextField.self) }
+                .first { $0.stringValue == "Today" }
+        )
+        let frame = label.convert(label.bounds, to: list)
+        XCTAssertEqual(list.bounds.maxY - frame.maxY, PopoutMetrics.padding, accuracy: 0.5, "header foot to the first day")
+
+        let table = try XCTUnwrap(descendants(of: list, ofType: NSTableView.self).first)
+        XCTAssertEqual(table.rect(ofRow: 2).height, Tokens.Metric.historyDayHeaderHeight, "a later day keeps its gap")
     }
 
     /// The point of the table. A thousand pages is days of ordinary use, and
