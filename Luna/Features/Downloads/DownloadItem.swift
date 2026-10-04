@@ -188,6 +188,10 @@ enum DownloadDestination {
     static let directoryKey = "downloads.directory"
     /// §3.5's "Open safe files after downloading". Read by `DownloadItem.finish()`.
     static let autoOpenKey = "downloads.autoOpen"
+    /// §3.5's "Ask where to save each download".
+    static let askKey = "downloads.askEachTime"
+    /// The folder the last save panel ended in, where the next one starts.
+    static let lastAskedKey = "downloads.lastAskedDirectory"
 
     /// Where the bytes land: the user's folder if they picked one and it is
     /// still writable, otherwise `~/Downloads`.
@@ -226,6 +230,29 @@ enum DownloadDestination {
                 exists: { FileManager.default.fileExists(atPath: $0.path) }
             )
         }.value
+    }
+
+    /// Where a file called `name` goes: `ask`ed of the user when §3.5 says
+    /// to, otherwise `resolve`d without a word. Nil is a cancelled panel,
+    /// which WebKit takes as cancelling the download before a byte is written.
+    ///
+    /// `ask` gets the name and the folder to start in, and is the seam that
+    /// keeps the save panel out of the tests.
+    @MainActor
+    static func decide(_ name: String, ask: (_ name: String, _ folder: URL) async -> URL?) async -> URL? {
+        guard UserDefaults.standard.bool(forKey: askKey) else { return await resolve(name) }
+        let last = UserDefaults.standard.string(forKey: lastAskedKey)
+            .map { URL(filePath: $0, directoryHint: .isDirectory) }
+        let start = last.flatMap { isWritable($0) ? $0 : nil } ?? folder
+        guard let chosen = await ask(name, start) else { return nil }
+        UserDefaults.standard.set(
+            chosen.deletingLastPathComponent().path(percentEncoded: false),
+            forKey: lastAskedKey
+        )
+        // The panel has already asked whether to replace an existing file,
+        // and WebKit fails a download whose destination exists.
+        try? FileManager.default.removeItem(at: chosen)
+        return chosen
     }
 
     /// `~/Downloads`, created if the user deleted it.

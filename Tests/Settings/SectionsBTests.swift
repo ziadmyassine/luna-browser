@@ -160,4 +160,68 @@ final class DownloadsSettingTests: XCTestCase {
         UserDefaults.standard.removeObject(forKey: key)
         XCTAssertFalse(UserDefaults.standard.bool(forKey: key))
     }
+
+    /// §3.5's "Ask where to save each file": off goes straight to the folder
+    /// without asking, on asks starting in the folder and then in the last
+    /// folder chosen, and a cancelled panel is no destination at all — which
+    /// is what WebKit takes as cancelling the download before a byte lands.
+    func testAskingEachTimeDecidesTheDestination() async throws {
+        let keys = [DownloadDestination.askKey, DownloadDestination.lastAskedKey]
+        let previous = keys.map { UserDefaults.standard.object(forKey: $0) }
+        defer { for (key, value) in zip(keys, previous) { UserDefaults.standard.set(value, forKey: key) } }
+        keys.forEach(UserDefaults.standard.removeObject(forKey:))
+
+        let elsewhere = URL.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: elsewhere, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: elsewhere) }
+        // Not `~/Downloads`: reading it from the test host asks TCC.
+        let downloads = URL.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: downloads, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: downloads) }
+        UserDefaults.standard.set(downloads.path(percentEncoded: false), forKey: DownloadDestination.directoryKey)
+
+        var asked: [(name: String, folder: URL)] = []
+        var answer: URL?
+        let ask: (String, URL) async -> URL? = { name, folder in
+            asked.append((name, folder))
+            return answer
+        }
+
+        // Off: the folder, unasked.
+        let straight = await DownloadDestination.decide("moon.pdf", ask: ask)
+        XCTAssertEqual(straight?.deletingLastPathComponent().standardizedFileURL, DownloadDestination.folder.standardizedFileURL)
+        XCTAssertTrue(asked.isEmpty)
+
+        // On: asked with the suggested name, starting in the folder.
+        UserDefaults.standard.set(true, forKey: DownloadDestination.askKey)
+        answer = elsewhere.appending(path: "renamed.pdf", directoryHint: .notDirectory)
+        let chosen = await DownloadDestination.decide("moon.pdf", ask: ask)
+        XCTAssertEqual(chosen, answer)
+        XCTAssertEqual(asked.last?.name, "moon.pdf")
+        XCTAssertEqual(asked.last?.folder.standardizedFileURL, DownloadDestination.folder.standardizedFileURL)
+
+        // Cancelled: no destination, and the next ask starts where the last one ended.
+        answer = nil
+        let cancelled = await DownloadDestination.decide("sun.pdf", ask: ask)
+        XCTAssertNil(cancelled)
+        XCTAssertEqual(asked.last?.folder.standardizedFileURL, elsewhere.standardizedFileURL)
+    }
+
+    /// The panel has already asked whether to replace the file, and WebKit
+    /// refuses a destination that exists, so the old file goes first.
+    func testReplacingAnExistingFileMovesItOutOfTheWay() async throws {
+        let previous = UserDefaults.standard.object(forKey: DownloadDestination.askKey)
+        defer { UserDefaults.standard.set(previous, forKey: DownloadDestination.askKey) }
+        UserDefaults.standard.set(true, forKey: DownloadDestination.askKey)
+
+        let folder = URL.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let existing = folder.appending(path: "moon.pdf", directoryHint: .notDirectory)
+        XCTAssertTrue(FileManager.default.createFile(atPath: existing.path(percentEncoded: false), contents: Data("old".utf8)))
+
+        let chosen = await DownloadDestination.decide("moon.pdf") { _, _ in existing }
+        XCTAssertEqual(chosen, existing)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: existing.path(percentEncoded: false)))
+    }
 }

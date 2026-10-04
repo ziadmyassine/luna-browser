@@ -452,7 +452,7 @@ underneath.
 | Control | Type | Wired to |
 |---|---|---|
 | Save files to | Path popup + Choose… | `downloads.directory` — **currently hard-coded** to `.downloadsDirectory` |
-| Ask where to save each file | Toggle | `downloads.askEachTime` |
+| Ask where to save each download | Toggle, default off | `downloads.askEachTime` — a save panel, as a sheet on the downloading window, starting in the last folder chosen |
 | Open "safe" files after downloading | Toggle, **default off** | `downloads.autoOpen` |
 | Clear download list | Popup: Manually · On quit · After a day | `downloads.clearPolicy` |
 
