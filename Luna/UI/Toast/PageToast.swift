@@ -88,6 +88,16 @@ struct PageToast: Equatable {
 
     /// A ⌘-click or Open Link in New Tab: the tab was made behind the one in
     /// front, where nothing on the page says it happened. Show goes to it.
+    /// §15.4: a frame of another site tried to download with no click.
+    static func downloadBlocked(_ host: String?, download: @escaping @MainActor () -> Void) -> PageToast {
+        PageToast(
+            symbol: "arrow.down.circle",
+            text: String(localized: "Download blocked"),
+            detail: host,
+            actions: [Action(title: String(localized: "Download"), label: String(localized: "Download it anyway"), run: download)]
+        )
+    }
+
     static func openedInBackground(_ host: String?, show: @escaping @MainActor () -> Void) -> PageToast {
         PageToast(
             symbol: "plus.square.on.square",

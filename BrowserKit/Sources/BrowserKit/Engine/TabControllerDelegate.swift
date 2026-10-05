@@ -26,6 +26,10 @@ public protocol TabControllerDelegate: AnyObject {
     /// destination immediately, and a download with no live delegate stalls silently.
     func tabController(_ controller: TabController, didStartDownload download: WKDownload)
 
+    /// A frame of another site tried to download with no click behind it, and
+    /// Luna stopped it (§15.4). `request` starts it after all, if the user says so.
+    func tabController(_ controller: TabController, didBlockDownload request: URLRequest, from host: String?)
+
     /// A link ⌘-clicked or middle-clicked: a new tab beside this one, left
     /// behind it unless `inBackground` is false (⌘⇧, as Safari).
     func tabController(_ controller: TabController, wantsToOpenInNewTab url: URL, inBackground: Bool)
@@ -131,6 +135,8 @@ public protocol TabControllerDelegate: AnyObject {
 }
 
 public extension TabControllerDelegate {
+
+    func tabController(_ controller: TabController, didBlockDownload request: URLRequest, from host: String?) {}
 
     @discardableResult
     func tabController(_ controller: TabController, wantsToOpenExternally url: URL) -> Bool { false }

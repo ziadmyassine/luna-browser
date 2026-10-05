@@ -244,6 +244,17 @@ extension BrowserSession: TabControllerDelegate {
         onDownload(download)
     }
 
+    /// A blocked download says so, with the way to have it anyway.
+    func tabController(_ controller: TabController, didBlockDownload request: URLRequest, from host: String?) {
+        PageToast.downloadBlocked(host) { [weak self, weak controller] in
+            guard let self, let controller, let webView = controller.webView else { return }
+            webView.startDownload(using: request) { [weak self, weak controller] download in
+                guard let self, let controller else { return download.cancel() }
+                self.tabController(controller, didStartDownload: download)
+            }
+        }.show(in: controller.webView?.window)
+    }
+
     func tabController(_ controller: TabController, didFailWith error: any Error) {
         // §19.3 already retried and gave up; the page keeps whatever it last
         // painted. A user-facing error surface is §18's, not the coordinator's.

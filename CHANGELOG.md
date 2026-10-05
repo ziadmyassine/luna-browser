@@ -7,6 +7,7 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-05
 
+- **Downloads a page's own viewer starts now save** (§15.4): a PDF viewer in a frame of the page's own site — a public portal's document viewer — that downloads once the document's data is ready did nothing, because by then WebKit no longer counted the click and Luna stopped downloads from frames without one. A frame of the page's own site may download now. One from another site with no click is still stopped, but says so: a "Download blocked" toast with Download, and a warning in the page's console.
 - **Astro can see more of what you are working on** (Luna Control): `folders_list` shows your sidebar folders and their tabs, and `tabs_list` now names the folder each tab is in; `history_search` lets Astro (and only Astro) look through the pages you have visited; `pdf_text` reads a PDF's text, signed in as you, or one in Downloads; and `add_to_calendar` opens an event in Calendar for you to confirm.
 - **Sidebar icons sit level with their names** (§3.4): favicons and emoji were centred on the row rather than on the letters beside them and stood about a point low; symbols, a point and a half.
 - **Astro's conversation fades out at its edges**: where it scrolls under the task pill and the field, the words blur more and more and fade away instead of being cut off by a hard line.

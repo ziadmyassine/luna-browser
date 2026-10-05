@@ -226,17 +226,45 @@ extension TabController: WKNavigationDelegate {
 
     public func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
         // §15.4 — no silent auto-downloads from background frames: a script
-        // clicking `<a download>` in a hidden iframe. Only this path is held
-        // to a gesture. A download link that redirects to another site loses
-        // its `download` attribute on the way, and WebKit loads the new
-        // address in the frame instead, so the file comes back through the
+        // clicking `<a download>` in a hidden iframe of another site. Only this
+        // path is held to a gesture. A download link that redirects to another
+        // site loses its `download` attribute on the way, and WebKit loads the
+        // new address in the frame instead, so the file comes back through the
         // response path below with no gesture on it; cancelled there, every
         // such link did nothing.
-        guard download.isUserInitiated || download.originatingFrame.isMainFrame else {
+        //
+        // A frame of the page's own site may: pdf.js's viewer is one, and it
+        // clicks its `blob:` link only once the document's data has come back,
+        // by when WebKit no longer counts the user's click. Measured on a
+        // harness: that download arrives as not user-initiated and not the
+        // main frame's, and a document viewer's Download did nothing.
+        let frame = download.originatingFrame
+        guard download.isUserInitiated || frame.isMainFrame || Self.sameSite(frame.securityOrigin, as: webView.url) else {
             download.cancel()
+            warnOfBlockedDownload(in: webView)
+            if let request = download.originalRequest {
+                delegate?.tabController(self, didBlockDownload: request, from: frame.securityOrigin.host)
+            }
             return
         }
         delegate?.tabController(self, didStartDownload: download)
+    }
+
+    /// Whether a frame's origin is the page's site: the same scheme and host.
+    nonisolated static func sameSite(_ origin: WKSecurityOrigin, as page: URL?) -> Bool {
+        guard let page, let host = page.host()?.lowercased(), !origin.host.isEmpty else { return false }
+        return origin.host.lowercased() == host && origin.`protocol`.lowercased() == page.scheme?.lowercased()
+    }
+
+    /// A line in the page's console, so a developer looking at why their
+    /// button did nothing finds the answer there.
+    private func warnOfBlockedDownload(in webView: WKWebView) {
+        let message = "Luna blocked a download that a frame of another site started without a click."
+        webView.evaluateJavaScript("console.warn(\(Self.jsonString(message)))", completionHandler: nil)
+    }
+
+    private nonisolated static func jsonString(_ text: String) -> String {
+        (try? String(data: JSONEncoder().encode(text), encoding: .utf8)) ?? "\"\""
     }
 
     public func webView(
