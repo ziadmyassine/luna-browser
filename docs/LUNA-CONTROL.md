@@ -190,7 +190,8 @@ They can only close tabs in their own folder.
 | `request_user` | Ask the user to do a step only they can (`reason`), and wait up to five minutes for **Done** |
 | `ask_user` | Ask a short `question` with two to four `options`; the user picks one on a card over the page ("Claude needs you"), and the answer is the result. Waits up to five minutes |
 | `name_task` | Name the task in a few words (`title`), with an `icon` (an emoji or an SF Symbol) if it likes. The agent's sidebar folder takes that name and icon in place of the session's or the app's |
-| `label_tab` | Name one of the agent's own tabs for what it is for (`title`) and give it an icon (`symbol`, an SF Symbol, on a tile of one `color`). The sidebar shows them in place of the page's title and favicon |
+| `label_tab` | Name one of the agent's own tabs for what it is for (`title`). The sidebar shows it in place of the page's title |
+| `show_document` | Save a Markdown document (`title`, `markdown`) in Luna's own folder and open it in a tab of the agent's folder, in Luna's reader |
 | `dialog` | Answer the `alert`/`confirm`/`prompt` open in the tab: `action` `accept` or `dismiss`, `text` for a prompt |
 | `batch` | Up to 20 of the above in order (`actions: [{tool, args}]`). Stops at the first failure; a step's `ref` may be `"$N"`, the first ref in step N's result. No nesting |
 

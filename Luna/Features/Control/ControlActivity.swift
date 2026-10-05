@@ -53,7 +53,8 @@ enum ControlActivity {
         switch command {
         case .listTabs: String(localized: "Look at the open tabs")
         case let .nameTask(title, _): String(localized: "Call the task “\(title)”")
-        case let .labelTab(title, _, _): title.map { String(localized: "Call a tab “\($0)”") } ?? String(localized: "Give a tab an icon")
+        case let .labelTab(title): String(localized: "Call a tab “\(title)”")
+        case let .showDocument(title, _): String(localized: "Write up “\(title)”")
         case let .askUser(question, _): String(localized: "Ask you: \(clip(question))")
         case let .openTab(url): url.flatMap(host).map { String(localized: "Open \($0)") } ?? String(localized: "Open a tab")
         case let .navigate(.url(url)): host(url).map { String(localized: "Go to \($0)") } ?? String(localized: "Go to a page")
@@ -98,7 +99,8 @@ enum ControlActivity {
         "javascript": "curlybraces", "console_read": "terminal", "network_read": "network",
         "tab_close": "xmark.square", "wait": "hourglass", "request_user": "person.fill.questionmark",
         "dialog": "exclamationmark.bubble", "file_upload": "arrow.up.doc",
-        "name_task": "character.cursor.ibeam", "ask_user": "hand.raised", "label_tab": "tag"
+        "name_task": "character.cursor.ibeam", "ask_user": "hand.raised", "label_tab": "tag",
+        "show_document": "doc.richtext"
     ]
 
     /// How an entry ended, from the audit record's two words.

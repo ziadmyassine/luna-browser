@@ -63,7 +63,7 @@ class PopoutPanelView: NSView {
     /// one that never appeared.
     var onHoverChanged: ((Bool) -> Void)?
 
-    private let preferredSize: CGSize
+    private(set) var preferredSize: CGSize
     private let edge: PopoutEdge
 
     /// Whether the pop-out stands centred across its button rather than

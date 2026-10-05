@@ -318,11 +318,10 @@ final class BrowserSession {
     /// Which app each Luna Control folder belongs to, by folder:
     /// `ControlService.refreshFaces`'s.
     var controlFaces: [UUID: ControlFace] = [:]
-    /// The colour of the tile under each agent-labelled tab's icon
-    /// (`label_tab`), kept across launches as the icon itself is.
-    var controlTabTiles: [UUID: String] = BrowserSession.savedTabTiles()
-    /// Folders Astro is working in for the whole of a turn.
+    /// Folders Astro is working in for the whole of a turn, and the tab in
+    /// each it last acted on.
     var astroWorkingGroups: Set<UUID> = []
+    var astroWorkingTabs: Set<UUID> = []
     /// The Luna Control service driving this session, which holds the page
     /// dialogs of its agents' tabs.
     weak var control: ControlService?

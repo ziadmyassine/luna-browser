@@ -308,7 +308,7 @@ extension ControlService {
 
     private func target(of call: ControlCall, in session: BrowserSession, for client: ControlClient) throws -> UUID? {
         switch call.command {
-        case .listTabs, .openTab, .wait, .requestUser, .nameTask, .askUser: nil
+        case .listTabs, .openTab, .wait, .requestUser, .nameTask, .askUser, .showDocument: nil
         default: try resolve(call, in: session, for: client)
         }
     }
@@ -327,7 +327,7 @@ extension ControlService {
         _ result: ControlResult, command: ControlCommand, client: ControlClient, tab id: UUID?, in session: BrowserSession
     ) -> ControlResult {
         let fenced: Bool = switch command {
-        case .wait, .closeTab, .requestUser, .nameTask, .askUser, .labelTab: false
+        case .wait, .closeTab, .requestUser, .nameTask, .askUser, .labelTab, .showDocument: false
         default: true
         }
         let url = command.fencesTab ? id.flatMap { session.controller(for: $0)?.webView?.url ?? session.tab($0)?.url } : nil
@@ -377,7 +377,7 @@ private extension ControlCommand {
     /// Whether the result is about one tab, whose address goes on the fence.
     var fencesTab: Bool {
         switch self {
-        case .listTabs, .wait, .closeTab, .requestUser, .nameTask, .askUser, .labelTab: false
+        case .listTabs, .wait, .closeTab, .requestUser, .nameTask, .askUser, .labelTab, .showDocument: false
         default: true
         }
     }

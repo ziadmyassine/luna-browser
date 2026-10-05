@@ -188,6 +188,7 @@ final class GlassButton: NSView {
         super.layout()
         // Bounds-derived frames never animate — see `Motion.immediately`.
         Tokens.Motion.immediately { placeContents() }
+        settleHover()
     }
 
     private func placeContents() {
@@ -311,6 +312,18 @@ final class GlassButton: NSView {
             options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
             owner: self
         ))
+        settleHover()
+    }
+
+    /// Drops the hover when the pointer is no longer on the button. A button
+    /// that moves out from under a still pointer gets no exit event: the agent
+    /// panel's button slides along the page bar as the panel opens or closes,
+    /// and kept its wash with the pointer nowhere near it.
+    func settleHover() {
+        guard isHovering else { return }
+        guard let window, !isHiddenOrHasHiddenAncestor else { return setHovering(false) }
+        let pointer = convert(window.mouseLocationOutsideOfEventStream, from: nil)
+        if !bounds.contains(pointer) { setHovering(false) }
     }
 
     override func mouseEntered(with event: NSEvent) {

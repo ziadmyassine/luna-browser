@@ -18,22 +18,27 @@ enum AgentGlyph {
 
     /// Astro at `pointSize`, drawn to the same box an SF Symbol of that
     /// size fills.
-    static func image(pointSize: CGFloat) -> NSImage {
-        if let cached = cache[pointSize] { return cached }
+    static func image(pointSize: CGFloat, eyes: Bool = true) -> NSImage {
+        let key = eyes ? pointSize : -pointSize
+        if let cached = cache[key] { return cached }
         let side = pointSize.rounded(.up) + 2
         let image = NSImage(size: NSSize(width: side, height: side), flipped: true) { rect in
-            draw(in: rect)
+            draw(in: rect, eyes: eyes)
             return true
         }
         image.isTemplate = false
         image.accessibilityDescription = String(localized: "Astro")
-        cache[pointSize] = image
+        cache[key] = image
         return image
     }
 
+    /// Where the eyes are in the 20-unit square, y down — for `AstroMark`,
+    /// which draws them as layers of their own so they can blink.
+    static let eyeBoxes = [NSRect(x: 7.3, y: 9.0, width: 1.6, height: 2.2), NSRect(x: 11.1, y: 9.0, width: 1.6, height: 2.2)]
+
     /// Astro in a 20-unit square, y down: `AgentRoverView`'s drawing, with
     /// the ears and eyes a little larger so they survive 14 points.
-    static func draw(in rect: NSRect) {
+    static func draw(in rect: NSRect, eyes: Bool = true) {
         let unit = rect.width / 20
         func box(_ x: CGFloat, _ y: CGFloat, _ width: CGFloat, _ height: CGFloat) -> NSRect {
             NSRect(x: rect.minX + x * unit, y: rect.minY + y * unit, width: width * unit, height: height * unit)
@@ -52,8 +57,8 @@ enum AgentGlyph {
         NSGradient(colors: [Tokens.Moon.limbShade, Tokens.Moon.skyTop, Tokens.Moon.maria], atLocations: [0, 0.6, 1],
                    colorSpace: .sRGB)?.draw(in: visor, angle: -60)
         NSColor.white.setFill()
-        for x in [7.3, 11.1] {
-            NSBezierPath(ovalIn: box(x, 9.0, 1.6, 2.2)).fill()
+        for eye in eyeBoxes where eyes {
+            NSBezierPath(ovalIn: box(eye.minX, eye.minY, eye.width, eye.height)).fill()
         }
         if rect.width >= 22 {
             let gleam = NSBezierPath()

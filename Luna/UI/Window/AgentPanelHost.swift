@@ -20,6 +20,10 @@ final class AgentPanelHost {
     private var leading: NSLayoutConstraint?
     private var trailing: NSLayoutConstraint?
     private var top: NSLayoutConstraint?
+    /// The panel's light, under the page and a corner wider than the panel.
+    private var aura: NSView?
+    private var auraLeading: NSLayoutConstraint?
+    private var auraTrailing: NSLayoutConstraint?
 
     private var width: CGFloat { Tokens.Metric.agentPanelWidth }
 
@@ -43,11 +47,29 @@ final class AgentPanelHost {
         ].compactMap { $0 })
         trailing?.constant = -width
         trailing?.isActive = true
+        if let light = (view as? AgentPanelView)?.aura { installAura(light, in: root, below: card, beside: view) }
         Tokens.Motion.immediately {
             place(for: state)
             root.layoutSubtreeIfNeeded()
         }
         return true
+    }
+
+    /// Under the page, the panel's height and a window corner wider than it on
+    /// the page's side: the page covers the overlap but for the notches its
+    /// rounded corners leave, which the light fills instead of the window.
+    private func installAura(_ light: NSView, in root: NSView, below card: NSView, beside panel: NSView) {
+        aura = light
+        light.isHidden = true
+        root.addSubview(light, positioned: .below, relativeTo: card)
+        auraLeading = light.leadingAnchor.constraint(equalTo: panel.leadingAnchor)
+        auraTrailing = light.trailingAnchor.constraint(equalTo: panel.trailingAnchor)
+        NSLayoutConstraint.activate([
+            light.topAnchor.constraint(equalTo: panel.topAnchor),
+            light.bottomAnchor.constraint(equalTo: panel.bottomAnchor),
+            light.widthAnchor.constraint(equalTo: panel.widthAnchor, constant: WindowCorner.radius)
+        ])
+        auraTrailing?.isActive = true
     }
 
     /// The pane's edge the panel stands against, or nil when it is not shown.
@@ -97,6 +119,9 @@ final class AgentPanelHost {
         let side = side(for: state)
         leading?.isActive = side == .leading
         trailing?.isActive = side == .trailing
+        // Pinned by the panel's outer edge, so its extra width lies under the page.
+        auraTrailing?.isActive = side == .trailing
+        auraLeading?.isActive = side == .leading
         let offset = edge == nil ? -width : 0
         leading?.constant = offset
         trailing?.constant = offset
@@ -106,7 +131,10 @@ final class AgentPanelHost {
         case (_, .leading): top?.constant = Tokens.Metric.pageBar
         default: top?.constant = 0
         }
-        if edge != nil { panel.isHidden = false }
+        if edge != nil {
+            panel.isHidden = false
+            aura?.isHidden = false
+        }
     }
 
     /// Takes a parked panel out of the drawing once it has slid away, so its
@@ -114,6 +142,7 @@ final class AgentPanelHost {
     func settle() {
         guard let panel, !isShown else { return }
         panel.isHidden = true
+        aura?.isHidden = true
     }
 }
 

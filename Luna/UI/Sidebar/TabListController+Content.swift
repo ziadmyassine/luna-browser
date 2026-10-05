@@ -99,7 +99,7 @@ extension TabListController {
             trailing = .close
         } else if needsYouTabs.contains(tab.id) {
             trailing = .agent(needsYou: true)
-        } else if workingTabs[tab.id] != nil || isAstroWorking(in: tab) {
+        } else if workingTabs[tab.id] != nil || astroTabs.contains(tab.id) {
             trailing = .agent(needsYou: false)
         } else if let devices = SidebarRowContent.Trailing.inUse(state) {
             trailing = devices
@@ -113,8 +113,7 @@ extension TabListController {
             // §3.4a: a chosen symbol replaces the favicon, so the row draws its symbol
             // slot instead — the path the New Tab row takes.
             symbolName: tab.customSymbolName ?? SidebarRowContent.siteFallbackSymbol,
-            favicon: tab.customSymbolName.map { symbol in tabTiles[tab.id].flatMap { TabTile.image(symbol: symbol, colour: $0) } }
-                ?? icons.favicon(for: url),
+            favicon: tab.customSymbolName == nil ? icons.favicon(for: url) : nil,
             hasUnread: tab.hasUnread,
             isLoading: state?.isLoading ?? false,
             trailing: trailing,
@@ -124,16 +123,6 @@ extension TabListController {
             trailingInset: list.group(ofTab: tab.id) == nil ? 0 : Tokens.Metric.groupMemberTrailingInset,
             isDormant: tab.isDormant
         )
-    }
-}
-
-extension TabListController {
-
-    /// Every tab in a folder Astro is working in wears Astro, for the whole
-    /// turn, as the picture of a plan under way.
-    func isAstroWorking(in tab: Tab) -> Bool {
-        guard let group = tab.groupID else { return false }
-        return controlFaces[group]?.isAstro == true && controlledGroupIDs.contains(group)
     }
 }
 

@@ -39,6 +39,8 @@ extension PageChromeBar {
         let width = fixed + CGFloat(count) * PageBarExtensionShelf.pitch
         let height = PageBarExtensionShelf.button.height
         shelf.frame = NSRect(x: end - width, y: centreY - height / 2, width: width, height: height).pixelAligned
+        // Moved, maybe from under the pointer, by the agent panel coming or going.
+        for case let button as GlassButton in shelf.subviews { button.settleHover() }
         return shelf.frame.minX - Tokens.Metric.chromeGapWide
     }
 }

@@ -74,8 +74,11 @@ enum AgentMenus {
         return content
     }
 
-    static func show(_ content: SiteSettingsContent, from anchor: NSView) {
+    /// On its button, the edge nearer the panel's side lined up with the
+    /// button's, so the pop-out stays inside the panel rather than over the page.
+    static func show(_ content: SiteSettingsContent, from anchor: NSView, trailing: Bool = false) {
         guard let window = anchor.window else { return }
+        if trailing { controller.alignsTrailingEdgeTo = anchor } else { controller.alignsLeadingEdgeTo = anchor }
         controller.toggle(in: window, from: anchor, edge: .below, content: content)
     }
 }

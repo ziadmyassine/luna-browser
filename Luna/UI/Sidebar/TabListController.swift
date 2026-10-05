@@ -105,8 +105,8 @@ final class TabListController: NSObject {
     var controlBadges: [UUID: String] = [:]
     /// `BrowserSession.controlNeedsYouTabs`, the same way.
     var needsYouTabs: Set<UUID> = []
-    /// `BrowserSession.controlTabTiles`, the same way.
-    var tabTiles: [UUID: String] = [:]
+    /// `BrowserSession.astroWorkingTabs`, the same way.
+    var astroTabs: Set<UUID> = []
     /// `BrowserSession.controlFaces`, the same way.
     var controlFaces: [UUID: ControlFace] = [:] {
         didSet { if controlFaces != oldValue { movePills(animated: false) } }

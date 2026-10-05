@@ -143,6 +143,7 @@ final class ControlService {
             inControlFolderOf: ControlSocket.path(bundleIdentifier: Bundle.main.bundleIdentifier ?? "dev.novapps.luna")
         )
     ) {
+        Self.dropAgentTabIcons(in: session)
         self.session = session
         self.defaults = defaults
         self.auditURL = auditURL
@@ -223,6 +224,7 @@ final class ControlService {
         -> ControlResult {
         let folder = folders[client.session]
         if let folder { mark(folder, running: true) }
+        astroActed(on: id, for: client.session)
         defer { if let folder { mark(folder, running: false) } }
         switch call.command {
         case .listTabs:
@@ -236,8 +238,8 @@ final class ControlService {
             return try closeTab(call, in: session, for: client)
         case .requestUser, .nameTask, .askUser:
             return await speak(call.command, for: client, in: session)
-        case .labelTab:
-            return label(id, call.command, for: client, in: session)
+        case .labelTab, .showDocument:
+            return try await present(call.command, tab: id, for: client, in: session)
         case let .viewport(size):
             return await viewport(size, tab: id, for: client, in: session)
         default:
@@ -245,7 +247,7 @@ final class ControlService {
         }
     }
 
-    private func openTab(_ url: URL?, in session: BrowserSession, for client: ControlClient) async throws -> ControlResult {
+    func openTab(_ url: URL?, in session: BrowserSession, for client: ControlClient) async throws -> ControlResult {
         // The folder `execute` marks is one that existed when the call came in.
         let isNew = folders[client.session].flatMap(session.group)?.spaceID != session.activeSpaceID
         let group = folderInActiveSpace(for: client, in: session)

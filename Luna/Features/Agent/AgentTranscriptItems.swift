@@ -80,11 +80,12 @@ final class AgentBubble: NSView {
     }
 }
 
-/// The agent's words, set from the Markdown it writes (`AgentMarkdown`).
+/// The agent's words, set from the Markdown it writes (`AgentMarkdown`):
+/// prose as text, a table as a grid, code in a box of its own.
 @MainActor
 final class AgentParagraph: NSView {
 
-    private let label = NSTextField(wrappingLabelWithString: "")
+    private let blocks = NSStackView()
 
     var markdown = "" {
         didSet { if markdown != oldValue { render() } }
@@ -93,17 +94,17 @@ final class AgentParagraph: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         translatesAutoresizingMaskIntoConstraints = false
-        label.isSelectable = true
-        label.allowsEditingTextAttributes = true
-        label.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(label)
+        blocks.orientation = .vertical
+        blocks.alignment = .leading
+        blocks.spacing = Tokens.Metric.agentItemGap
+        blocks.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(blocks)
         NSLayoutConstraint.activate([
-            label.topAnchor.constraint(equalTo: topAnchor),
-            label.bottomAnchor.constraint(equalTo: bottomAnchor),
-            label.leadingAnchor.constraint(equalTo: leadingAnchor),
-            label.trailingAnchor.constraint(equalTo: trailingAnchor)
+            blocks.topAnchor.constraint(equalTo: topAnchor),
+            blocks.bottomAnchor.constraint(equalTo: bottomAnchor),
+            blocks.leadingAnchor.constraint(equalTo: leadingAnchor),
+            blocks.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
-        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
     }
 
     @available(*, unavailable)
@@ -113,7 +114,7 @@ final class AgentParagraph: NSView {
 
     override func layout() {
         super.layout()
-        label.preferredMaxLayoutWidth = max(bounds.width, 40)
+        for case let label as NSTextField in blocks.arrangedSubviews { label.preferredMaxLayoutWidth = max(bounds.width, 40) }
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -121,9 +122,47 @@ final class AgentParagraph: NSView {
         render()
     }
 
+    /// Text that is still arriving keeps its label, so a paragraph growing
+    /// word by word is one view changing, not a column being rebuilt; a
+    /// table or code box is made again only when it changes.
     private func render() {
-        label.attributedStringValue = AgentMarkdown.render(markdown)
+        let segments = AgentMarkdown.segments(markdown)
+        var views: [NSView] = []
+        for (index, segment) in segments.enumerated() {
+            let existing = blocks.arrangedSubviews[safe: index]
+            switch segment {
+            case let .text(text):
+                let label = existing as? NSTextField ?? Self.label()
+                label.attributedStringValue = text
+                views.append(label)
+            case let .table(table):
+                views.append(AgentTableView(table))
+            case let .code(code):
+                views.append(AgentCodeView(code))
+            }
+        }
+        for view in blocks.arrangedSubviews where !views.contains(view) {
+            blocks.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+        for (index, view) in views.enumerated() where blocks.arrangedSubviews[safe: index] !== view {
+            blocks.insertArrangedSubview(view, at: index)
+            view.widthAnchor.constraint(equalTo: blocks.widthAnchor).isActive = true
+        }
+        needsLayout = true
     }
+
+    private static func label() -> NSTextField {
+        let label = NSTextField(wrappingLabelWithString: "")
+        label.isSelectable = true
+        label.allowsEditingTextAttributes = true
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return label
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? { indices.contains(index) ? self[index] : nil }
 }
 
 /// A run of steps the agent took in Luna, as one card: each step's glyph,

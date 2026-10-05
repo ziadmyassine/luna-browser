@@ -130,7 +130,8 @@ final class RowPillView: NSView {
         layer.borderWidth = bordered ? Tokens.Metric.hairline : 0
         // Under Reduce Motion the spark does not run, and a working folder's
         // rim comes up to full strength instead.
-        let rimAlpha = isWorking && Tokens.Motion.reduceMotion ? 1 : Tokens.Agent.rimAlpha
+        // Astro's rim is lighter than an app's: it glows, so it needs less line.
+        let rimAlpha = isWorking && Tokens.Motion.reduceMotion ? 1 : glows ? Tokens.Agent.rimAlpha * 0.6 : Tokens.Agent.rimAlpha
         layer.borderColor = bordered ? (tint?.withAlphaComponent(rimAlpha) ?? Tokens.Line.border).cgColor : nil
         band.backgroundColor = Tokens.Surface.readBand.cgColor
         let light = (tint?.blended(withFraction: Tokens.Agent.sparkLift, of: .white) ?? .white).cgColor
@@ -142,8 +143,8 @@ final class RowPillView: NSView {
         spark.colors = [clear, clear, light, ice]
         layer.shadowColor = (tint ?? Tokens.Astro.from).cgColor
         layer.shadowOffset = .zero
-        layer.shadowRadius = isWorking ? 8 : 5
-        layer.shadowOpacity = isWorking ? 0.55 : 0.25
+        layer.shadowRadius = isWorking ? 7 : 4
+        layer.shadowOpacity = isWorking ? 0.35 : 0.15
     }
 
     private func applyWorking() {
@@ -179,7 +180,7 @@ final class RowPillView: NSView {
         switch role {
         case .selected: Tokens.Surface.selected
         case .hover: Tokens.Surface.hover
-        case .folder: tint?.withAlphaComponent(Tokens.Agent.fillAlpha) ?? Tokens.Surface.well
+        case .folder: tint?.withAlphaComponent(Tokens.Agent.fillAlpha * (glows ? 0.45 : 1)) ?? Tokens.Surface.well
         case .working: .clear
         }
     }

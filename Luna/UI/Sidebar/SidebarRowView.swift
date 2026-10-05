@@ -235,6 +235,7 @@ final class SidebarRowView: NSView {
     var isRenaming: Bool { !editor.isHidden && !isPickingEmoji }
 
     private func applyTrailing(_ state: SidebarRowContent.Trailing) {
+        if state != .agent(needsYou: false) { trailing.showAstro(side: nil) }
         switch state {
         case .none:
             trailing.isHidden = true
@@ -263,7 +264,8 @@ final class SidebarRowView: NSView {
             trailing.isHidden = false
             let ink = Tokens.Metric.rowTrailingGlyph
             if needsYou { trailing.configure(symbolName: "hand.raised.fill", label: "The agent needs you", pointSize: ink) } else {
-                trailing.configure(image: AgentGlyph.image(pointSize: ink), label: "The agent is working here", pointSize: ink)
+                trailing.configure(image: nil, label: "Astro is working here", pointSize: ink)
+                trailing.showAstro(side: Tokens.Metric.faviconSize + 2)
             }
         }
     }

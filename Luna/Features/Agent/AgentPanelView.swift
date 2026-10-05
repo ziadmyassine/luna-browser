@@ -39,7 +39,10 @@ final class AgentPanelView: NSView {
     private let transcript = AgentTranscriptView()
     private let composer = AgentComposerView()
     private let empty = AgentEmptyView()
-    private let aura = AgentAura()
+    /// The light behind the panel. Not one of its subviews: `AgentPanelHost`
+    /// puts it under the page, reaching a corner's width past the panel, so
+    /// the colour fills the notches the page's rounded corners leave.
+    let aura = AgentAura()
     private var watch: (any NSObjectProtocol)?
     private var clock: Timer?
 
@@ -90,24 +93,19 @@ final class AgentPanelView: NSView {
         titleLabel.font = Tokens.TypeScale.agentTitle
         titleLabel.textColor = Tokens.Text.primary
         titleLabel.lineBreakMode = .byTruncatingTail
-        titleLabel.alignment = .center
+        titleLabel.alignment = .left
         statusLabel.font = Tokens.TypeScale.agentStatus
         statusLabel.textColor = Tokens.Text.secondary
-        statusLabel.alignment = .center
+        statusLabel.alignment = .left
         let titles = NSStackView(views: [titleLabel, statusLabel])
         titles.orientation = .vertical
         titles.spacing = 0
         titles.translatesAutoresizingMaskIntoConstraints = false
         titleCapsule.addSubview(titles)
+        rover.translatesAutoresizingMaskIntoConstraints = false
+        titleCapsule.addSubview(rover)
 
-        addSubview(aura)
-        NSLayoutConstraint.activate([
-            aura.topAnchor.constraint(equalTo: topAnchor),
-            aura.bottomAnchor.constraint(equalTo: bottomAnchor),
-            aura.leadingAnchor.constraint(equalTo: leadingAnchor),
-            aura.trailingAnchor.constraint(equalTo: trailingAnchor)
-        ])
-        for view in [history, more, rover, titleCapsule, transcript, composer, empty] as [NSView] {
+        for view in [history, more, titleCapsule, transcript, composer, empty] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
         }
@@ -115,34 +113,38 @@ final class AgentPanelView: NSView {
         layOutBody()
     }
 
-    /// History, the rover and the menu across the top, and the task's name under them.
+    /// History, the task's pill and the menu, on the line the browser's own
+    /// top row is centred on — the sidebar's buttons, the page bar's. The
+    /// pill fills the room between the two buttons, Astro alive at its
+    /// leading end and the task's name and what it is doing beside it.
     private func layOutHeader(titles: NSView) {
         let inset = Tokens.Metric.agentPanelInset
-        let capsule = Tokens.Metric.agentTitleCapsule
+        let gap = Tokens.Metric.chromeGap
+        let circle = Tokens.Metric.sidebarCircle
+        let line = Tokens.Metric.pageBar / 2
+        let pill = Tokens.Metric.agentTitleCapsule.height
+        let face = pill - 10
         NSLayoutConstraint.activate([
             history.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
-            history.centerYAnchor.constraint(equalTo: rover.centerYAnchor),
-            history.widthAnchor.constraint(equalToConstant: Tokens.Metric.sidebarCircle.width),
-            history.heightAnchor.constraint(equalToConstant: Tokens.Metric.sidebarCircle.height),
+            history.centerYAnchor.constraint(equalTo: topAnchor, constant: line),
+            history.widthAnchor.constraint(equalToConstant: circle.width),
+            history.heightAnchor.constraint(equalToConstant: circle.height),
             more.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
-            more.centerYAnchor.constraint(equalTo: rover.centerYAnchor),
-            more.widthAnchor.constraint(equalToConstant: Tokens.Metric.sidebarCircle.width),
-            more.heightAnchor.constraint(equalToConstant: Tokens.Metric.sidebarCircle.height),
-            // On the line the browser's own top row is centred on — the
-            // sidebar's buttons, the page bar's — not an inset below it.
-            rover.centerYAnchor.constraint(equalTo: topAnchor, constant: Tokens.Metric.pageBar / 2),
-            rover.centerXAnchor.constraint(equalTo: centerXAnchor),
-            rover.widthAnchor.constraint(equalToConstant: Tokens.Metric.agentRover),
-            rover.heightAnchor.constraint(equalToConstant: Tokens.Metric.agentRover),
+            more.centerYAnchor.constraint(equalTo: history.centerYAnchor),
+            more.widthAnchor.constraint(equalToConstant: circle.width),
+            more.heightAnchor.constraint(equalToConstant: circle.height),
 
-            titleCapsule.topAnchor.constraint(equalTo: rover.bottomAnchor, constant: Tokens.Metric.chromeGap),
-            titleCapsule.centerXAnchor.constraint(equalTo: centerXAnchor),
-            titleCapsule.heightAnchor.constraint(equalToConstant: capsule.height),
-            titleCapsule.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -2 * inset),
-            titleCapsule.widthAnchor.constraint(greaterThanOrEqualToConstant: capsule.width),
+            titleCapsule.leadingAnchor.constraint(equalTo: history.trailingAnchor, constant: gap),
+            titleCapsule.trailingAnchor.constraint(equalTo: more.leadingAnchor, constant: -gap),
+            titleCapsule.centerYAnchor.constraint(equalTo: history.centerYAnchor),
+            titleCapsule.heightAnchor.constraint(equalToConstant: pill),
+            rover.leadingAnchor.constraint(equalTo: titleCapsule.leadingAnchor, constant: 6),
+            rover.centerYAnchor.constraint(equalTo: titleCapsule.centerYAnchor),
+            rover.widthAnchor.constraint(equalToConstant: face),
+            rover.heightAnchor.constraint(equalToConstant: face),
             titles.centerYAnchor.constraint(equalTo: titleCapsule.centerYAnchor),
-            titles.leadingAnchor.constraint(equalTo: titleCapsule.leadingAnchor, constant: Tokens.Metric.pillTextInset + 4),
-            titles.trailingAnchor.constraint(equalTo: titleCapsule.trailingAnchor, constant: -(Tokens.Metric.pillTextInset + 4))
+            titles.leadingAnchor.constraint(equalTo: rover.trailingAnchor, constant: 6),
+            titles.trailingAnchor.constraint(lessThanOrEqualTo: titleCapsule.trailingAnchor, constant: -(Tokens.Metric.pillTextInset + 4))
         ])
     }
 
@@ -259,6 +261,6 @@ final class AgentPanelView: NSView {
         } hide: { [weak self] in
             self?.onClose?()
         }
-        AgentMenus.show(content, from: more)
+        AgentMenus.show(content, from: more, trailing: true)
     }
 }

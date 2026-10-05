@@ -7,7 +7,8 @@
 //  thought bubble fills dot by dot. Working, it bobs with its ears lit and a
 //  light sweeps its visor. Asking for the user, it rocks and its ears flash.
 //  Done, it hops, smiles and sparkles; gone wrong, it sinks and dims;
-//  stopped, it dozes.
+//  stopped, it dozes. Whatever the mood, it never holds quite still: it
+//  breathes, and blinks whenever its eyes are open.
 //
 //  Every loop is a Core Animation one, so it costs nothing between frames,
 //  and the few that happen now and then (a blink, a glance) run on timers
@@ -88,6 +89,7 @@ extension AgentRoverView {
         add(scan, "sweep", sweep)
         for light in earLights { add(light, "pulse", pulse(duration: 0.5)) }
         every(2.6) { [weak self] in self?.glance(to: Bool.random() ? -2 : 2) }
+        every(4.6) { [weak self] in self?.blink() }
     }
 
     private func wave() {
@@ -112,21 +114,34 @@ extension AgentRoverView {
             star.opacity = 1
             add(star, "pop", pop)
         }
+        breathe(after: 0.7)
+    }
+
+    /// The idle float, on top of whatever else the head is doing, so a mood
+    /// that has finished its moment still looks alive.
+    private func breathe(after delay: CFTimeInterval = 0, depth: CGFloat = 1.2, duration: CFTimeInterval = 3.2) {
+        let float = keyframes("transform.translation.y", [0, -depth, 0], duration: duration)
+        float.isAdditive = true
+        float.beginTime = CACurrentMediaTime() + delay
+        add(head, "alive", float)
     }
 
     private func droop() {
         add(head, "sink", keyframes("transform.translation.y", [0, 3], duration: 0.5, repeating: false, holds: true))
         add(head, "hang", keyframes("transform.rotation.z", [0, 0.06], duration: 0.5, repeating: false, holds: true))
+        breathe(after: 0.5, depth: 0.8, duration: 4.4)
     }
 
     private func doze() {
         add(head, "doze", keyframes("transform.translation.y", [0, 1.5, 0], duration: 4.2))
+        every(6) { [weak self] in self?.blink() }
     }
 
     // MARK: - Now and then
 
     func blink() {
-        guard [.idle, .thinking, .waving].contains(mood) else { return }
+        // Arcs, smiling or drooping, have no lid to close.
+        guard ![.happy, .sad].contains(mood) else { return }
         let closed = eyePaths(for: mood, open: 0.1)
         for (eye, path) in [(leftEye, closed.0), (rightEye, closed.1)] {
             let animation = CABasicAnimation(keyPath: "path")

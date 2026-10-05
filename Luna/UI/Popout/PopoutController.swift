@@ -30,6 +30,9 @@ class PopoutController: NSObject {
     /// view's rather than hang it from, or centre it on, the button — see
     /// `PopoutPanelView.leadingEdge`. Read once, by the present it was set for.
     weak var alignsLeadingEdgeTo: NSView?
+    /// The same, for the trailing edge: a pop-out from a button at the right
+    /// end of a column ends where the button does, and stays in the column.
+    weak var alignsTrailingEdgeTo: NSView?
     private var escapeMonitor: Any?
     private var clickMonitor: Any?
     private(set) weak var host: NSWindow?
@@ -103,7 +106,14 @@ class PopoutController: NSObject {
                 return panel.convert(aligned.bounds, from: aligned).minX
             }
         }
+        if let aligned = alignsTrailingEdgeTo {
+            panel.leadingEdge = { [weak panel, weak aligned] in
+                guard let panel, let aligned, aligned.window != nil else { return nil }
+                return panel.convert(aligned.bounds, from: aligned).maxX - panel.preferredSize.width
+            }
+        }
         alignsLeadingEdgeTo = nil
+        alignsTrailingEdgeTo = nil
         panel.onBackgroundClick = { [weak self] in self?.dismiss() }
         root.addSubview(panel, positioned: .above, relativeTo: nil)
         presented = panel

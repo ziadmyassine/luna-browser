@@ -23,57 +23,80 @@ enum AgentMarkdown {
     static let listIndent: CGFloat = 18
     static let paragraphGap: CGFloat = 7
 
+    /// The words alone, every block set as text — tables and code included.
+    /// `segments` is what the panel draws; this is the same reading as one string.
     static func render(_ markdown: String) -> NSAttributedString {
+        guard let parsed = parse(markdown) else { return plain(markdown) }
+        var text = TextBuilder()
+        for run in parsed.runs { text.append(run, of: parsed) }
+        return text.result
+    }
+
+    static func parse(_ markdown: String) -> AttributedString? {
         let options = AttributedString.MarkdownParsingOptions(
             allowsExtendedAttributes: false, interpretedSyntax: .full, failurePolicy: .returnPartiallyParsedIfPossible
         )
-        guard let parsed = try? AttributedString(markdown: markdown, options: options) else {
-            let plain: [NSAttributedString.Key: Any] = [.font: Tokens.TypeScale.agentBody, .foregroundColor: Tokens.Text.primary]
-            return NSAttributedString(string: markdown, attributes: plain)
-        }
+        return try? AttributedString(markdown: markdown, options: options)
+    }
+
+    static func plain(_ text: String) -> NSAttributedString {
+        NSAttributedString(string: text, attributes: [.font: Tokens.TypeScale.agentBody, .foregroundColor: Tokens.Text.primary])
+    }
+
+    /// Runs of prose, set one after another: a line break between blocks,
+    /// and each list item's bullet or number before its first run.
+    @MainActor
+    struct TextBuilder {
         let result = NSMutableAttributedString()
-        var block: PresentationIntent?
-        var listItem: Int?
-        for run in parsed.runs {
+        private var block: PresentationIntent?
+        private var listItem: Int?
+
+        mutating func append(_ run: AttributedString.Runs.Run, of parsed: AttributedString) {
             let intent = run.presentationIntent
             if intent != block {
                 if result.length > 0 { result.append(NSAttributedString(string: "\n", attributes: [.font: Tokens.TypeScale.agentBody])) }
                 block = intent
-                // A list item's first run wears its bullet or number.
-                if let item = intent.flatMap(Self.listItem), item.identity != listItem {
+                if let item = intent.flatMap(AgentMarkdown.listItem), item.identity != listItem {
                     listItem = item.identity
-                    result.append(NSAttributedString(string: item.marker + "\t", attributes: style(for: intent, marker: true)))
+                    let marker = AgentMarkdown.style(for: intent, marker: true)
+                    result.append(NSAttributedString(string: item.marker + "\t", attributes: marker))
                 }
-            }
-            var attributes = style(for: intent, marker: false)
-            inline(run.inlinePresentationIntent ?? [], into: &attributes)
-            if let link = run.link {
-                attributes[.link] = link
-                attributes[.foregroundColor] = Tokens.Accent.tint
             }
             var text = String(parsed[run.range].characters)
             // A code block brings its own last line break, and blocks are
             // already parted by one.
-            if intent?.components.contains(where: { Self.isCode($0.kind) }) == true,
-               text.hasSuffix("\n") {
+            if intent?.components.contains(where: { AgentMarkdown.isCode($0.kind) }) == true, text.hasSuffix("\n") {
                 text.removeLast()
             }
-            result.append(NSAttributedString(string: text, attributes: attributes))
+            result.append(NSAttributedString(string: text, attributes: AgentMarkdown.attributes(of: run, intent: intent)))
         }
-        return result
     }
 
-    private static func isCode(_ kind: PresentationIntent.Kind) -> Bool {
+    /// A run's attributes: its block's style, then its own bold, italics,
+    /// code and link.
+    static func attributes(of run: AttributedString.Runs.Run, intent: PresentationIntent?, base: NSFont? = nil)
+        -> [NSAttributedString.Key: Any] {
+        var attributes = style(for: intent, marker: false)
+        if let base { attributes[.font] = base }
+        inline(run.inlinePresentationIntent ?? [], into: &attributes)
+        if let link = run.link {
+            attributes[.link] = link
+            attributes[.foregroundColor] = Tokens.Accent.tint
+        }
+        return attributes
+    }
+
+    static func isCode(_ kind: PresentationIntent.Kind) -> Bool {
         if case .codeBlock = kind { true } else { false }
     }
 
-    private struct ListItem {
+    struct ListItem {
         var identity: Int
         var marker: String
     }
 
     /// The innermost list item a block is in, and the mark it opens with.
-    private static func listItem(_ intent: PresentationIntent) -> ListItem? {
+    static func listItem(_ intent: PresentationIntent) -> ListItem? {
         let components = intent.components
         guard let index = components.firstIndex(where: { if case .listItem = $0.kind { true } else { false } }),
               case let .listItem(ordinal) = components[index].kind else { return nil }
@@ -86,7 +109,7 @@ enum AgentMarkdown {
         return ListItem(identity: components[index].identity, marker: ordered ? "\(ordinal)." : "•")
     }
 
-    private static func style(for intent: PresentationIntent?, marker: Bool) -> [NSAttributedString.Key: Any] {
+    static func style(for intent: PresentationIntent?, marker: Bool) -> [NSAttributedString.Key: Any] {
         let body = Tokens.TypeScale.agentBody
         let paragraph = NSMutableParagraphStyle()
         paragraph.paragraphSpacing = paragraphGap

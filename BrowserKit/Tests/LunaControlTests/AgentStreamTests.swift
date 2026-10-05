@@ -61,27 +61,46 @@ struct AgentStreamTests {
     }
 }
 
-/// `label_tab`: a tab's name and icon, from the agent.
+/// `label_tab`: a tab's name, from the agent.
 @Suite("Label tab")
 struct LabelTabTests {
 
-    @Test func aNameAndAnIconOnAColour() throws {
-        let call = try #require(ControlCall.parse(tool: "label_tab", arguments: [
-            "tabId": 3, "title": " Flights\n", "symbol": "airplane", "color": "Teal"
-        ]))
-        #expect(try call.get().command == .labelTab(title: "Flights", symbol: "airplane", colour: "teal"))
-        #expect(!ControlCommand.labelTab(title: "x", symbol: nil, colour: nil).acts)
+    @Test func aName() throws {
+        let call = try #require(ControlCall.parse(tool: "label_tab", arguments: ["tabId": 3, "title": " Flights\n"]))
+        #expect(try call.get().command == .labelTab(title: "Flights"))
+        #expect(!ControlCommand.labelTab(title: "x").acts)
     }
 
-    @Test func itNeedsATabAndSomethingToSay() {
+    @Test func itNeedsATabAndAName() {
         #expect((try? ControlCall.parse(tool: "label_tab", arguments: ["title": "Flights"])?.get()) == nil)
         #expect((try? ControlCall.parse(tool: "label_tab", arguments: ["tabId": 3])?.get()) == nil)
-        #expect((try? ControlCall.parse(tool: "label_tab", arguments: ["tabId": 3, "title": "x", "color": "beige"])?.get()) == nil)
     }
 
     @Test func agentsAreToldToNameThings() {
         #expect(ControlSession.instructions.contains("name_task"))
         #expect(ControlSession.instructions.contains("label_tab"))
         #expect(ControlTools.all.contains { $0["name"]?.string == "label_tab" })
+    }
+}
+
+/// `show_document`: a write-up the agent hands the user as a Markdown tab.
+@Suite("Show document")
+struct ShowDocumentTests {
+
+    @Test func aTitleAndTheDocument() throws {
+        let call = try #require(ControlCall.parse(tool: "show_document", arguments: [
+            "title": "Rome plan.", "markdown": "# Rome\n\n| Day | What |\n|---|---|\n| 1 | Table Mountain |"
+        ]))
+        guard case let .showDocument(title, markdown) = try call.get().command else {
+            Issue.record("not a document")
+            return
+        }
+        #expect(title == "Rome plan")
+        #expect(markdown.hasPrefix("# Rome"))
+        #expect(!ControlCommand.showDocument(title: "x", markdown: "y").acts)
+    }
+
+    @Test func itNeedsTheDocument() {
+        #expect((try? ControlCall.parse(tool: "show_document", arguments: ["title": "x"])?.get()) == nil)
     }
 }

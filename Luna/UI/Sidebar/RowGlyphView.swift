@@ -137,6 +137,10 @@ final class RowGlyphView: NSImageView {
 
     override func layout() {
         super.layout()
+        // Astro (`AstroMark`) stays centred in the chip as it is resized.
+        if let astro = layer?.sublayers?.first(where: { $0.name == AstroMark.name }) {
+            Tokens.Motion.immediately { astro.position = CGPoint(x: bounds.midX, y: bounds.midY) }
+        }
         // The chip is the hit box, which is what the glyph's own frame is —
         // see `URLPillLayout.placeContents`. Never taller than it is round.
         let round = min(bounds.width, bounds.height) / 2

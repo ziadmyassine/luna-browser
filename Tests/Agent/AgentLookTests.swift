@@ -4,7 +4,7 @@
 //
 //  How Astro's work reads: the agent's Markdown set as type, a run of steps
 //  gathered into one card, the thinking line only while there is nothing
-//  else to show, and the tiles an agent puts on its tabs.
+//  else to show, and the icon an agent gives its folder.
 //
 
 import AppKit
@@ -23,6 +23,28 @@ final class AgentLookTests: XCTestCase {
         XCTAssertTrue(text.contains("•\tdirect"))
         let heading = AgentMarkdown.render("## Flights").attribute(.font, at: 0, effectiveRange: nil) as? NSFont
         XCTAssertGreaterThan(heading?.pointSize ?? 0, Tokens.TypeScale.agentBody.pointSize)
+    }
+
+    func testATableIsAGridNotAColumnOfWords() {
+        let segments = AgentMarkdown.segments("""
+        **Copenhagen → Sydney:**
+
+        | Airline | Route | Price |
+        |---|---|---|
+        | THAI | 1 stop, Bangkok | DKK 9,846 |
+        | Emirates | 1 stop, Dubai | DKK 10,288 |
+
+        ```
+        SK1525 07:40
+        ```
+        """)
+        XCTAssertEqual(segments.count, 3)
+        guard case let .table(table) = segments[1] else { return XCTFail("no table") }
+        XCTAssertEqual(table.header.map(\.string), ["Airline", "Route", "Price"])
+        XCTAssertEqual(table.rows.count, 2)
+        XCTAssertEqual(table.rows[1].map(\.string), ["Emirates", "1 stop, Dubai", "DKK 10,288"])
+        guard case let .code(code) = segments[2] else { return XCTFail("no code") }
+        XCTAssertEqual(code, "SK1525 07:40")
     }
 
     func testStepsInARowAreOneCard() {
@@ -67,12 +89,7 @@ final class AgentLookTests: XCTestCase {
         XCTAssertNil(ControlService.folderIcon(nil, title: "Running shoes", astro: false), "another app's folder keeps its face")
     }
 
-    func testTabTilesAndTheIcon() {
-        XCTAssertNotNil(TabTile.image(symbol: "airplane", colour: "teal"))
-        XCTAssertNil(TabTile.image(symbol: "airplane", colour: "beige"))
-        XCTAssertNil(TabTile.image(symbol: "no.such.symbol.anywhere", colour: "teal"))
-        XCTAssertEqual(Set(ControlCall.tabColours.compactMap(TabTile.colour(named:)).map(\.description)).count,
-                       ControlCall.tabColours.count, "every colour an agent may name is one Luna draws")
+    func testAstroIsInColour() {
         XCTAssertFalse(AgentGlyph.image(pointSize: 16).isTemplate, "Astro is in its own colours")
         XCTAssertTrue(ControlFace(appID: ControlFace.astro).isAstro)
     }
