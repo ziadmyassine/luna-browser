@@ -264,7 +264,7 @@ extension TabController: WKNavigationDelegate {
         publishState()
         // Cheap, and it is the only copy §19.3 can recover from once the process dies.
         savedInteractionState = webView.interactionState as? Data
-        fallbackURL = webView.url ?? fallbackURL
+        fallbackURL = webView.url.flatMap { Self.isBlank($0) ? nil : $0 } ?? fallbackURL
         refreshFavicon()
         startMarkdownPage()
         probeForArticle()

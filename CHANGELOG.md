@@ -7,6 +7,7 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-05
 
+- **Reload brings back a page that went blank** (§4): a tab that went blank after a reload in the middle of a sign-in (it happened on Dinero) now loads the page it was showing when you reload it again, instead of reloading the blank page until the tab is closed.
 - **Closing a tab into a closed folder shows where you landed** (§3.4b): when closing a tab moves you to a tab inside a closed folder, or a link opens one there, that tab now shows under the folder, as it does when you go to it yourself.
 - **The password list lands under the field at once** (§14.3): on sign-ins that slide their next step in, like Microsoft's, the list now waits for the field to stop moving instead of appearing beside it and jumping across.
 - **A finger on Touch ID signs you in** (§14.3): filling from the password list with Touch ID also presses the page's own button — Next on the name step, Sign in on the password step.
