@@ -371,7 +371,8 @@ public final class PasswordCoordinator {
     ///
     /// - Parameter authenticated: the user already proved who they are for
     ///   this pick — a finger on the sensor through the picker's own Touch ID
-    ///   view — so no second prompt is shown.
+    ///   view — so no second prompt is shown, and the form's own button is
+    ///   pressed after the fill: the finger was the go-ahead.
     public func fill(_ credential: Credential, authenticated: Bool = false) async {
         isOffering = false
         guard let webView = tab?.webView, let requested = form else { return }
@@ -385,7 +386,8 @@ public final class PasswordCoordinator {
         if requested.isUsernameOnly {
             identified = Identified(site: credential.site, username: credential.username, at: Date())
             await PasswordForms.fill(
-                requested, username: credential.username, password: nil, in: webView, frame: formFrame
+                requested, username: credential.username, password: nil, in: webView, frame: formFrame,
+                submit: authenticated
             )
             return
         }
@@ -407,7 +409,8 @@ public final class PasswordCoordinator {
 
         let password = await CredentialStore.shared.password(for: credential)
         await PasswordForms.fill(
-            form, username: credential.username, password: password, in: webView, frame: formFrame
+            form, username: credential.username, password: password, in: webView, frame: formFrame,
+            submit: authenticated
         )
     }
 

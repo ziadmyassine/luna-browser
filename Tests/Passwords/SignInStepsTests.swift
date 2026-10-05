@@ -295,3 +295,62 @@ final class SignInStepsTests: XCTestCase {
         withExtendedLifetime(controller) {}
     }
 }
+
+// MARK: - Where the picker lands, and the finger's go-ahead
+
+extension SignInStepsTests {
+
+    /// Microsoft's password step slides in from the side. The field is
+    /// measured where it stops, not where it was when it took the focus.
+    func testAFieldSlidingInIsMeasuredWhereItStops() async throws {
+        let (webView, sink) = load("""
+        <div id="step" style="position: relative; left: 300px">
+          <form><input type="password" name="passwd" id="pw"><input type="submit" value="Sign in"></form>
+        </div>
+        """)
+        _ = await loaded(sink)
+        _ = try await webView.evaluateJavaScript("""
+        var step = document.getElementById('step'), left = 300;
+        var slide = setInterval(function () {
+          left = Math.max(0, left - 30);
+          step.style.left = left + 'px';
+          if (left === 0) { clearInterval(slide); }
+        }, 20);
+        document.getElementById('pw').focus(); 1
+        """)
+        let reported = await focused(sink)
+        let form = try XCTUnwrap(reported)
+        let stop = try await webView.evaluateJavaScript("document.getElementById('pw').getBoundingClientRect().left") as? Double
+        XCTAssertEqual(form.fieldRect.minX, try XCTUnwrap(stop), accuracy: 0.5, "the picker was hung from the field mid-slide")
+    }
+
+    private func signedIn(_ html: String) async throws -> String? {
+        let (webView, sink) = load(html)
+        _ = await loaded(sink)
+        _ = try await webView.evaluateJavaScript("document.querySelector('input').focus(); 1")
+        let reported = await focused(sink)
+        let form = try XCTUnwrap(reported)
+        await PasswordForms.fill(form, username: "", password: "hunter2", in: webView, frame: nil, submit: true)
+        try await Task.sleep(for: .milliseconds(300))
+        return try await webView.evaluateJavaScript("document.title") as? String
+    }
+
+    /// A fill chosen with a finger presses the form's own button.
+    func testAFingerFillPressesTheFormsButton() async throws {
+        let title = try await signedIn("""
+        <form onsubmit="event.preventDefault(); document.title = 'sent ' + this.passwd.value">
+          <input type="password" name="passwd"><input type="submit" value="Sign in">
+        </form>
+        """)
+        XCTAssertEqual(title, "sent hunter2")
+    }
+
+    /// Google's sign-in has no form, only a button that says Next.
+    func testAFingerFillPressesNextWhereThereIsNoForm() async throws {
+        let title = try await signedIn("""
+        <div><input type="password" name="Passwd">
+        <div role="button" onclick="document.title = 'next ' + document.querySelector('input').value">Next</div></div>
+        """)
+        XCTAssertEqual(title, "next hunter2")
+    }
+}

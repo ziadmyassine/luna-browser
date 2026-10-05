@@ -25,17 +25,22 @@ extension PasswordForms {
     /// or `Event` to observe the fill. Verified against a page installing
     /// React's swallowing value setter: the fill lands and the page's
     /// `input`/`change` listeners still fire, because events cross worlds.
+    ///
+    /// - Parameter submit: press the form's own button after filling — Next
+    ///   on a name step, Sign in on a password step. Only for a fill the user
+    ///   chose with a finger on Touch ID, which is already the "go" of it.
     @MainActor
     public static func fill(
         _ form: Form,
         username: String,
         password: String?,
         in webView: WKWebView,
-        frame: WKFrameInfo?
+        frame: WKFrameInfo?,
+        submit: Bool = false
     ) async {
         _ = try? await webView.callAsyncJavaScript(
-            fillFunction,
-            arguments: ["formID": form.id, "username": username, "password": password ?? ""],
+            fillFunction + submitFunction,
+            arguments: ["formID": form.id, "username": username, "password": password ?? "", "submit": submit],
             in: frame,
             contentWorld: .defaultClient
         )
@@ -67,6 +72,38 @@ extension PasswordForms {
     var pass = root.querySelector('[data-luna-field="password"]');
     if (username) { setValue(user, username); }
     if (password) { setValue(pass, password); }
+    """
+
+    /// Presses the button the user would have pressed, after the fill.
+    ///
+    /// A beat first, so a framework has taken the `input` event into its own
+    /// state before the click reads it. Then the form's submit button; or,
+    /// for a sign-in built without a form (Google's), a visible button that
+    /// says what such a button says; then the form submitted the way its own
+    /// button would; and last Return in the field, which every page that
+    /// wants the keyboard listens for. `click()` runs the button's own
+    /// behaviour, so a real submit button submits even from here.
+    private static let submitFunction = """
+    var field = (password && pass) || user;
+    if (!submit || !field) { return true; }
+    await new Promise(function (done) { setTimeout(done, 150); });
+    var shown = function (el) {
+      var r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && !el.disabled;
+    };
+    var form = field.form || field.closest('form');
+    var place = form || document;
+    var typed = form ? [].slice.call(form.querySelectorAll('button[type="submit"], input[type="submit"]')).filter(shown) : [];
+    var worded = [].slice.call(place.querySelectorAll('button, input[type="button"], [role="button"]')).filter(function (el) {
+      var words = (el.value || el.textContent || '').trim();
+      return shown(el) && /^(next|continue|sign in|log in|login|submit|næste|fortsæt|log ind)$/i.test(words);
+    });
+    var button = typed[0] || worded[0];
+    if (button) { button.click(); return true; }
+    if (form && form.requestSubmit) { form.requestSubmit(); return true; }
+    ['keydown', 'keypress', 'keyup'].forEach(function (type) {
+      field.dispatchEvent(new KeyboardEvent(type, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+    });
     return true;
     """
 }

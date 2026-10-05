@@ -189,6 +189,7 @@ extension PasswordForms {
         h.postMessage(payload);
       };
 
+    \(settleScript)
       var visible = function (el) {
         if (!el || el.disabled || el.readOnly) { return false; }
         if (el.type === 'hidden') { return false; }
@@ -241,16 +242,18 @@ extension PasswordForms {
         current = formID(scope);
         field.setAttribute('data-luna-field', 'username');
         anchored = field;
-        var r = field.getBoundingClientRect();
-        post({
-          kind: focusedNow ? 'focused' : 'detected',
-          id: current,
-          rect: { x: r.left, y: r.top, width: r.width, height: r.height },
-          isSignup: false,
-          passwordRules: null,
-          hasOneTimeCode: false,
-          isPasswordField: false,
-          isUsernameOnly: true
+        var id = current;
+        postAt(field, function (rect) {
+          return {
+            kind: focusedNow ? 'focused' : 'detected',
+            id: id,
+            rect: rect,
+            isSignup: false,
+            passwordRules: null,
+            hasOneTimeCode: false,
+            isPasswordField: false,
+            isUsernameOnly: true
+          };
         });
       };
 
@@ -293,7 +296,7 @@ extension PasswordForms {
           var named = (focused && nameOnly(focused)) ? focused
             : (anchored && anchored.isConnected && nameOnly(anchored) ? anchored : null);
           if (named) { reportName(named, focused === named); return; }
-          if (current) { current = null; anchored = null; lastSent = ''; post({ kind: 'gone' }); }
+          if (current) { current = null; anchored = null; lastSent = ''; waiting += 1; post({ kind: 'gone' }); }
           return;
         }
         var passwordEl = passwords[0];
@@ -323,16 +326,17 @@ extension PasswordForms {
         var anchorEl = (focused && (focused === userEl || focused === passwordEl))
           ? focused : (userEl || passwordEl);
         if (focused) { anchored = anchorEl; }
-        var r = anchorEl.getBoundingClientRect();
-
-        post({
+        var report = {
           kind: focused ? 'focused' : 'detected',
           id: current,
-          rect: { x: r.left, y: r.top, width: r.width, height: r.height },
           isSignup: looksLikeSignup(scope, scoped),
           passwordRules: passwordEl.getAttribute('passwordrules'),
           hasOneTimeCode: !!otp,
           isPasswordField: anchorEl === passwordEl
+        };
+        postAt(anchorEl, function (rect) {
+          report.rect = rect;
+          return report;
         });
       };
 
