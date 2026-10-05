@@ -49,10 +49,10 @@ public final class TabController: NSObject {
     /// make us rebuild it forever.
     private(set) var recoveries: [Date] = []
 
-    /// Whether §17.2's YouTube script, the file-storage seed, and the Chrome Web
-    /// Store button-hijack are in the current script set — see
-    /// `refreshUserScriptsIfNeeded(host:)`, which is the only thing that reads them.
-    var youTubeScriptInstalled = false, fileSeedInstalled = false, webStoreScriptInstalled = false
+    /// Whether §17.2's YouTube script, the file-storage seed, the Chrome Web
+    /// Store button-hijack and the consent unlock are in the current script set —
+    /// see `refreshUserScriptsIfNeeded(host:)`, which is the only thing that reads them.
+    var youTubeScriptInstalled = false, fileSeedInstalled = false, webStoreScriptInstalled = false, consentUnlockInstalled = false
     /// Whether `FileStorageSeed`'s script is in the set — only while the tab is
     /// on a `file:` page.
     /// The hidden-elements stylesheet in the current script set, empty when there is
@@ -400,9 +400,7 @@ public final class TabController: NSObject {
         // entitlement, so sites offer a password instead of a passkey button
         // that cannot work. Returns nil — and injects nothing — once it is
         // granted. `documentStart`, because feature detection runs early.
-        if let passkeyGuard = PasskeySupport.userScript() {
-            controller.addUserScript(passkeyGuard)
-        }
+        PasskeySupport.userScript().map(controller.addUserScript)
         // §17's pop-up witness. `documentStart`, so `window.open` is wrapped
         // before the page's own scripts take a reference to it; every frame,
         // because ad pop-ups are opened from ad frames.
@@ -428,6 +426,7 @@ public final class TabController: NSObject {
                 )
             )
         }
+        installConsentUnlock(into: controller, host: host)
         installWebStoreScript(into: controller, host: host)
         installHiddenStyle(into: controller, host: host)
         addedUserScripts.forEach(controller.addUserScript)
@@ -447,7 +446,7 @@ public final class TabController: NSObject {
         let blocks = ContentBlocker.shared.blocksYouTubeAds(forHost: host, in: sitePermissions)
         let seeds = isFile && FileStorageSeed.userScript() != nil
         let store = wantsWebStoreScript(host: host)
-        guard blocks != youTubeScriptInstalled || seeds != fileSeedInstalled
+        guard blocks != youTubeScriptInstalled || seeds != fileSeedInstalled || consentUnlockIsStale(for: host)
             || store != webStoreScriptInstalled || hiddenStyleIsStale(for: host) else { return }
         installUserScripts(into: controller, host: host, isFile: isFile)
     }

@@ -110,6 +110,28 @@ struct ControlScriptsTests {
             == "{\"n\":2,\"title\":\"Form\"}")
     }
 
+    /// The app's fallback (`ControlService.runJavaScript`) rests on this: a page
+    /// whose policy has no `unsafe-eval` refuses the code in its own world, and a
+    /// world of Luna's own runs it against the same DOM.
+    @Test func aPageThatForbidsEvalStillRunsTheCodeInAnIsolatedWorld() async throws {
+        let webView = try await loaded("""
+        <html><head><meta http-equiv="Content-Security-Policy" content="script-src 'self'">
+        <title>Locked</title></head><body></body></html>
+        """)
+        let arguments: [String: Any] = ["args": ["code": "document.title + ' ' + [1, 2].length"]]
+        var refusal: String?
+        do {
+            _ = try await webView.callAsyncJavaScript(ControlScripts.javascript, arguments: arguments, in: nil, contentWorld: .page)
+        } catch {
+            refusal = (error as NSError).userInfo["WKJavaScriptExceptionMessage"] as? String
+        }
+        #expect(refusal?.hasPrefix("EvalError") == true)
+        let value = try await webView.callAsyncJavaScript(
+            ControlScripts.javascript, arguments: arguments, in: nil, contentWorld: world
+        )
+        #expect(value as? String == "\"Locked 2\"")
+    }
+
     @Test func consoleIsRecordedFromTheFirstTouch() async throws {
         let webView = try await loaded()
         _ = try await webView.callAsyncJavaScript(ControlScripts.consoleInstall, arguments: [:], in: nil, contentWorld: .page)

@@ -40,22 +40,36 @@ public enum FilterListConverter {
         }
     }
 
+    /// Part of the cache key beside the list's own bytes (`ContentBlocker.update`), so a
+    /// change to what the converter makes of a list recompiles the lists already cached
+    /// instead of waiting for upstream to edit them. Bump it with any change to the output.
+    public static let revision = "2"
+
     // MARK: - Entry point
 
     public static func convert(_ text: String) -> Conversion {
         var result = Conversion()
+        var unhides: [String: Unhide] = [:]
         for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             // `!` is a comment, `[Adblock Plus 2.0]` a header, `#` alone a legacy comment.
             if trimmed.isEmpty || trimmed.hasPrefix("!") || trimmed.hasPrefix("[") { continue }
-            convert(line: trimmed, into: &result)
+            convert(line: trimmed, into: &result, unhides: &unhides)
         }
+        apply(unhides, to: &result)
         return result
     }
 
-    private static func convert(line: String, into result: inout Conversion) {
-        if let separator = elementHidingSeparator(in: line) {
+    private static func convert(line: String, into result: inout Conversion, unhides: inout [String: Unhide]) {
+        if let separator = line.range(of: "#@#") {
+            guard let unhide = Unhide(line: line, separator: separator) else { result.skipped += 1; return }
+            unhides[unhide.selector, default: unhide].merge(unhide)
+        } else if let separator = elementHidingSeparator(in: line) {
             appendHide(line: line, separator: separator, into: &result)
+        } else if extendedCosmeticMarkers.contains(where: line.contains) {
+            // Not a network rule with a `#` in it: fed to `appendNetwork`, these became
+            // block rules for addresses no request has.
+            result.skipped += 1
         } else if line.hasPrefix("@@") {
             appendNetwork(pattern: String(line.dropFirst(2)), action: .ignorePrevious, into: &result)
         } else {
@@ -64,6 +78,10 @@ public enum FilterListConverter {
     }
 
     // MARK: - Element hiding (§17.3)
+
+    /// The uBlock and AdGuard cosmetic syntaxes WebKit has no answer for: extended
+    /// CSS, scriptlets and CSS injection, and their exceptions.
+    private static let extendedCosmeticMarkers = ["#?#", "#$#", "#%#", "#@?#", "#@$#", "#@%#"]
 
     /// The range of a plain `##` separator, or nil when this is not an element-hiding
     /// rule or is one of the extended syntaxes WebKit has no answer for (`#@#` unhide,
@@ -89,6 +107,61 @@ public enum FilterListConverter {
             trigger.unlessDomain = domains.exclude.isEmpty ? nil : domains.exclude
         }
         result.hides.append(ContentRule(trigger: trigger, action: .hide(selector)))
+    }
+
+    /// `site#@#selector`: the list's own fix for a site its generic `##selector` breaks.
+    /// fanboy-annoyance carries hundreds — `bafin.de#@##cookiebanner` is the typical
+    /// one, a consent dialog hidden while the page stays locked behind it.
+    ///
+    /// WebKit has no per-rule exception for element hiding — `ignore-previous-rules`
+    /// would switch off every rule on the site, ads included — so the exception is
+    /// folded into the hides it names: a generic hide gains the sites as
+    /// `unless-domain`, a site-scoped one loses them from its `if-domain`.
+    struct Unhide {
+        let selector: String
+        /// In WebKit's form, `*example.com`. Empty with `everywhere`.
+        var domains: [String]
+        var everywhere: Bool
+
+        init?(line: String, separator: Range<String.Index>) {
+            selector = String(line[separator.upperBound...]).trimmingCharacters(in: .whitespaces)
+            guard !selector.isEmpty else { return nil }
+            let domainText = line[..<separator.lowerBound]
+            if domainText.isEmpty {
+                domains = []
+                everywhere = true
+                return
+            }
+            // A `~site` here would be "unhide everywhere but there"; no list relies on it.
+            guard let list = domainList(String(domainText), separator: ","), !list.include.isEmpty else { return nil }
+            domains = list.include
+            everywhere = false
+        }
+
+        mutating func merge(_ other: Unhide) {
+            guard other.selector == selector else { return }
+            everywhere = everywhere || other.everywhere
+            domains += other.domains.filter { !domains.contains($0) }
+        }
+    }
+
+    /// After the whole list is read, because an exception can come before its hide.
+    private static func apply(_ unhides: [String: Unhide], to result: inout Conversion) {
+        guard !unhides.isEmpty else { return }
+        result.hides = result.hides.compactMap { rule in
+            guard let selector = rule.action.selector, let unhide = unhides[selector] else { return rule }
+            if unhide.everywhere { return nil }
+            var rule = rule
+            if let sites = rule.trigger.ifDomain {
+                let kept = sites.filter { !unhide.domains.contains($0) }
+                guard !kept.isEmpty else { return nil }
+                rule.trigger.ifDomain = kept
+            } else {
+                let excluded = rule.trigger.unlessDomain ?? []
+                rule.trigger.unlessDomain = excluded + unhide.domains.filter { !excluded.contains($0) }
+            }
+            return rule
+        }
     }
 
     /// EasyList's procedural pseudo-classes are uBlock/ABP extensions, not CSS. WebKit

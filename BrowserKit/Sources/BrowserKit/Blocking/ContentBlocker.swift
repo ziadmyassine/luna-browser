@@ -254,7 +254,7 @@ public final class ContentBlocker {
         if let http = response as? HTTPURLResponse, http.statusCode != 200 {
             throw URLError(.badServerResponse)
         }
-        let hash = Self.hash(data)
+        let hash = Self.hash(data + Data(FilterListConverter.revision.utf8))
 
         // The content hash is the cache key (§17.1). An unchanged list must not pay 2.9 s
         // of compile again, so a matching hash plus a list the store still holds is the

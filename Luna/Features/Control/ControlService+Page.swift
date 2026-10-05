@@ -36,10 +36,7 @@ extension ControlService {
         case .screenshot, .gif:
             return try await capture(command, in: webView, tab: controller.id)
         case let .javascript(code):
-            let value = try await webView.callAsyncJavaScript(
-                ControlScripts.javascript, arguments: ["args": ["code": code]], in: nil, contentWorld: .page
-            )
-            return .text(value as? String ?? "undefined")
+            return .text(try await runJavaScript(code, in: webView))
         case let .console(pattern, onlyErrors, clear):
             return try await readConsole(in: webView, pattern: pattern, onlyErrors: onlyErrors, clear: clear)
         case let .upload(ref, sources):
@@ -67,6 +64,31 @@ extension ControlService {
             result.content[0] = .text(said + " (trusted: false)")
         }
         return result
+    }
+
+    /// Where the code runs when the page's own world refuses it.
+    private static let scriptWorld = WKContentWorld.world(name: "luna-control-script")
+
+    /// The page's own world first, where the page's globals are. A page whose
+    /// policy has no `unsafe-eval` refuses `new Function` as well, so the code
+    /// goes again in a world of its own, which the policy does not reach
+    /// (measured on borger.dk): the same DOM, without the page's variables,
+    /// and the answer says so.
+    private func runJavaScript(_ code: String, in webView: WKWebView) async throws -> String {
+        let arguments: [String: Any] = ["args": ["code": code]]
+        do {
+            let value = try await webView.callAsyncJavaScript(
+                ControlScripts.javascript, arguments: arguments, in: nil, contentWorld: .page
+            )
+            return value as? String ?? "undefined"
+        } catch let error as NSError
+            where (error.userInfo["WKJavaScriptExceptionMessage"] as? String)?.hasPrefix("EvalError") == true {
+            let value = try await webView.callAsyncJavaScript(
+                ControlScripts.javascript, arguments: arguments, in: nil, contentWorld: Self.scriptWorld
+            )
+            return "(This page's security policy blocks eval, so this ran in an isolated world: "
+                + "the DOM is the page's, its script variables are not.)\n" + (value as? String ?? "undefined")
+        }
     }
 
     private func readConsole(in webView: WKWebView, pattern: String?, onlyErrors: Bool, clear: Bool) async throws

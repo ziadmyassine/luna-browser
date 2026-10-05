@@ -5,6 +5,12 @@ under Unreleased; a release will take the entries since the last one.
 
 ## Unreleased
 
+### 2026-10-05
+
+- **A hidden cookie pop-up no longer locks the page** (§17.2): when the annoyance list hides a cookie pop-up and the page stays greyed out and frozen behind it — borger.dk did — Luna clears the empty cover and turns scrolling back on, so the page works. A dialog with anything in it, like a sign-in box, is left alone.
+- **The blocking lists' own site fixes now apply** (§17.2): hundreds of "don't hide this on that site" lines in the lists were being dropped; they now keep a hide off the site that asked for it, while it still works everywhere else.
+- **Luna Control's JavaScript tool works on strict pages**: on a page whose security rules forbid running text as code, like borger.dk, the code now runs in Luna's own isolated world instead of failing, and the answer says that the page's own variables are not visible there.
+
 ### 2026-10-04
 
 - **An empty window has a moon painting too** (§3.6): with every tab closed, the page area shows an empty deck chair facing the moon, by day in light mode and by night in dark, instead of a blank plane, with "All quiet" set large in the sky and "Press ⌘T to open a new tab" under it — your own shortcut, if you have changed it.

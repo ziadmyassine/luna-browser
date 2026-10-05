@@ -50,6 +50,17 @@ extension TabController {
         hiddenElements.css(forHost: host) != hiddenStyleInstalled
     }
 
+    /// §17.2's consent unlock (`ContentBlockerConsent.swift`), on wherever the
+    /// annoyances list is — it clears the lock a hide from that list left behind.
+    func installConsentUnlock(into controller: WKUserContentController, host: String?) {
+        consentUnlockInstalled = ContentBlocker.shared.unlocksConsent(forHost: host, in: sitePermissions)
+        if consentUnlockInstalled { controller.addUserScript(ContentBlocker.consentUnlockUserScript) }
+    }
+
+    func consentUnlockIsStale(for host: String?) -> Bool {
+        ContentBlocker.shared.unlocksConsent(forHost: host, in: sitePermissions) != consentUnlockInstalled
+    }
+
     public var isPickingElements: Bool { picking != nil }
 
     /// Turns the picker on. Every element clicked is handed to `onPick` until the

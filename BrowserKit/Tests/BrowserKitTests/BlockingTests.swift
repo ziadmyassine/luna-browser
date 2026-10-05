@@ -162,7 +162,7 @@ struct BlockingTests {
         example.com##div:has-text(Ad)
         example.com##div:has(> .ad)
         """)
-        #expect(conversion.hides.count == 3)
+        #expect(conversion.hides.count == 2, "the site's own exception cancels its hide")
         #expect(conversion.hides.allSatisfy { $0.action.type == "css-display-none" })
         #expect(conversion.hides.contains { $0.action.selector == "div:has(> .ad)" })
         #expect(conversion.hides.allSatisfy { $0.action.selector?.contains(":has-text") != true })
