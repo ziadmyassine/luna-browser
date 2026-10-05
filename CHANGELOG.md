@@ -17,8 +17,7 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-04
 
-- **An empty window has a moon painting too** (§3.6): with every tab closed, the page area shows an empty deck chair facing the moon, by day in light mode and by night in dark, instead of a blank plane, with "All quiet" set large in the sky and "Press ⌘T to open a new tab" under it — your own shortcut, if you have changed it.
-- **The page bar wears the painting's sky** (§3.2b): over an error page or an empty window, the bar across the top is the colour of the painting's sky, pale by day and deep blue by night, instead of plain white or grey.
+- **The page bar wears the painting's sky** (§3.2b): over an error page, the bar across the top is the colour of the painting's sky, pale by day and deep blue by night, instead of plain white or grey.
 - **Error pages are moon paintings** (§4.5): each of the six (offline, can't find the site, not private, blocked, not secure, didn't load) is a painted moonscape with its own little scene, by day in light mode and by night in dark, with a big headline set in the sky and one answer under it instead of a box with buttons. Increase Contrast keeps the plain card.
 - **An extension's page can send you to its website** (§16): 1Password's Sign in button on its welcome page did nothing; a tab now swaps to the right kind of page view when it crosses between an extension's pages and the web, either way.
 - **A tab opened behind says so** (§6.5): ⌘-click a link, or Open Link in New Tab, and a toast says "Opened in a new tab" with the site and Show, which takes you to it.

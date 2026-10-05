@@ -106,7 +106,6 @@ final class ContentCardView: NSView {
     /// top, leading, bottom, trailing — in that order, always.
     private var edges: [NSLayoutConstraint] = []
     private var content: NSView?
-    var hasContent: Bool { content != nil }
     /// §3.2b's page bar, floating over the page at the pane's top edge — the
     /// one thing that is allowed inside the card and is not the web content.
     private var overlay: NSView?
@@ -135,9 +134,6 @@ final class ContentCardView: NSView {
     private var pageBarInset: CGFloat = 0
     /// Cancels the watchdog when a transition ends the ordinary way.
     private var transitionWatchdog: Task<Void, Never>?
-    /// The painting the pane shows with no page in it (`ContentCardView+EmptyPane`).
-    let emptyPane = EmptyPaneView()
-    var emptyPaneReveal: Task<Void, Never>?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -146,7 +142,6 @@ final class ContentCardView: NSView {
         // Clips the page to the pane's corners.
         layer?.masksToBounds = true
         updateCornerRadius()
-        installEmptyPane()
         // The corner is the window's, which the Appearance setting changes.
         NotificationCenter.default.addObserver(
             self,
@@ -194,7 +189,6 @@ final class ContentCardView: NSView {
         // it off the card it moved to.
         if content?.superview === self { content?.removeFromSuperview() }
         content = view
-        showEmptyPane(view == nil)
         guard let view else { return }
         view.translatesAutoresizingMaskIntoConstraints = false
         // Under the overlay, whichever arrived first: the page bar floats over

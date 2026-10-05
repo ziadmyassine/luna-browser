@@ -1,4 +1,4 @@
-# Error page and empty pane paintings
+# Error page paintings
 
 One painting per error page and appearance, `error-<kind>-<light|dark>.jpg`,
 served to the page at `luna://art/<file name without .jpg>` and drawn behind
@@ -69,12 +69,3 @@ Prompt, with the same kind's light painting as the reference:
 Each added one warm light to its subject: the telescope's and the rocket's
 brass catch a highlight, the rover's headlight falls on the barrier, light
 spills from the open hatch, and the crack in the dome catches the moon.
-
-## The empty pane: `empty-light.jpg`, `empty-dark.jpg`
-
-What the content pane shows with no page in it (`EmptyPaneView`). The light
-one is the light prompt above with `error-dns-light` as the reference, for a
-window with no tabs open, "a moment of rest": an empty brass-framed deck chair
-facing the moon with a small brass lantern glowing beside it, and the whole
-sky left open. The dark one is the night prompt with it as the reference; the
-lantern casts a warm pool of light on the dust and the chair.

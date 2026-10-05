@@ -33,9 +33,6 @@ final class PageChromeController: WindowScoped {
     private weak var listenedController: TabController?
     private var observations: [ObservationToken] = []
     private var extensionObserver: (any NSObjectProtocol)?
-    /// Light or dark changing under an empty pane: the painting changes, and
-    /// with nothing else changing in the session the bar would not hear of it.
-    private var appearanceObservation: NSKeyValueObservation?
 
     init(session: BrowserSession, windowID: UUID) {
         self.session = session
@@ -64,9 +61,6 @@ final class PageChromeController: WindowScoped {
             session.addTabStateObserver { [weak self] id, state in self?.apply(id, state) }
         ]
         wireExtensions()
-        appearanceObservation = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
-            MainActor.assumeIsolated { self?.refresh() }
-        }
     }
 
     // MARK: - §16.4
@@ -163,9 +157,7 @@ final class PageChromeController: WindowScoped {
         bar.pill.setLoad(state, for: activeTabID)
         bar.pill.showsReading = URLPillView.showsReading(for: state)
         bar.pill.isEdited = state?.isEdited ?? false
-        // With no tab the pane shows its painting, and the bar wears that
-        // painting's sky the way it wears a page's colour.
-        bar.setPageColour(activeTabID == nil ? EmptyPaneView.sky : state?.pageBackground)
+        bar.setPageColour(state?.pageBackground)
         bar.update(
             canGoBack: state?.canGoBack ?? false,
             canGoForward: state?.canGoForward ?? false,
