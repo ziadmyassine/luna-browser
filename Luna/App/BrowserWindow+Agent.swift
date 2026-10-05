@@ -21,7 +21,9 @@ extension BrowserWindow {
     func setAgentShown(_ shown: Bool) {
         let panel = agentPanel ?? makeAgentPanel()
         controller.setAgentPanel(panel, shown: shown)
-        if shown { panel.focusComposer() }
+        guard shown else { return }
+        panel.focusComposer()
+        AgentCenter.shared.checkAccount()
     }
 
     /// The Command Bar's "Ask your agent": the panel opens and the task goes

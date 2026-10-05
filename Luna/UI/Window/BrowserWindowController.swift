@@ -677,15 +677,4 @@ extension BrowserWindowController {
         peekEdgeTrailing?.isActive = edge == .trailing
         Glass.setPeekEdge(edge, on: peekBackdrop)
     }
-
-    private static func motion(from old: ChromeState, to new: ChromeState) -> MotionSpec {
-        switch (old, new) {
-        case (.fullscreen, _), (_, .fullscreen):
-            Tokens.Motion.cardFullscreen
-        case (.sidebar, .sidebarCollapsed), (.sidebarCollapsed, .sidebar):
-            Tokens.Motion.sidebarCollapse
-        default:
-            Tokens.Motion.layoutSwitch
-        }
-    }
 }

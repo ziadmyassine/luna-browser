@@ -52,6 +52,11 @@ final class AgentTask: Identifiable {
 
     /// The Claude Code session, and Luna Control's name for this agent.
     let id: UUID
+    /// What runs it, for good: a conversation cannot move between models.
+    let engine: AgentEngine
+    /// Codex's own id for the conversation, from its first turn, which the
+    /// next turn resumes. Claude Code takes Luna's id instead.
+    private(set) var thread: String?
     /// What the user asked for, until the agent names the task (`name_task`).
     private(set) var title: String
     private(set) var items: [Item] = []
@@ -63,8 +68,9 @@ final class AgentTask: Identifiable {
     let createdAt = Date()
     var onChange: (() -> Void)?
 
-    init(id: UUID, prompt: String) {
+    init(id: UUID, prompt: String, engine: AgentEngine = .claude) {
         self.id = id
+        self.engine = engine
         title = Self.provisionalTitle(for: prompt)
         items = [.user(id: UUID(), text: prompt)]
     }
@@ -79,6 +85,12 @@ final class AgentTask: Identifiable {
         guard title != self.title else { return }
         self.title = title
         onChange?()
+    }
+
+    /// The engine said which conversation this is. Codex's id is the one
+    /// the next turn resumes.
+    func began(thread: String) {
+        if engine == .codex { self.thread = thread }
     }
 
     /// The user wrote again. A new turn, unless one is running, in which case
@@ -207,7 +219,7 @@ final class AgentTask: Identifiable {
             return
         }
         settleSteps(as: .failed)
-        let text = AgentSteps.explain(message)
+        let text = AgentSteps.explain(message, engine: engine)
         items.append(.note(id: UUID(), text: text))
         status = .failed(text)
     }

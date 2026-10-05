@@ -270,9 +270,10 @@ final class ButtonFeedbackTests: XCTestCase {
     func testThePageBarsExtensionsCylinderSwellsForItsButtons() {
         let shelf = PageBarExtensionShelf()
         shelf.show(pins: [ExtensionShelfItem(id: "a", name: "A", icon: nil, badge: "", isPinned: true)])
-        shelf.frame = NSRect(origin: .zero, size: NSSize(width: PageBarExtensionShelf.width(pins: 1), height: 34))
+        shelf.onAgent = {}
+        shelf.frame = NSRect(origin: .zero, size: NSSize(width: PageBarExtensionShelf.width(pins: 1, agent: true), height: 34))
         shelf.layoutSubtreeIfNeeded()
-        for button in [shelf.extensionsButton, shelf.pinButtons[0].button] {
+        for button in [shelf.extensionsButton, shelf.pinButtons[0].button, shelf.agentButton] {
             button.mouseDown(with: mouse(.leftMouseDown, in: button))
             XCTAssertEqual(scale(of: button), 1, accuracy: 0.001, "a button swelled inside the cylinder")
             XCTAssertEqual(scale(of: shelf), Tokens.Motion.pressSwell, accuracy: 0.001, "the cylinder did not answer")

@@ -120,7 +120,9 @@ final class AgentPanelView: NSView {
             more.centerYAnchor.constraint(equalTo: rover.centerYAnchor),
             more.widthAnchor.constraint(equalToConstant: Tokens.Metric.sidebarCircle.width),
             more.heightAnchor.constraint(equalToConstant: Tokens.Metric.sidebarCircle.height),
-            rover.topAnchor.constraint(equalTo: topAnchor, constant: inset),
+            // On the line the browser's own top row is centred on — the
+            // sidebar's buttons, the page bar's — not an inset below it.
+            rover.centerYAnchor.constraint(equalTo: topAnchor, constant: Tokens.Metric.pageBar / 2),
             rover.centerXAnchor.constraint(equalTo: centerXAnchor),
             rover.widthAnchor.constraint(equalToConstant: Tokens.Metric.agentRover),
             rover.heightAnchor.constraint(equalToConstant: Tokens.Metric.agentRover),
@@ -162,7 +164,7 @@ final class AgentPanelView: NSView {
         more.onActivate = { [weak self] in self?.showMenu() }
         composer.onSend = { [weak self] text in self?.center.send(text) }
         composer.onStop = { [weak self] in self?.center.stop() }
-        empty.onTurnOnControl = { [weak self] in self?.center.turnOnControl() }
+        empty.onAction = { [weak self] action in self?.perform(action) }
     }
 
     // MARK: - State
@@ -170,15 +172,17 @@ final class AgentPanelView: NSView {
     private func refresh() {
         let task = center.current
         let blocker = center.blocker
-        let hasTask = task != nil
+        // A blocker takes the panel over even mid-task: until it is dealt
+        // with, nothing written to the agent would reach it.
+        let hasTask = task != nil && blocker == nil
         empty.isHidden = hasTask
         transcript.isHidden = !hasTask
         titleCapsule.isHidden = !hasTask
         rover.isHidden = !hasTask
-        empty.show(blocker: blocker)
+        empty.show(blocker: blocker, engine: center.engine)
         composer.isEnabled = blocker == nil
         composer.isRunning = task?.status.isRunning ?? false
-        guard let task else {
+        guard let task, hasTask else {
             transcript.show(nil)
             return
         }
@@ -206,6 +210,16 @@ final class AgentPanelView: NSView {
         case .done: .happy
         case .stopped: .stopped
         case .failed: .sad
+        }
+    }
+
+    private func perform(_ action: AgentEmptyView.Action) {
+        switch action {
+        case .turnOnControl: center.turnOnControl()
+        case .signIn: center.signIn()
+        case .cancelSignIn: center.cancelSignIn()
+        case .reopenSignInPage: center.reopenSignInPage()
+        case let .use(engine): center.use(engine)
         }
     }
 
@@ -247,74 +261,17 @@ final class AgentPanelView: NSView {
             })
         }
         menu.addItem(.separator())
+        for engine in AgentEngine.allCases {
+            let item = SidebarMenu.glyphItem(String(localized: "Use \(engine.name)"), symbol: "sparkle") { [weak self] in
+                self?.center.use(engine)
+            }
+            item.state = engine == AgentEngine.chosen ? .on : .off
+            menu.addItem(item)
+        }
+        menu.addItem(.separator())
         menu.addItem(SidebarMenu.glyphItem(String(localized: "Hide Agent"), symbol: "sidebar.trailing") { [weak self] in
             self?.onClose?()
         })
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: more.bounds.maxY + 4), in: more)
-    }
-}
-
-// MARK: - The empty panel
-
-/// What the panel shows before its first task: the rover, a line about what
-/// it does, and — when it cannot start — why, with the way round it.
-@MainActor
-final class AgentEmptyView: NSView {
-
-    var onTurnOnControl: (() -> Void)?
-
-    private let rover = AgentRoverView()
-    private let headline = NSTextField(wrappingLabelWithString: String(localized: "Where are we going?"))
-    private let detail = NSTextField(wrappingLabelWithString: "")
-    private let turnOn = SettingsPushButton(title: String(localized: "Turn On Luna Control"), isDestructive: false)
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        headline.font = Tokens.TypeScale.settingsHeading
-        headline.textColor = Tokens.Text.primary
-        headline.alignment = .center
-        detail.font = Tokens.TypeScale.agentStep
-        detail.textColor = Tokens.Text.secondary
-        detail.alignment = .center
-        turnOn.onActivate = { [weak self] in self?.onTurnOnControl?() }
-        let stack = NSStackView(views: [rover, headline, detail, turnOn])
-        stack.orientation = .vertical
-        stack.alignment = .centerX
-        stack.spacing = Tokens.Metric.chromeGap
-        stack.setCustomSpacing(Tokens.Metric.chromeGapWide, after: rover)
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(stack)
-        NSLayoutConstraint.activate([
-            rover.widthAnchor.constraint(equalToConstant: Tokens.Metric.agentRoverHero),
-            rover.heightAnchor.constraint(equalToConstant: Tokens.Metric.agentRoverHero),
-            stack.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -Tokens.Metric.chromeGapWide),
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
-            detail.widthAnchor.constraint(equalTo: stack.widthAnchor)
-        ])
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("Luna builds its chrome in code; there is no nib to decode.")
-    }
-
-    override func layout() {
-        super.layout()
-        detail.preferredMaxLayoutWidth = bounds.width
-        headline.preferredMaxLayoutWidth = bounds.width
-    }
-
-    func show(blocker: AgentCenter.Blocker?) {
-        turnOn.isHidden = blocker != .controlOff
-        detail.stringValue = switch blocker {
-        case .controlOff?:
-            String(localized: "The agent works in your tabs through Luna Control, which is off.")
-        case .noClaudeCode?:
-            String(localized: "The agent runs on Claude Code, which is not installed. Get it at claude.com/code.")
-        case nil:
-            String(localized: "Give me a task. I work in tabs of my own, in a folder you can watch, and you can tell me more while I go.")
-        }
-        rover.mood = blocker == nil ? .idle : .stopped
     }
 }

@@ -2,9 +2,9 @@
 //  AgentGlyph.swift
 //  Luna
 //
-//  The rover's face as a glyph, for the buttons that open the agent panel and
-//  the rows an agent is working in: a rounded screen with two eyes and the
-//  antenna over it. A template image, so it takes the ink of whatever it sits
+//  Astro's face as a glyph, for the buttons that open the agent panel and the
+//  rows an agent is working in: the helmet's outline, a nub for each ear and
+//  the visor filled in, its two eyes cut out of it. A template image, so it takes the ink of whatever it sits
 //  in, as an SF Symbol would.
 //
 
@@ -22,27 +22,22 @@ enum AgentGlyph {
         let side = pointSize.rounded(.up) + 2
         let image = NSImage(size: NSSize(width: side, height: side), flipped: true) { rect in
             let unit = rect.width / 20
-            let line = max(1.4 * unit, 1.2)
             NSColor.black.setStroke()
             NSColor.black.setFill()
-            // The antenna and its lamp.
-            let mast = NSBezierPath()
-            mast.move(to: NSPoint(x: 13 * unit, y: 5.5 * unit))
-            mast.line(to: NSPoint(x: 13 * unit, y: 2.5 * unit))
-            mast.lineWidth = line
-            mast.lineCapStyle = .round
-            mast.stroke()
-            NSBezierPath(ovalIn: NSRect(x: 11.6 * unit, y: 0.6 * unit, width: 2.8 * unit, height: 2.8 * unit)).fill()
-            // The hull.
-            let hull = NSBezierPath(roundedRect: NSRect(x: 2 * unit, y: 5.5 * unit, width: 16 * unit, height: 13 * unit),
-                                    xRadius: 5.5 * unit, yRadius: 5.5 * unit)
-            hull.lineWidth = line
-            hull.stroke()
-            // The eyes.
-            for x in [7.0, 11.4] {
-                NSBezierPath(roundedRect: NSRect(x: x * unit, y: 9.2 * unit, width: 1.9 * unit, height: 4.8 * unit),
-                             xRadius: 0.95 * unit, yRadius: 0.95 * unit).fill()
+            let helmet = NSBezierPath(ovalIn: NSRect(x: 3.4 * unit, y: 3.6 * unit, width: 13.2 * unit, height: 13.2 * unit))
+            helmet.lineWidth = max(1.5 * unit, 1.2)
+            helmet.stroke()
+            for x in [0.8, 17.4] {
+                NSBezierPath(roundedRect: NSRect(x: x * unit, y: 8.2 * unit, width: 1.8 * unit, height: 4 * unit),
+                             xRadius: 0.9 * unit, yRadius: 0.9 * unit).fill()
             }
+            let visor = NSBezierPath(roundedRect: NSRect(x: 5.4 * unit, y: 7.4 * unit, width: 9.2 * unit, height: 5.6 * unit),
+                                     xRadius: 2.8 * unit, yRadius: 2.8 * unit)
+            for x in [7.6, 11.0] {
+                visor.append(NSBezierPath(ovalIn: NSRect(x: x * unit, y: 9.1 * unit, width: 1.4 * unit, height: 2.2 * unit)))
+            }
+            visor.windingRule = .evenOdd
+            visor.fill()
             return true
         }
         image.isTemplate = true

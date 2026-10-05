@@ -17,13 +17,28 @@
 import Foundation
 import LunaControl
 
+/// What `AgentCenter` drives, whichever engine is behind it.
 @MainActor
-final class AgentRunner {
-
-    var onEvent: ((AgentStream.Event) -> Void)?
+protocol AgentProcess: AnyObject {
+    var onEvent: ((AgentStream.Event) -> Void)? { get set }
     /// The process ended. `detail` is the end of what it wrote to standard
     /// error, for a run that never got as far as saying anything.
+    var onExit: ((_ status: Int32, _ detail: String) -> Void)? { get set }
+    var isRunning: Bool { get }
+    /// Whether a message can go in while a turn is running.
+    var takesMessagesWhileWorking: Bool { get }
+    func start(with prompt: String) throws
+    func send(_ text: String, now: Bool)
+    func interrupt()
+    func terminate()
+}
+
+@MainActor
+final class AgentRunner: AgentProcess {
+
+    var onEvent: ((AgentStream.Event) -> Void)?
     var onExit: ((_ status: Int32, _ detail: String) -> Void)?
+    var takesMessagesWhileWorking: Bool { true }
 
     let session: UUID
     private let process = Process()
@@ -32,11 +47,6 @@ final class AgentRunner {
     private let errors = Pipe()
     private var buffer = Data()
     private var errorTail = Data()
-
-    /// Where `claude` is, from the folders its installers use (`ControlCLI`).
-    static var executable: URL? {
-        ControlCLI.locate("claude", home: FileManager.default.homeDirectoryForCurrentUser)
-    }
 
     /// The agent's working folder: one of Luna's own, so no project's
     /// `CLAUDE.md` or settings ride along into a browsing task.

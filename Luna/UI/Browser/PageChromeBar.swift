@@ -60,7 +60,16 @@ final class PageChromeBar: NSView, TrafficLightNeighbour {
     var extensionPins: [ExtensionShelfItem] = [] { didSet { needsLayout = true } }
     var showsExtensions = false {
         didSet {
-            shelf.isHidden = !showsExtensions
+            shelf.isHidden = !showsShelf
+            needsLayout = true
+        }
+    }
+    /// The agent's button, at the end of the extensions cylinder. Nil leaves it off.
+    var onAgent: (() -> Void)? {
+        get { shelf.onAgent }
+        set {
+            shelf.onAgent = newValue
+            shelf.isHidden = !showsShelf
             needsLayout = true
         }
     }

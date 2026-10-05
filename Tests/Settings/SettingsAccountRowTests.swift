@@ -60,11 +60,11 @@ final class SettingsAccountRowTests: XCTestCase {
         )
     }
 
-    /// Not a numbered page: ⌘1…⌘8 still count the same eight, and About is
+    /// Not a numbered page: ⌘1…⌘9 still count the same nine, and About is
     /// still the last of them.
     func testTheAccountPageIsNotInTheRegister() {
         XCTAssertFalse(SettingsSectionRegistry.ids.contains(AccountSection.id))
-        XCTAssertEqual(SettingsSectionRegistry.all.count, 8)
+        XCTAssertEqual(SettingsSectionRegistry.all.count, 9)
         XCTAssertEqual(SettingsSectionRegistry.ids.last, AboutSection.id)
         XCTAssertFalse(SettingsSectionRegistry.commandBarEntries.contains { $0.id == AccountSection.id })
     }

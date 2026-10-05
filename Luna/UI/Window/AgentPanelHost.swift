@@ -23,11 +23,16 @@ final class AgentPanelHost {
 
     private var width: CGFloat { Tokens.Metric.agentPanelWidth }
 
-    func install(_ view: NSView, in root: NSView, above card: NSView) {
-        guard panel == nil else { return }
+    /// Adds the panel the first time it is shown, parked off the window's
+    /// edge and laid out there at once — so the first show slides it in from
+    /// the edge like every later one, rather than growing it out of the
+    /// window's corner from a zero frame. Returns whether it was added.
+    @discardableResult
+    func install(_ view: NSView, in root: NSView, above card: NSView, for state: ChromeState) -> Bool {
+        guard panel == nil else { return false }
         panel = view
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.alphaValue = 0
+        view.isHidden = true
         root.addSubview(view, positioned: .above, relativeTo: card)
         leading = view.leadingAnchor.constraint(equalTo: root.leadingAnchor)
         trailing = root.trailingAnchor.constraint(equalTo: view.trailingAnchor)
@@ -38,6 +43,11 @@ final class AgentPanelHost {
         ].compactMap { $0 })
         trailing?.constant = -width
         trailing?.isActive = true
+        Tokens.Motion.immediately {
+            place(for: state)
+            root.layoutSubtreeIfNeeded()
+        }
+        return true
     }
 
     /// The pane's edge the panel stands against, or nil when it is not shown.
@@ -79,7 +89,8 @@ final class AgentPanelHost {
 
     /// Puts the panel where `state` has it: beside the pane, or parked a
     /// width off the window's edge. Called inside the layout transaction, so
-    /// it slides with the pane.
+    /// it slides with the pane — a slide alone, at full strength: fading it
+    /// as well left it a ghost of itself for most of the move.
     func place(for state: ChromeState) {
         guard let panel else { return }
         let edge = edge(for: state)
@@ -95,7 +106,14 @@ final class AgentPanelHost {
         case (_, .leading): top?.constant = Tokens.Metric.pageBar
         default: top?.constant = 0
         }
-        panel.animator().alphaValue = edge == nil ? 0 : 1
+        if edge != nil { panel.isHidden = false }
+    }
+
+    /// Takes a parked panel out of the drawing once it has slid away, so its
+    /// rover stops animating where nobody can see it.
+    func settle() {
+        guard let panel, !isShown else { return }
+        panel.isHidden = true
     }
 }
 
@@ -104,12 +122,34 @@ extension BrowserWindowController {
     /// Shows or hides the agent panel, sliding the page aside for it.
     func setAgentPanel(_ view: NSView, shown: Bool) {
         if let root = window?.contentView, let card = root.subviews.first(where: { $0 is ContentCardView }) {
-            agentHost.install(view, in: root, above: card)
+            agentHost.install(view, in: root, above: card, for: chromeState)
         }
         guard agentHost.isShown != shown else { return }
         agentHost.isShown = shown
         apply(chromeState, animated: true)
+        guard !shown else { return }
+        let duration = Tokens.Motion.sidebarCollapse.duration
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.05) { [weak self] in
+            MainActor.assumeIsolated { self?.agentHost.settle() }
+        }
     }
 
     var isAgentPanelShown: Bool { agentHost.isShown }
+
+    /// How long a chrome change takes. Here rather than in the controller,
+    /// which is at its length limit.
+    static func motion(from old: ChromeState, to new: ChromeState) -> MotionSpec {
+        switch (old, new) {
+        case (.fullscreen, _), (_, .fullscreen):
+            Tokens.Motion.cardFullscreen
+        case (.sidebar, .sidebarCollapsed), (.sidebarCollapsed, .sidebar):
+            Tokens.Motion.sidebarCollapse
+        // The agent panel coming or going: the state stays, and the pane
+        // makes room the way it does for the sidebar.
+        case let (old, new) where old == new:
+            Tokens.Motion.sidebarCollapse
+        default:
+            Tokens.Motion.layoutSwitch
+        }
+    }
 }

@@ -4,7 +4,8 @@
 //
 //  §16.4 on §3.2b's page bar: a glass cylinder in the bar's trailing corner,
 //  on the pill's line but not on the pill, holding the extensions button and,
-//  to its left, the pinned extensions.
+//  to its left, the pinned extensions; and at its end, beside the agent panel
+//  it opens on that side, the agent's button.
 //
 //  The pill keeps half its width however many are pinned
 //  (`pinnedExtensionsAddressShare`); pins past that are in the pop-out.
@@ -20,16 +21,22 @@ extension PageChromeBar {
     /// The view the pop-out opens on.
     var extensionsAnchor: NSView? { showsExtensions ? shelf.extensionsButton : nil }
 
+    /// Whether the cylinder is on the bar at all: for extensions, the agent, or both.
+    var showsShelf: Bool { showsExtensions || shelf.showsAgent }
+
     /// Places the cylinder against the bar's trailing inset and returns where
     /// the pill's room ends. Without extensions that is the inset itself.
     func placeShelf(centreY: CGFloat, after left: CGFloat) -> CGFloat {
         let end = bounds.maxX - Tokens.Metric.pageBarInset
-        guard showsExtensions else { return end }
+        guard showsShelf else { return end }
+        shelf.showsExtensions = showsExtensions
+        let fixed = PageBarExtensionShelf.width(pins: 0, extensions: showsExtensions, agent: shelf.showsAgent)
         let spare = end - left - Tokens.Metric.pageBarPillWidth * Tokens.Metric.pinnedExtensionsAddressShare
-            - Tokens.Metric.chromeGapWide - PageBarExtensionShelf.width(pins: 0)
-        let count = ExtensionShelfFit.count(extensionPins.count, room: spare, pitch: PageBarExtensionShelf.pitch)
-        shelf.show(pins: Array(extensionPins.prefix(count)))
-        let width = PageBarExtensionShelf.width(pins: count)
+            - Tokens.Metric.chromeGapWide - fixed
+        let pins = showsExtensions ? extensionPins : []
+        let count = ExtensionShelfFit.count(pins.count, room: spare, pitch: PageBarExtensionShelf.pitch)
+        shelf.show(pins: Array(pins.prefix(count)))
+        let width = fixed + CGFloat(count) * PageBarExtensionShelf.pitch
         let height = PageBarExtensionShelf.button.height
         shelf.frame = NSRect(x: end - width, y: centreY - height / 2, width: width, height: height).pixelAligned
         return shelf.frame.minX - Tokens.Metric.chromeGapWide
@@ -51,15 +58,32 @@ final class PageBarExtensionShelf: NSView {
     /// is a dead strip between two controls.
     static var pitch: CGFloat { button.width }
 
-    static func width(pins: Int) -> CGFloat { CGFloat(pins + 1) * pitch }
+    static func width(pins: Int, extensions: Bool = true, agent: Bool = false) -> CGFloat {
+        CGFloat(pins + (extensions ? 1 : 0) + (agent ? 1 : 0)) * pitch
+    }
 
     var onPin: ((String, NSView) -> Void)?
     var onExtensions: ((NSView) -> Void)?
+    /// The agent's button, at the cylinder's end. Nil leaves it off.
+    var onAgent: (() -> Void)? {
+        didSet {
+            agentButton.isHidden = onAgent == nil
+            needsLayout = true
+        }
+    }
+    var showsAgent: Bool { onAgent != nil }
+    var showsExtensions = true {
+        didSet {
+            extensionsButton.isHidden = !showsExtensions
+            if showsExtensions != oldValue { needsLayout = true }
+        }
+    }
 
     let extensionsButton = PageBarExtensionShelf.makeButton(
         symbol: ExtensionsSymbol.name,
         label: ExtensionsSymbol.label
     )
+    let agentButton = PageBarExtensionShelf.makeButton(symbol: ExtensionsSymbol.name, label: String(localized: "Agent"))
     private(set) var pinButtons: [(id: String, button: GlassButton)] = []
 
     override init(frame frameRect: NSRect) {
@@ -73,6 +97,12 @@ final class PageBarExtensionShelf: NSView {
         }
         extensionsButton.onPressChange = { [weak self] pressed in self?.setPressed(pressed) }
         addSubview(extensionsButton)
+        agentButton.setImage(AgentGlyph.image(pointSize: Tokens.Metric.glyphSize))
+        agentButton.toolTip = String(localized: "Agent")
+        agentButton.isHidden = true
+        agentButton.onActivate = { [weak self] in self?.onAgent?() }
+        agentButton.onPressChange = { [weak self] pressed in self?.setPressed(pressed) }
+        addSubview(agentButton)
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
         setAccessibilityLabel(ExtensionsSymbol.label)
@@ -129,8 +159,11 @@ final class PageBarExtensionShelf: NSView {
             for (index, entry) in pinButtons.enumerated() {
                 entry.button.frame = NSRect(x: CGFloat(index) * side, y: 0, width: side, height: bounds.height).pixelAligned
             }
-            let buttonX = CGFloat(pinButtons.count) * side
-            extensionsButton.frame = NSRect(x: buttonX, y: 0, width: side, height: bounds.height).pixelAligned
+            var x = CGFloat(pinButtons.count) * side
+            for button in [extensionsButton, agentButton] where !button.isHidden {
+                button.frame = NSRect(x: x, y: 0, width: side, height: bounds.height).pixelAligned
+                x += side
+            }
         }
     }
 

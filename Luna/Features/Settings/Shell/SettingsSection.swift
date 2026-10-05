@@ -23,7 +23,7 @@ protocol SettingsSection: AnyObject {
     ///
     /// Static, and deliberately not `searchIndex`: that one is an instance
     /// property filled while a section builds its rows, so reading it means
-    /// building all eight panes — AppKit view trees, on the main thread, for a
+    /// building every pane — AppKit view trees, on the main thread, for a
     /// list the bar wants before the first keystroke. These are the words for
     /// the section as a whole and they are compiled in.
     static var keywords: [String] { get }
@@ -125,7 +125,7 @@ enum SettingsMetrics {
     static let searchStaggerCap = 6
 }
 
-/// §3's eight sections, in §2's order — which is also the `⌘1…⌘8` order.
+/// The sections, in §2's order — which is also the `⌘1…⌘9` order.
 @MainActor
 enum SettingsSectionRegistry {
 
@@ -139,6 +139,7 @@ enum SettingsSectionRegistry {
         SpacesSection.self,
         ExtensionsSection.self,
         ShortcutsSection.self,
+        AstroSection.self,
         LunaControlSection.self,
         AboutSection.self
     ]
@@ -172,6 +173,7 @@ enum SettingsSectionRegistry {
     static func tileStyle(for id: String) -> SettingsSymbolTile.Style {
         switch id {
         case LunaControlSection.id: .connected(Tokens.Tile.controlFrom, Tokens.Tile.controlTo)
+        case AstroSection.id: .astro(Tokens.Tile.controlFrom, Tokens.Tile.controlTo)
         case AppearanceSection.id: .symbol(Tokens.Tile.white)
         case PrivacySection.id, AccountSection.id: .symbol(Tokens.Tile.blue)
         case SpacesSection.id: .symbol(Tokens.Tile.purple)
@@ -180,11 +182,12 @@ enum SettingsSectionRegistry {
         }
     }
 
-    /// Luna Control opens on its sky, About on the app's icon, name and
-    /// version, and iCloud on the user's picture and name: each already is a
-    /// header, and a second one above it would say the name twice.
+    /// Luna Control opens on its sky, Astro on Astro, About on the app's
+    /// icon, name and version, and iCloud on the user's picture and name:
+    /// each already is a header, and a second one above it would say the name
+    /// twice.
     static func hasOwnHeader(_ id: String) -> Bool {
-        id == LunaControlSection.id || id == AboutSection.id || id == AccountSection.id
+        [LunaControlSection.id, AstroSection.id, AboutSection.id, AccountSection.id].contains(id)
     }
 
     /// §9.2's settings rows, built once from the static half of the register.

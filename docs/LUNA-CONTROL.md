@@ -282,8 +282,9 @@ all.
 
 ## The agent panel
 
-Luna's own agent, beside the page: `⌘E` (View ▸ Show Agent, and the rover's
-face in the search bar or the top bar's buttons) shows and hides a column on
+Luna's own agent, beside the page: `⌘E` (View ▸ Show Agent, and Astro's face
+at the end of the page bar's extensions cylinder, in the sidebar's pill or in
+the top bar's buttons) shows and hides a column on
 the side the sidebar is not on. A task typed there — or in `⌘T`, whose first
 row is **Ask your agent** when what was typed reads as a request — starts
 Claude Code in the background (`claude -p`, stream-json in and out, Luna
@@ -295,9 +296,26 @@ while it waits on the user, and its pointer on the page is the rover. Taking
 over from the capsule at the page's foot reads *You're driving*; **Hand Back**
 or `⌘↩` lets it carry on. Code: `Luna/Features/Agent`.
 
-It needs Luna Control on (the empty panel offers to turn it on) and Claude
-Code installed and signed in; a sign-in that has run out is said in plain
-words, with what to do.
+It needs Luna Control on (the empty panel offers to turn it on) and one of
+two engines, each run as the user on their own plan (`AgentEngine`):
+
+- **Claude**, through Claude Code, as above.
+- **ChatGPT**, through Codex: `codex exec --json`, one process per turn, with
+  Luna Control set up on the command line (`-c mcp_servers.luna.*`, its tools
+  pre-approved, since `exec` never asks), `--sandbox read-only` and the shell
+  tool off. The next message resumes the thread (`codex exec resume <id>`);
+  one written while a turn runs waits for it to end. The task's id reaches
+  `luna-control` as `CLAUDE_CODE_SESSION_ID`, so `ControlSessionTag` files the
+  calls under the task either way. Codex sends the agent's words whole, so the
+  panel shows each paragraph when it is done rather than as it is written.
+
+Signing in is the tool's own browser sign-in (`claude auth login`,
+`codex login`), started from the panel or Settings → Astro and watched to its
+end (`AgentAccount`); the tool keeps its own credentials, and nothing about
+the account passes through Luna. Whether it is signed in is asked of the tool
+as the panel opens (`claude auth status`, `codex login status`), and a task
+that fails for want of a sign-in brings the sign-in button back. The mascot
+is Astro (`AgentRoverView`, and `AgentGlyph` for the buttons and marks).
 
 ## Security
 

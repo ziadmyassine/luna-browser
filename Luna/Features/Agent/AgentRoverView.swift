@@ -2,15 +2,15 @@
 //  AgentRoverView.swift
 //  Luna
 //
-//  The agent's face: a small moon rover — a hull, a screen with two eyes, an
-//  antenna with a lamp, two wheels — that shows what the agent is doing. It
-//  blinks while it waits, looks about while it thinks, rolls while it works,
-//  smiles when it is done and droops when something went wrong.
+//  The agent's face: Astro, a small moon-white helmet with a dark glass
+//  visor, two eyes behind it and a light on each ear. It blinks while it
+//  waits, looks about while it thinks, bobs with its ears lit while it works,
+//  hops and smiles when it is done and droops when something went wrong.
 //
-//  Drawn in layers in a unit square and scaled to the view, so one drawing
-//  serves the panel's header and its empty state. In the moon's colours
-//  (`Tokens.Moon`), the same in both appearances: it is a character, not a
-//  surface. Under Reduce Motion it holds still and only its face changes.
+//  Drawn in layers in a 100 × 100 square and scaled to the view, so one
+//  drawing serves the panel's header and its empty state. In the moon's
+//  colours (`Tokens.Moon`), the same in both appearances: it is a character,
+//  not a surface. Under Reduce Motion it holds still and only its face changes.
 //
 
 import AppKit
@@ -27,25 +27,23 @@ final class AgentRoverView: NSView {
     }
 
     private let figure = CALayer()
-    private let body = CAShapeLayer()
-    private let screen = CAShapeLayer()
+    private let ground = CAShapeLayer()
+    private let ears = [CAShapeLayer(), CAShapeLayer()]
+    private let earLights = [CAShapeLayer(), CAShapeLayer()]
+    private let helmet = CAShapeLayer()
+    private let visor = CAGradientLayer()
+    private let visorShape = CAShapeLayer()
+    private let shine = CAShapeLayer()
     private let leftEye = CAShapeLayer()
     private let rightEye = CAShapeLayer()
-    private let mast = CAShapeLayer()
-    private let lamp = CAShapeLayer()
-    private let wheels = [CAShapeLayer(), CAShapeLayer()]
-    private let spokes = [CAShapeLayer(), CAShapeLayer()]
     private var blinkTimer: Timer?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.addSublayer(figure)
-        for part in [mast, lamp, body, screen, leftEye, rightEye] { figure.addSublayer(part) }
-        for (wheel, spoke) in zip(wheels, spokes) {
-            figure.addSublayer(wheel)
-            wheel.addSublayer(spoke)
-        }
+        figure.addSublayer(ground)
+        for part in ears + earLights + [helmet, visor, shine, leftEye, rightEye] as [CALayer] { figure.addSublayer(part) }
         setAccessibilityElement(true)
         setAccessibilityRole(.image)
         setAccessibilityLabel(String(localized: "Luna's agent"))
@@ -81,72 +79,72 @@ final class AgentRoverView: NSView {
         figure.bounds = CGRect(x: 0, y: 0, width: 100, height: 100)
         figure.anchorPoint = .zero
 
-        mast.path = CGPath(rect: CGRect(x: 63, y: 14, width: 3, height: 16), transform: nil)
-        mast.fillColor = Tokens.Moon.surfaceLimb.cgColor
-        lamp.path = CGPath(ellipseIn: CGRect(x: 59.5, y: 7, width: 10, height: 10), transform: nil)
-        lamp.fillColor = Tokens.Moon.glowInner.cgColor
-        lamp.shadowColor = Tokens.Moon.glowInner.cgColor
-        lamp.shadowRadius = 4
-        lamp.shadowOpacity = 0.9
-        lamp.shadowOffset = .zero
+        ground.path = CGPath(ellipseIn: CGRect(x: 32, y: 86, width: 36, height: 5), transform: nil)
+        ground.fillColor = Tokens.Moon.limbShade.withAlphaComponent(0.25).cgColor
 
-        body.path = CGPath(roundedRect: CGRect(x: 14, y: 28, width: 72, height: 50), cornerWidth: 20, cornerHeight: 20, transform: nil)
-        body.fillColor = Tokens.Moon.surfaceLit.cgColor
-        body.strokeColor = Tokens.Moon.surfaceLimb.cgColor
-        body.lineWidth = 2.5
+        for (index, ear) in ears.enumerated() {
+            let box = CGRect(x: index == 0 ? 13 : 80, y: 40, width: 7, height: 16)
+            ear.path = CGPath(roundedRect: box, cornerWidth: 3.5, cornerHeight: 3.5, transform: nil)
+            ear.fillColor = Tokens.Moon.surfaceLimb.cgColor
+            let light = earLights[index]
+            light.path = ear.path
+            light.fillColor = Tokens.Moon.glowInner.cgColor
+            light.shadowColor = Tokens.Moon.glowInner.cgColor
+            light.shadowRadius = 4
+            light.shadowOpacity = 0.9
+            light.shadowOffset = .zero
+            light.opacity = 0
+        }
 
-        screen.path = CGPath(roundedRect: CGRect(x: 23, y: 36, width: 54, height: 30), cornerWidth: 13, cornerHeight: 13, transform: nil)
-        screen.fillColor = Tokens.Moon.skyTop.cgColor
+        helmet.path = CGPath(ellipseIn: CGRect(x: 19, y: 17, width: 62, height: 62), transform: nil)
+        helmet.fillColor = Tokens.Moon.surfaceLit.cgColor
+
+        // Dark glass, lit from the top left: shade to sky to the maria's blue.
+        let visorBox = CGRect(x: 26, y: 34, width: 48, height: 28)
+        visor.frame = visorBox
+        visor.colors = [Tokens.Moon.limbShade.cgColor, Tokens.Moon.skyTop.cgColor, Tokens.Moon.maria.cgColor]
+        visor.locations = [0, 0.6, 1]
+        visor.startPoint = CGPoint(x: 0, y: 0)
+        visor.endPoint = CGPoint(x: 1, y: 1)
+        visorShape.path = CGPath(roundedRect: CGRect(origin: .zero, size: visorBox.size), cornerWidth: 14, cornerHeight: 14, transform: nil)
+        visor.mask = visorShape
+
+        let gleam = CGMutablePath()
+        gleam.move(to: CGPoint(x: 33, y: 40))
+        gleam.addQuadCurve(to: CGPoint(x: 43, y: 37), control: CGPoint(x: 37, y: 37))
+        shine.path = gleam
+        shine.fillColor = nil
+        shine.strokeColor = NSColor.white.withAlphaComponent(0.7).cgColor
+        shine.lineWidth = 2.5
+        shine.lineCap = .round
 
         for eye in [leftEye, rightEye] {
-            eye.fillColor = Tokens.Moon.glowOuter.cgColor
-            eye.strokeColor = Tokens.Moon.glowOuter.cgColor
+            eye.strokeColor = NSColor.white.cgColor
             eye.lineCap = .round
             eye.shadowColor = Tokens.Moon.glowOuter.cgColor
             eye.shadowRadius = 3
-            eye.shadowOpacity = 0.8
+            eye.shadowOpacity = 0.9
             eye.shadowOffset = .zero
-        }
-
-        for (index, wheel) in wheels.enumerated() {
-            let centre = CGPoint(x: index == 0 ? 30 : 70, y: 82)
-            wheel.bounds = CGRect(x: 0, y: 0, width: 18, height: 18)
-            wheel.position = centre
-            wheel.path = CGPath(ellipseIn: wheel.bounds.insetBy(dx: 1.5, dy: 1.5), transform: nil)
-            wheel.fillColor = Tokens.Moon.maria.cgColor
-            wheel.strokeColor = Tokens.Moon.limbShade.cgColor
-            wheel.lineWidth = 2
-            let spoke = spokes[index]
-            let path = CGMutablePath()
-            path.move(to: CGPoint(x: 9, y: 4))
-            path.addLine(to: CGPoint(x: 9, y: 14))
-            path.move(to: CGPoint(x: 4, y: 9))
-            path.addLine(to: CGPoint(x: 14, y: 9))
-            spoke.path = path
-            spoke.strokeColor = Tokens.Moon.surfaceMid.cgColor
-            spoke.lineWidth = 1.5
-            spoke.frame = wheel.bounds
         }
     }
 
-    /// The eyes for a mood: open pills, arcs that smile, or low flat lines.
+    /// The eyes for a mood: round lights, arcs that smile or droop, or low
+    /// slits when stopped. `open` closes the round ones for a blink.
     private func eyes(for mood: Mood, open: CGFloat = 1) -> (CGPath, CGPath, Bool) {
-        func pill(_ x: CGFloat) -> CGPath {
-            let height = max(12 * open, 2)
-            return CGPath(roundedRect: CGRect(x: x, y: 51 - height / 2, width: 8, height: height),
-                          cornerWidth: 4, cornerHeight: min(4, height / 2), transform: nil)
+        func light(_ x: CGFloat) -> CGPath {
+            let height = max(7.2 * open, 1.4)
+            return CGPath(ellipseIn: CGRect(x: x - 3.6, y: 49 - height / 2, width: 7.2, height: height), transform: nil)
         }
         func arc(_ x: CGFloat, smile: Bool) -> CGPath {
             let path = CGMutablePath()
-            path.move(to: CGPoint(x: x, y: smile ? 53 : 49))
-            path.addQuadCurve(to: CGPoint(x: x + 10, y: smile ? 53 : 49), control: CGPoint(x: x + 5, y: smile ? 44 : 56))
+            path.move(to: CGPoint(x: x - 4, y: smile ? 51 : 47))
+            path.addQuadCurve(to: CGPoint(x: x + 4, y: smile ? 51 : 47), control: CGPoint(x: x, y: smile ? 44 : 54))
             return path
         }
         switch mood {
-        case .happy: return (arc(36, smile: true), arc(54, smile: true), true)
-        case .sad: return (arc(36, smile: false), arc(54, smile: false), true)
-        case .stopped: return (pill(37).copy(using: nil) ?? pill(37), pill(55), false)
-        case .idle, .thinking, .working: return (pill(37), pill(55), false)
+        case .happy: return (arc(42, smile: true), arc(58, smile: true), true)
+        case .sad: return (arc(42, smile: false), arc(58, smile: false), true)
+        case .idle, .thinking, .working, .stopped: return (light(42), light(58), false)
         }
     }
 
@@ -154,8 +152,8 @@ final class AgentRoverView: NSView {
         let (left, right, stroked) = eyes(for: mood, open: mood == .stopped ? 0.35 : open)
         for (eye, path) in [(leftEye, left), (rightEye, right)] {
             eye.path = path
-            eye.fillColor = stroked ? nil : Tokens.Moon.glowOuter.cgColor
-            eye.lineWidth = stroked ? 3 : 0
+            eye.fillColor = stroked ? nil : NSColor.white.cgColor
+            eye.lineWidth = stroked ? 2.6 : 0
         }
     }
 
@@ -163,19 +161,20 @@ final class AgentRoverView: NSView {
 
     private func applyMood() {
         stopBlinking()
-        for layer in [figure, leftEye, rightEye, lamp] + spokes { layer.removeAllAnimations() }
+        for layer in floating + [ground] { layer.removeAllAnimations() }
         setEyes(mood)
-        lamp.opacity = mood == .stopped || mood == .sad ? 0.35 : 1
+        visor.opacity = mood == .stopped || mood == .sad ? 0.8 : 1
+        for light in earLights { light.opacity = mood == .thinking || mood == .working ? 1 : 0 }
         guard !Tokens.Motion.reduceMotion, window != nil else { return }
         switch mood {
         case .idle:
             startBlinking()
         case .thinking:
             glance()
-            pulse(lamp, duration: 0.9)
+            for light in earLights { pulse(light, duration: 0.9) }
         case .working:
-            roll()
-            pulse(lamp, duration: 0.5)
+            bob()
+            for light in earLights { pulse(light, duration: 0.5) }
         case .happy:
             hop()
         case .sad, .stopped:
@@ -218,28 +217,29 @@ final class AgentRoverView: NSView {
         }
     }
 
-    /// Wheels turning and the hull riding over the dust.
-    private func roll() {
-        for spoke in spokes {
-            let turn = CABasicAnimation(keyPath: "transform.rotation.z")
-            turn.byValue = Double.pi * 2
-            turn.duration = 1.1
-            turn.repeatCount = .infinity
-            spoke.add(turn, forKey: "roll")
-        }
-        let bob = CAKeyframeAnimation(keyPath: "transform.translation.y")
-        bob.values = [0, -1.6, 0, -0.8, 0]
-        bob.duration = 0.9
-        bob.repeatCount = .infinity
-        figure.add(bob, forKey: "bob")
+    /// Floating over the dust, its shadow tightening as it rises.
+    private func bob() {
+        let rise = CAKeyframeAnimation(keyPath: "transform.translation.y")
+        rise.values = [0, -2.4, 0, -1.2, 0]
+        rise.duration = 1.1
+        rise.repeatCount = .infinity
+        for part in floating { part.add(rise, forKey: "bob") }
+        let squeeze = CAKeyframeAnimation(keyPath: "opacity")
+        squeeze.values = [1, 0.6, 1, 0.8, 1]
+        squeeze.duration = rise.duration
+        squeeze.repeatCount = .infinity
+        ground.add(squeeze, forKey: "bob")
     }
+
+    /// Everything but the shadow, which stays on the ground.
+    private var floating: [CALayer] { [helmet, visor, shine, leftEye, rightEye] + ears + earLights }
 
     private func hop() {
         let jump = CAKeyframeAnimation(keyPath: "transform.translation.y")
-        jump.values = [0, -5, 0, -2, 0]
+        jump.values = [0, -6, 0, -2, 0]
         jump.keyTimes = [0, 0.3, 0.6, 0.8, 1]
         jump.duration = 0.6
-        figure.add(jump, forKey: "hop")
+        for part in floating { part.add(jump, forKey: "hop") }
     }
 
     private func pulse(_ layer: CALayer, duration: CFTimeInterval) {

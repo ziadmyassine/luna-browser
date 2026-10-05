@@ -33,14 +33,13 @@ enum AgentSteps {
     }
 
     /// What the agent's own error means to the user, and what to do about it.
-    static func explain(_ message: String?) -> String {
+    static func explain(_ message: String?, engine: AgentEngine = .claude) -> String {
         let text = message?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if text.localizedCaseInsensitiveContains("authenticate") || text.localizedCaseInsensitiveContains("log in")
-            || text.localizedCaseInsensitiveContains("OAuth") {
-            return String(localized: "Claude Code needs you to sign in again. Open Terminal, type claude and sign in, then try again.")
+        if AgentEngine.meansSignedOut(text) {
+            return String(localized: "\(engine.name) needs you to sign in again. Sign in, then tell me to carry on.")
         }
         if text.localizedCaseInsensitiveContains("usage limit") || text.localizedCaseInsensitiveContains("rate limit") {
-            return String(localized: "Claude's usage limit is reached for now. Try again later.")
+            return String(localized: "Your \(engine.name) plan’s usage limit is reached for now. Try again later.")
         }
         return text.isEmpty ? String(localized: "Something went wrong, and the agent stopped.") : text
     }

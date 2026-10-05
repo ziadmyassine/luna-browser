@@ -56,9 +56,9 @@ extension URLPillView {
     /// the gap between it and the address.
     private var glyphRun: CGFloat { glyphInset + glyphInk + Tokens.Metric.chromeGap }
 
-    /// The Aa glyph's chip, standing just inside the trailing glyph.
+    /// The Aa glyph's chip, standing inside the rover's.
     var readingRun: CGFloat { showsReading ? chipWidth : 0 }
-    /// The rover's chip, inside the Aa glyph's.
+    /// The rover's chip, standing just inside the trailing glyph.
     var agentRun: CGFloat { onAgent == nil ? 0 : chipWidth }
 
     /// What the text keeps clear at each end.
@@ -171,8 +171,10 @@ extension URLPillView {
         reload.frame = NSRect(x: trailingX, y: boxY, width: chip, height: box).integral
         // Off reload's rounded frame, not rounded itself: `integral` grows a
         // box that starts on a half point, and two grown boxes overlapped.
-        reading.frame = reload.frame.offsetBy(dx: -reload.frame.width, dy: 0)
-        agent.frame = reload.frame.offsetBy(dx: -reload.frame.width - readingRun, dy: 0)
+        // The rover stands right beside the trailing glyph — in the sidebar,
+        // that is the extensions button — and the Aa glyph inside it.
+        agent.frame = reload.frame.offsetBy(dx: -reload.frame.width, dy: 0)
+        reading.frame = reload.frame.offsetBy(dx: -reload.frame.width - agentRun, dy: 0)
         placeExtensions(
             trailingX: trailingX, pinsEnd: trailingX - readingRun - agentRun, y: boxY, chip: NSSize(width: chip, height: box)
         )
