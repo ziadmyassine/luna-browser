@@ -25,6 +25,9 @@ final class AgentAura: NSView {
         super.init(frame: frameRect)
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
+        // The glows are wider than the column so their edges never show;
+        // the column is where they stop, not the page beside it.
+        layer?.masksToBounds = true
         for glow in [top, bottom] {
             glow.type = .radial
             glow.startPoint = CGPoint(x: 0.5, y: 0.5)
