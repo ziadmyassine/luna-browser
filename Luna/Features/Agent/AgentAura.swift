@@ -15,6 +15,15 @@ final class AgentAura: NSView {
 
     private let top = CAGradientLayer()
     private let bottom = CAGradientLayer()
+    private let shape = CAShapeLayer()
+
+    /// The strip on the page's side that the light reaches under the page,
+    /// and which side it is on. Only its two ends are lit — the notches the
+    /// page's rounded corners leave. Lit the whole way down, the light showed
+    /// through the page's hairline edge and the edge shimmered as it moved.
+    var notches: (width: CGFloat, onLeading: Bool)? {
+        didSet { needsLayout = true }
+    }
 
     /// Whether Astro is working, which sets the light moving.
     var isLively = false {
@@ -28,6 +37,7 @@ final class AgentAura: NSView {
         // The glows are wider than the column so their edges never show;
         // the column is where they stop, not the page beside it.
         layer?.masksToBounds = true
+        layer?.mask = shape
         for glow in [top, bottom] {
             glow.type = .radial
             glow.startPoint = CGPoint(x: 0.5, y: 0.5)
@@ -60,7 +70,22 @@ final class AgentAura: NSView {
             // Layer space is y up: the lavender over the header, the ice under the field.
             top.frame = CGRect(x: bounds.midX - width / 2, y: bounds.maxY - width * 0.42, width: width, height: width * 0.8)
             bottom.frame = CGRect(x: bounds.midX - width / 2, y: -width * 0.42, width: width, height: width * 0.7)
+            shape.frame = bounds
+            shape.path = Self.outline(of: bounds, notches: notches)
         }
+    }
+
+    /// The panel's own column, and a corner's square at each end of the strip.
+    static func outline(of bounds: CGRect, notches: (width: CGFloat, onLeading: Bool)?) -> CGPath {
+        guard let notches, notches.width > 0, notches.width < bounds.width else { return CGPath(rect: bounds, transform: nil) }
+        let side = notches.width
+        let path = CGMutablePath()
+        let stripX = notches.onLeading ? bounds.minX : bounds.maxX - side
+        let columnX = notches.onLeading ? bounds.minX + side : bounds.minX
+        path.addRect(CGRect(x: columnX, y: bounds.minY, width: bounds.width - side, height: bounds.height))
+        path.addRect(CGRect(x: stripX, y: bounds.minY, width: side, height: side))
+        path.addRect(CGRect(x: stripX, y: bounds.maxY - side, width: side, height: side))
+        return path
     }
 
     override func viewDidMoveToWindow() {

@@ -122,6 +122,8 @@ final class AgentPanelHost {
         // Pinned by the panel's outer edge, so its extra width lies under the page.
         auraTrailing?.isActive = side == .trailing
         auraLeading?.isActive = side == .leading
+        // The strip lies on the page's side: leading when the panel trails.
+        (aura as? AgentAura)?.notches = (WindowCorner.radius, side == .trailing)
         let offset = edge == nil ? -width : 0
         leading?.constant = offset
         trailing?.constant = offset
