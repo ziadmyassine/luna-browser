@@ -45,6 +45,8 @@ final class BrowserWindow {
     var historyPanel: HistoryPanelController?
     /// §18.1's find in page, over whichever page this window is showing.
     var find: FindController?
+    /// The agent panel, made the first time it is asked for (`BrowserWindow+Agent`).
+    var agentPanel: AgentPanelView?
     /// The session registration that redraws this window. Held here so a closed
     /// window stops being called without anyone having to remember to say so.
     var observation: ObservationToken?

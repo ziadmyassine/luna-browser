@@ -58,14 +58,17 @@ extension URLPillView {
 
     /// The Aa glyph's chip, standing just inside the trailing glyph.
     var readingRun: CGFloat { showsReading ? chipWidth : 0 }
+    /// The rover's chip, inside the Aa glyph's.
+    var agentRun: CGFloat { onAgent == nil ? 0 : chipWidth }
 
     /// What the text keeps clear at each end.
     private var margins: (leading: CGFloat, trailing: CGFloat) {
         // A pill with both is symmetric, which is what lets §3.2b centre the
         // address in the capsule rather than in the space one glyph leaves.
-        guard slidersLead else { return (Tokens.Metric.pillTextInset, glyphRun + readingRun) }
-        guard showsExtensions else { return (glyphRun, glyphRun + readingRun) }
-        return (glyphRun, glyphRun + readingRun + CGFloat(fittingPins) * chipWidth)
+        let trailingChips = readingRun + agentRun
+        guard slidersLead else { return (Tokens.Metric.pillTextInset, glyphRun + trailingChips) }
+        guard showsExtensions else { return (glyphRun, glyphRun + trailingChips) }
+        return (glyphRun, glyphRun + trailingChips + CGFloat(fittingPins) * chipWidth)
     }
 
     /// The chip's box, height and width, for a pill of this height — see
@@ -81,7 +84,7 @@ extension URLPillView {
     /// sliders' run and the button's come out of the rest, and the pins share
     /// what is left, one chip each.
     var fittingPins: Int {
-        let room = bounds.width * (1 - Tokens.Metric.pinnedExtensionsAddressShare) - 2 * glyphRun - readingRun
+        let room = bounds.width * (1 - Tokens.Metric.pinnedExtensionsAddressShare) - 2 * glyphRun - readingRun - agentRun
         return ExtensionShelfFit.count(extensionPins.count, room: room, pitch: chipWidth)
     }
 
@@ -169,7 +172,10 @@ extension URLPillView {
         // Off reload's rounded frame, not rounded itself: `integral` grows a
         // box that starts on a half point, and two grown boxes overlapped.
         reading.frame = reload.frame.offsetBy(dx: -reload.frame.width, dy: 0)
-        placeExtensions(trailingX: trailingX, pinsEnd: trailingX - readingRun, y: boxY, chip: NSSize(width: chip, height: box))
+        agent.frame = reload.frame.offsetBy(dx: -reload.frame.width - readingRun, dy: 0)
+        placeExtensions(
+            trailingX: trailingX, pinsEnd: trailingX - readingRun - agentRun, y: boxY, chip: NSSize(width: chip, height: box)
+        )
 
         let margin = margins
         let run = max(bounds.width - margin.leading - margin.trailing, 0)

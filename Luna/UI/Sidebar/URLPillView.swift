@@ -29,6 +29,14 @@ final class URLPillView: NSView, PopoutShelf {
     var onSiteMenu: (() -> Void)?
     /// The Aa glyph before reload, which opens the Reading pop-out.
     var onReading: (() -> Void)?
+    /// The rover's face before the trailing glyphs, which shows and hides the
+    /// agent panel (`⌘E`). Nil leaves it off the pill.
+    var onAgent: (() -> Void)? {
+        didSet {
+            agent.isHidden = onAgent == nil
+            needsLayout = true
+        }
+    }
     /// Whether the tab wears the Aa glyph: only where its settings change the
     /// page, which is Reader and a Markdown document. An ordinary site that
     /// merely reads as an article does not; Reader is on ⇧⌘R and in site settings.
@@ -83,6 +91,7 @@ final class URLPillView: NSView, PopoutShelf {
     let sliders = RowGlyphView()
     let reload = RowGlyphView()
     let reading = RowGlyphView()
+    let agent = RowGlyphView()
     /// §16.4, in the sidebar's pill: the extensions button in the trailing
     /// slot and the pinned extensions to its left — `URLPillExtensions.swift`.
     /// Off on §3.2b's pill, whose bar has a cylinder of its own for them.
@@ -157,10 +166,12 @@ final class URLPillView: NSView, PopoutShelf {
         // The sliders glyph is a control on a row of controls, not a badge
         // printed on the pill: an SF Symbol behaving exactly as the reload
         // beside it does (`RowGlyphView`).
-        for glyph in [sliders, reload, reading, extensionsGlyph] {
+        for glyph in [sliders, reload, reading, agent, extensionsGlyph] {
             glyph.isRound = true
             addSubview(glyph)
         }
+        agent.isHidden = true
+        agent.onActivate = { [weak self] in self?.onAgent?() }
         reading.isHidden = true
         reading.onActivate = { [weak self] in self?.onReading?() }
         extensionsGlyph.isHidden = true
@@ -222,6 +233,7 @@ final class URLPillView: NSView, PopoutShelf {
             pointSize: glyphInk
         )
         reading.configure(symbolName: ReadingMenu.Glyph.header, label: String(localized: "Reading"), pointSize: glyphInk)
+        agent.configure(image: AgentGlyph.image(pointSize: glyphInk), label: String(localized: "Agent"), pointSize: glyphInk)
         extensionsGlyph.configure(symbolName: ExtensionsSymbol.name, label: ExtensionsSymbol.label, pointSize: glyphInk)
         needsLayout = true
     }
@@ -230,7 +242,7 @@ final class URLPillView: NSView, PopoutShelf {
 
     private func refresh() {
         field.textColor = Tokens.Text.primary
-        for glyph in [sliders, reload, reading, extensionsGlyph] { glyph.tint = Tokens.Text.secondary }
+        for glyph in [sliders, reload, reading, agent, extensionsGlyph] { glyph.tint = Tokens.Text.secondary }
         needsDisplay = true
     }
 

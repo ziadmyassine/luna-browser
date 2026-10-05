@@ -50,6 +50,10 @@ public enum ControlCommand: Sendable, Equatable {
     /// Asks the user to do a step only they can, and waits until they say
     /// it is done.
     case requestUser(String)
+    /// `name_task`: what the agent's folder is called from now on.
+    case nameTask(String)
+    /// `ask_user`: a question for the user and the answers they may pick.
+    case askUser(question: String, options: [String])
     /// Answers the `alert`, `confirm` or `prompt` open in the tab.
     case dialog(accept: Bool, text: String?)
     /// Hands files to a file input, or drops them on anything else.
@@ -170,11 +174,37 @@ extension ControlCall {
             guard args.int("tabId") != nil else { throw ControlError("tabId is required.") }
             return .closeTab
         case "wait": return .wait(seconds: min(max(args.values["seconds"]?.double ?? 1, 0), 30))
-        case "request_user": return .requestUser(String(try args.required("reason").prefix(500)))
+        case "request_user", "name_task", "ask_user": return try asking(tool, args)
         case "dialog": return try dialog(args)
         case "file_upload": return .upload(ref: try args.required("ref"), files: try uploads(args.values["files"]))
         default: throw ControlError("Luna has no tool called \(tool).")
         }
+    }
+
+    /// The three calls that speak to the user rather than the page.
+    private static func asking(_ tool: String, _ args: Arguments) throws -> ControlCommand {
+        switch tool {
+        case "request_user": .requestUser(String(try args.required("reason").prefix(500)))
+        case "name_task": .nameTask(try taskTitle(args))
+        default: try askUser(args)
+        }
+    }
+
+    private static func askUser(_ args: Arguments) throws -> ControlCommand {
+        let question = String(try args.required("question").prefix(300))
+        guard case let .array(items)? = args.values["options"] else { throw ControlError("options must be a list.") }
+        let options = items.compactMap(\.string).map { String($0.prefix(40)) }.filter { !$0.isEmpty }
+        guard (2 ... 4).contains(options.count) else { throw ControlError("Give two to four options.") }
+        return .askUser(question: question, options: options)
+    }
+
+    /// A folder's name: one line, trimmed, and short enough for a sidebar row.
+    private static func taskTitle(_ args: Arguments) throws -> String {
+        let title = try args.required("title")
+            .components(separatedBy: .newlines).joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines.union(CharacterSet(charactersIn: ".")))
+        guard !title.isEmpty else { throw ControlError("title is empty.") }
+        return String(title.prefix(40))
     }
 
     private static func dialog(_ args: Arguments) throws -> ControlCommand {

@@ -155,11 +155,18 @@ struct BrowserCommand: Identifiable {
     )
     static let useSelectionForFind = BrowserCommand(
         "useSelectionForFind", "Use Selection for Find", #selector(AppDelegate.useSelectionForFind(_:)),
-        [KeyBinding("e")], customisable: false
+        customisable: false
     )
 
     // MARK: - View
 
+    /// `⌘E`, the agent panel's. macOS gives `⌘E` to Use Selection for Find,
+    /// which keeps its menu item and gives up the keystroke: the panel is
+    /// something reached for all day, and the selection's search is not.
+    static let toggleAgent = BrowserCommand(
+        "toggleAgent", "Show Agent", #selector(AppDelegate.toggleAgentPanel(_:)), [KeyBinding("e")],
+        symbol: "sparkles", keywords: ["agent", "ai", "assistant", "claude", "rover", "task"]
+    )
     static let toggleSidebar = BrowserCommand(
         "toggleSidebar", "Hide Sidebar", #selector(AppDelegate.toggleSidebarVisibility(_:)), [KeyBinding("s")]
     )
@@ -310,7 +317,7 @@ struct BrowserCommand: Identifiable {
         reopenArchivedTab, closeWindow, downloadPDF, printPage,
         undo, redo, cut, copy, paste, selectAll, find, findNext, findPrevious, useSelectionForFind,
         copyURL, copyMarkdown,
-        toggleSidebar, toggleFavorite, reloadPage, forceReloadPage, stopLoading, openBlockedPopup,
+        toggleSidebar, toggleAgent, toggleFavorite, reloadPage, forceReloadPage, stopLoading, openBlockedPopup,
         zoomIn, zoomOut, actualSize, pictureInPicture, muteAllTabs, unmuteAllTabs, reader, siteSettings, hideElements, showDownloads,
         goBack, goForward, showHistory, clearHistory,
         showWebInspector, showJavaScriptConsole, showPageSource, startElementSelection, disableJavaScript, emptyCaches,

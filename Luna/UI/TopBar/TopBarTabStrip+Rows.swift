@@ -28,6 +28,7 @@ extension TopBarTabStrip {
             case .close: session.closeTab(tab.id)
             case let .audio(muted): session.setMuted(!muted, tab: tab.id)
             case .devices: session.controller(for: tab.id)?.stopCapture()
+            case .agent: activateTab(tab.id)
             case .none: break
             }
         }

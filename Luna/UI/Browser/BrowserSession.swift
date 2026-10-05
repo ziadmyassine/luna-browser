@@ -313,6 +313,8 @@ final class BrowserSession {
     var controlledTabs: [UUID: ControlFace] = [:]
     /// `ControlService.refreshBadges`'s symbols, by folder.
     var controlBadges: [UUID: String] = [:]
+    /// Tabs an agent is waiting on the user in, which wear the raised hand.
+    var controlNeedsYouTabs: Set<UUID> = []
     /// Which app each Luna Control folder belongs to, by folder:
     /// `ControlService.refreshFaces`'s.
     var controlFaces: [UUID: ControlFace] = [:]

@@ -48,6 +48,9 @@ final class PageChromeController: WindowScoped {
             guard let self, isActive else { return }
             onBandHeight?(height, animated)
         }
+        // The agent panel's button, off in a §5.6 window: the agent works in
+        // the main session's tabs, which that window cannot show.
+        if session.allowsPinning { bar.pill.onAgent = AgentPanelButton.toggle }
         bar.onBack = { [weak self] in self?.session.goBack() }
         bar.onForward = { [weak self] in self?.session.goForward() }
         bar.onReloadOrStop = { [weak self] isLoading in

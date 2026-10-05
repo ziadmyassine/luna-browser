@@ -254,6 +254,7 @@ extension AppDelegate: NSMenuItemValidation {
         // Before the session guard: hiding the sidebar is a window command and
         // works on an empty window.
         if let sidebar = validateSidebarToggle(menuItem) { return sidebar }
+        if let agent = validateAgentToggle(menuItem) { return agent }
         // Settings needs no session. It can be opened during a cold launch —
         // several of its sections exist to say what is not wired up yet — and a
         // dimmed `⌘,` on a slow first run would be a bug, not a safeguard.

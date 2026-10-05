@@ -84,6 +84,8 @@ public enum ControlAudit {
     public static func summary(of command: ControlCommand) -> String { // swiftlint:disable:this cyclomatic_complexity
         switch command {
         case .listTabs: "tabs_list"
+        case let .nameTask(title): "name_task \(clip(title))"
+        case let .askUser(question, _): "ask_user \(clip(ControlRedactor.scrub(question)))"
         case let .openTab(url): "tab_open \(url.map { ControlRedactor.scrub($0.absoluteString) } ?? "blank")"
         case let .navigate(.url(url)): "navigate to \(ControlRedactor.scrub(url.absoluteString))"
         case .navigate(.back): "navigate back"

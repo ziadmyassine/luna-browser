@@ -273,14 +273,20 @@ final class ControlWorkingCapsule: NSView {
         self.working = working
         rim.tint = Tokens.Agent.tint(forApp: working.appID)
         rim.isWorking = working.isActing && !working.isPaused
-        icon.image = working.appID.flatMap(ControlAppIcon.image(for:))
+        // Paused is the user at the wheel: the rover's face, and the way to
+        // give the wheel back, with the keys that do it.
+        icon.image = working.isPaused ? AgentGlyph.image(pointSize: Tokens.Metric.faviconSize)
+            : working.appID.flatMap(ControlAppIcon.image(for:))
             ?? NSImage(systemSymbolName: BrowserSession.controlFolderSymbol, accessibilityDescription: nil)
+        icon.contentTintColor = Tokens.Text.primary
         label.stringValue = working.isPaused
-            ? String(localized: "\(working.client) is paused")
+            ? String(localized: "You’re driving")
             : String(localized: "\(working.client) is working")
         let button = self.button ?? ControlCapsuleButton()
-        button.title = working.isPaused ? String(localized: "Resume") : String(localized: "Take Over")
+        button.title = working.isPaused ? String(localized: "Hand Back") : String(localized: "Take Over")
+        button.shortcut = working.isPaused ? "⌘↩" : nil
         button.onActivate = onToggle
+        watchHandBack(working.isPaused ? onToggle : nil)
         // The capsule is the material, so the capsule is what swells.
         button.onPressChange = { [weak self] pressed in
             guard let self else { return }
@@ -294,6 +300,28 @@ final class ControlWorkingCapsule: NSView {
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         layer.map { Tokens.Shadow.popover.apply(to: $0, in: effectiveAppearance) }
+    }
+
+    private var handBackMonitor: Any?
+
+    /// `⌘↩` hands the page back while the user is driving, wherever the
+    /// keyboard is in this window — the page has it, not the capsule.
+    private func watchHandBack(_ handBack: (() -> Void)?) {
+        if let handBackMonitor { NSEvent.removeMonitor(handBackMonitor) }
+        handBackMonitor = nil
+        guard let handBack else { return }
+        handBackMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            guard let self, event.window === window, window != nil, modifiers == .command,
+                  event.keyCode == 36 || event.keyCode == 76 else { return event }
+            handBack()
+            return nil
+        }
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil { watchHandBack(nil) }
     }
 
     override func layout() {
@@ -347,11 +375,24 @@ final class ControlCapsuleButton: NSButton {
         didSet { if title != oldValue { applyTitle() } }
     }
 
+    /// The keys that press it, set after the title in the secondary ink —
+    /// Hand Back's `⌘↩`.
+    var shortcut: String? {
+        didSet { if shortcut != oldValue { applyTitle() } }
+    }
+
     private func applyTitle() {
-        attributedTitle = NSAttributedString(string: title, attributes: [
+        let text = NSMutableAttributedString(string: title, attributes: [
             .font: Tokens.TypeScale.settingsRow,
             .foregroundColor: Tokens.Text.primary
         ])
+        if let shortcut {
+            text.append(NSAttributedString(string: "  " + shortcut, attributes: [
+                .font: Tokens.TypeScale.settingsRow,
+                .foregroundColor: Tokens.Text.secondary
+            ]))
+        }
+        attributedTitle = text
         invalidateIntrinsicContentSize()
     }
 

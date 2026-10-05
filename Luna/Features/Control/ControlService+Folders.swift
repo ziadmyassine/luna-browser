@@ -44,11 +44,11 @@ extension ControlService {
         agents[agent].flatMap { ControlApp.app(forClient: $0.rawName)?.id }
     }
 
-    /// What the session's folder should be called: the session's own name,
-    /// else the app's, numbered when another session already has a folder of
-    /// that name.
+    /// What the session's folder should be called: its task (`name_task`),
+    /// else the session's own name, else the app's, numbered when another
+    /// session already has a folder of that name.
     func folderName(for client: ControlClient, in session: BrowserSession) -> String {
-        let base = client.sessionName ?? client.displayName
+        let base = taskNames[client.session] ?? client.sessionName ?? client.displayName
         let taken = Set(folders.filter { $0.key != client.session }.compactMap { session.group($0.value)?.name })
         guard taken.contains(base) else { return base }
         return (2...).lazy.map { "\(base) \($0)" }.first { !taken.contains($0) } ?? base
@@ -85,6 +85,23 @@ extension ControlService {
         guard name != group.name else { return }
         session.renameControlFolder(id, to: name)
         folderNames[client.session] = name
+    }
+
+    /// `name_task`: the folder takes the task's name now if it has one, and
+    /// when it is made if not. A folder the user renamed keeps their name.
+    func nameTask(_ title: String, for client: ControlClient, in session: BrowserSession) -> ControlResult {
+        taskNames[client.session] = title
+        if let id = folders[client.session], let group = session.group(id), group.name == folderNames[client.session] {
+            let name = folderName(for: client, in: session)
+            if name != group.name {
+                session.renameControlFolder(id, to: name)
+                folderNames[client.session] = name
+            }
+        }
+        NotificationCenter.default.post(
+            name: Self.taskNamed, object: self, userInfo: ["session": client.session, "title": title]
+        )
+        return .text("Your folder is called “\(title)”.")
     }
 
     /// Puts a tab the agent is about to take over into its folder, so every

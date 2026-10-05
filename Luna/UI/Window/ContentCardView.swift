@@ -28,6 +28,15 @@ enum CardEdge: Equatable {
     init(_ edge: SidebarEdge) {
         self = edge == .leading ? .leading : .trailing
     }
+
+    /// The pane's two corners along this edge.
+    var corners: CACornerMask {
+        switch self {
+        case .trailing: [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
+        case .top: [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+        case .leading: [.layerMinXMinYCorner, .layerMinXMaxYCorner]
+        }
+    }
 }
 
 extension ChromeState {
@@ -91,6 +100,15 @@ final class ContentCardView: NSView {
     }
 
     var isInset: Bool { insetEdge != nil }
+
+    /// The edge the agent panel stands against (`AgentPanelHost`), whose
+    /// corners are rounded too: there the pane meets the window's glass.
+    var agentEdge: CardEdge? {
+        didSet {
+            guard agentEdge != oldValue else { return }
+            updateCornerRadius()
+        }
+    }
 
     /// Files and web links dropped on the page bar, or on a card with no page
     /// (`WindowDrop`). A web view registers for drops itself, so over the page
@@ -448,12 +466,10 @@ final class ContentCardView: NSView {
         // are the window's, and the window's own mask already rounds them —
         // rounding them here as well would round the pane inside a corner that
         // is already round and show glass through the crescent between the two.
-        layer?.maskedCorners = switch insetEdge {
-        case .trailing: [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
-        case .top: [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
-        case .leading, nil: [.layerMinXMinYCorner, .layerMinXMaxYCorner]
-        }
-        layer?.cornerRadius = isInset ? WindowCorner.radius : 0
+        let edges = [insetEdge, agentEdge].compactMap { $0 }
+        layer?.maskedCorners = edges.isEmpty ? CardEdge.leading.corners
+            : edges.map(\.corners).reduce([]) { $0.union($1) }
+        layer?.cornerRadius = edges.isEmpty ? 0 : WindowCorner.radius
         // The edge is drawn by `updateLayer` and turns off with the corners.
         needsDisplay = true
     }
@@ -472,8 +488,9 @@ final class ContentCardView: NSView {
         // every other glass surface in the app carries, drawn on the side where
         // the page meets the chrome. It follows `maskedCorners`, so it runs
         // round the rounded edge and nowhere else.
-        layer.borderWidth = isInset ? Tokens.Metric.hairline : 0
-        layer.borderColor = isInset ? Tokens.Line.border.cgColor : nil
+        let edged = isInset || agentEdge != nil
+        layer.borderWidth = edged ? Tokens.Metric.hairline : 0
+        layer.borderColor = edged ? Tokens.Line.border.cgColor : nil
     }
 
     override func viewDidChangeEffectiveAppearance() {

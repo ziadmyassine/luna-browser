@@ -45,6 +45,7 @@ extension SidebarViewController {
             guard let self else { return }
             ReadingMenu.present(from: pill.readingAnchor, alignedTo: pill)
         }
+        if session.allowsPinning { pill.onAgent = AgentPanelButton.toggle }
         // §16.4: the extensions button and the pins beside it. A pin's popup
         // and the pop-out each open on the chip that was pressed.
         pill.onExtension = { [weak self] id, anchor in

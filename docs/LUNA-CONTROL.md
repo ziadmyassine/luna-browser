@@ -188,6 +188,8 @@ They can only close tabs in their own folder.
 | `tab_close` | Close a tab in the agent's folder |
 | `wait` | Sleep up to 30 s |
 | `request_user` | Ask the user to do a step only they can (`reason`), and wait up to five minutes for **Done** |
+| `ask_user` | Ask a short `question` with two to four `options`; the user picks one on a card over the page ("Claude needs you"), and the answer is the result. Waits up to five minutes |
+| `name_task` | Name the task in a few words (`title`). The agent's sidebar folder takes that name in place of the session's or the app's |
 | `dialog` | Answer the `alert`/`confirm`/`prompt` open in the tab: `action` `accept` or `dismiss`, `text` for a prompt |
 | `batch` | Up to 20 of the above in order (`actions: [{tool, args}]`). Stops at the first failure; a step's `ref` may be `"$N"`, the first ref in step N's result. No nesting |
 
@@ -277,6 +279,25 @@ Page events and reads run in a content world of their own that the page
 cannot see: events dispatched on the element, `execCommand('insertText')` for
 typing, the form's own `requestSubmit()` for Enter. They need no window at
 all.
+
+## The agent panel
+
+Luna's own agent, beside the page: `⌘E` (View ▸ Show Agent, and the rover's
+face in the search bar or the top bar's buttons) shows and hides a column on
+the side the sidebar is not on. A task typed there — or in `⌘T`, whose first
+row is **Ask your agent** when what was typed reads as a request — starts
+Claude Code in the background (`claude -p`, stream-json in and out, Luna
+Control as its only MCP server, `--permission-mode dontAsk`), and the panel
+shows its words and each step as it goes. Writing while it works goes to it
+at once; the field's button is Stop meanwhile. Its folder is named after the
+task (`name_task`), its tabs wear the rover while it works and a raised hand
+while it waits on the user, and its pointer on the page is the rover. Taking
+over from the capsule at the page's foot reads *You're driving*; **Hand Back**
+or `⌘↩` lets it carry on. Code: `Luna/Features/Agent`.
+
+It needs Luna Control on (the empty panel offers to turn it on) and Claude
+Code installed and signed in; a sign-in that has run out is said in plain
+words, with what to do.
 
 ## Security
 

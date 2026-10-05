@@ -133,6 +133,7 @@ extension ControlService {
             }
         }
         session?.setControlBadges(badges)
+        session?.setControlNeedsYou(Set(approvals.pending.compactMap(\.tab)))
     }
 
     /// A paused client's call waits here until the user resumes or stops it,
@@ -278,10 +279,10 @@ extension ControlService {
         let site = record.site
         let request = ControlApprovals.Request(
             client: client.displayName, folder: folder(for: client, in: session), site: site,
-            summary: summary, reason: reason, grantable: grantable
+            summary: summary, reason: reason, grantable: grantable, tab: currentTab[client.connection]
         )
         switch await approvals.ask(request) {
-        case .once:
+        case .once, .choice:
             record.decision = "approved"
         case .always:
             record.decision = "approved"
@@ -307,7 +308,7 @@ extension ControlService {
 
     private func target(of call: ControlCall, in session: BrowserSession, for client: ControlClient) throws -> UUID? {
         switch call.command {
-        case .listTabs, .openTab, .wait, .requestUser: nil
+        case .listTabs, .openTab, .wait, .requestUser, .nameTask, .askUser: nil
         default: try resolve(call, in: session, for: client)
         }
     }
@@ -326,7 +327,7 @@ extension ControlService {
         _ result: ControlResult, command: ControlCommand, client: ControlClient, tab id: UUID?, in session: BrowserSession
     ) -> ControlResult {
         let fenced: Bool = switch command {
-        case .wait, .closeTab, .requestUser: false
+        case .wait, .closeTab, .requestUser, .nameTask, .askUser: false
         default: true
         }
         let url = command.fencesTab ? id.flatMap { session.controller(for: $0)?.webView?.url ?? session.tab($0)?.url } : nil
@@ -376,7 +377,7 @@ private extension ControlCommand {
     /// Whether the result is about one tab, whose address goes on the fence.
     var fencesTab: Bool {
         switch self {
-        case .listTabs, .wait, .closeTab, .requestUser: false
+        case .listTabs, .wait, .closeTab, .requestUser, .nameTask, .askUser: false
         default: true
         }
     }

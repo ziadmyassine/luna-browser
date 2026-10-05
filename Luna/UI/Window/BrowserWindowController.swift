@@ -112,6 +112,8 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     private var cornerFillLeading: NSLayoutConstraint?
     private var cornerFillTrailing: NSLayoutConstraint?
 
+    /// The agent panel's column — see `AgentPanelHost`.
+    let agentHost = AgentPanelHost()
     private var stateBeforeFullscreen: ChromeState?
     /// The width to come back to when the sidebar is shown again. Not the
     /// default: a user who dragged the sidebar to 200 pt and hid it expects
@@ -524,7 +526,9 @@ extension BrowserWindowController {
         apply(on ? .fullscreen : restore, animated: true)
     }
 
-    private func apply(_ state: ChromeState, animated: Bool) {
+    /// Internal for `AgentPanelHost`'s seam, which re-applies the state it is
+    /// in when the panel comes and goes.
+    func apply(_ state: ChromeState, animated: Bool) {
         let previous = chromeState
         chromeState = state
         // §3.2c: hiding the sidebar takes the address bar away with it, and the
@@ -539,7 +543,7 @@ extension BrowserWindowController {
         peek.isEnabled = state.isSidebarCollapsed
         peekEdge.isEnabled = state.isSidebarCollapsed
         updatePeekEdgeWidth()
-        let insets = state.cardInsets
+        let insets = agentHost.adjusting(state.cardInsets, for: state)
         let spec = Self.motion(from: previous, to: state)
         // `⌘S` moves the lights the way a peek does (`applyPeek`): parked
         // where the sidebar is pushed to before a show, so they slide in with
@@ -567,8 +571,7 @@ extension BrowserWindowController {
             // them back.
             trafficLights?.isPeeking = false
             applyChromeGeometry(state)
-            card.insetEdge = state.cardInsetEdge
-            card.setInsets(insets)
+            agentHost.lay(card, out: insets, for: state)
             // In the same transaction, never as a second step: a re-anchor one
             // frame later is exactly the visible jump §4.1 warns about.
             trafficLights?.apply(state)

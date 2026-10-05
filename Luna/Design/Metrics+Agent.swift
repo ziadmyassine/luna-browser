@@ -1,0 +1,38 @@
+//
+//  Metrics+Agent.swift
+//  Luna
+//
+//  The agent panel (`Luna/Features/Agent`): the column beside the page, its
+//  rover, its conversation and the field the user writes in. Kept with the
+//  other surfaces' own files rather than in Metrics.swift.
+//
+
+import Foundation
+
+extension Tokens.Metric {
+
+    /// The panel's width: room for a sentence of 13 pt text at a comfortable
+    /// measure (about 45 characters) inside `agentPanelInset` either side —
+    /// the reference's column, a little narrower than the default sidebar.
+    static let agentPanelWidth: CGFloat = 340
+    /// Everything in the panel stands this far in from its edges, the
+    /// sidebar's own `rowInset` plus a gap, so the panel's text lines up with
+    /// the margin the page bar's controls keep.
+    static let agentPanelInset: CGFloat = 16
+    /// The rover in the header, a circle the size of §3.1's sidebar buttons
+    /// beside it plus a ring's worth; and in the empty panel, where it is the
+    /// whole of what there is to look at.
+    static let agentRover: CGFloat = 40
+    static let agentRoverHero: CGFloat = 96
+    /// The task's name under the rover: a capsule the height of the URL pill.
+    static let agentTitleCapsule = RoundedMetric(width: 220, height: 40, cornerRadius: 20)
+    /// The user's messages: a bubble with the URL pill's corner, at most this
+    /// share of the column so it reads as a reply from the side.
+    static let agentBubbleRadius: CGFloat = 14
+    static let agentBubbleShare: CGFloat = 0.82
+    /// The field the user writes in, and the gap between conversation items.
+    static let agentComposerHeight: CGFloat = 44
+    static let agentItemGap: CGFloat = 10
+    /// The steps' glyphs, set a size under the text beside them.
+    static let agentStepGlyph: CGFloat = 12
+}

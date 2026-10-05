@@ -31,10 +31,17 @@ final class ControlApprovals {
         /// `request_user`: the agent asks the user to do `summary` themselves,
         /// and `.once` is their Done.
         var isHandoff = false
+        /// The tab the agent was working in when it asked, which wears the
+        /// raised hand in the sidebar until the request is answered.
+        var tab: UUID?
+        /// `ask_user`: the answers the agent offers, one button each.
+        var choices: [String] = []
     }
 
     enum Answer: Equatable {
         case once, always, deny, timedOut, stopped
+        /// `ask_user`: the user picked this one of the request's `choices`.
+        case choice(Int)
     }
 
     /// Posted on the main actor whenever a request arrives or is answered.

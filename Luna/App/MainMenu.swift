@@ -222,6 +222,8 @@ enum MainMenu {
             // Hides and shows the sidebar. Which layout the window wears is a
             // setting (`⌘,`), not something a reflex keystroke should change.
             items(.toggleSidebar),
+            // The agent panel, beside the sidebar it is the other column of.
+            items(.toggleAgent),
             // §20.1's `⌘D`. Favorites are the sidebar's top tier and are
             // per Profile, so this is a View command, not a File one —
             // Luna has no Bookmarks menu to put it in and is not growing one

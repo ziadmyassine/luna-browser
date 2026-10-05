@@ -66,6 +66,8 @@ struct CommandBarSources: Sendable {
     /// template turns them into one here, exactly as it does for a typed query,
     /// so a suggestion cannot carry a destination Luna did not build.
     var suggestions: [String] = []
+    /// Whether the agent panel can take a task here — not in a §5.6 window.
+    var offersAgent = false
 }
 
 enum CommandBarRanking {
@@ -118,11 +120,15 @@ enum CommandBarRanking {
         if let search = searchRow(query: query, hasDirectURL: hasDirect) {
             rows.append(search)
         }
+        if sources.offersAgent, !hasDirect, AgentPrompt.reads(query) {
+            rows.append(agentRow(query: query))
+        }
         rows.append(contentsOf: suggestionRows(query: query, sources: sources))
 
         let ordered = order(rows)
         guard let lead = leadRow(query: query, sources: sources) else {
-            return Array(searchFirst(dedupe(ordered, adoptingOpenTabs: !hasDirect), query: rawQuery).prefix(limit))
+            let rows = searchFirst(dedupe(ordered, adoptingOpenTabs: !hasDirect), query: rawQuery)
+            return Array(agentFirst(rows).prefix(limit))
         }
         // Before the dedupe, so an open tab on the very page the lead opens
         // hands it `Switch to tab` rather than appearing as a second row.
@@ -304,6 +310,27 @@ enum CommandBarRanking {
             action: .copy(answer.value),
             symbolName: answer.isConversion ? "arrow.left.arrow.right" : "equal"
         )
+    }
+
+    /// "Ask your agent", with what it would do under it.
+    private static func agentRow(query: String) -> CommandBarResult {
+        CommandBarResult(
+            source: .agent,
+            title: String(localized: "Ask your agent"),
+            subtitle: String(localized: "in tabs of its own, where you can see"),
+            action: .askAgent(query),
+            symbolName: "sparkles"
+        )
+    }
+
+    /// The agent's row first, where Return takes it. It is only there at all
+    /// for a query that reads as a request (`AgentPrompt`), and for one of
+    /// those the request is what was meant; the search is one row down.
+    static func agentFirst(_ rows: [CommandBarResult]) -> [CommandBarResult] {
+        guard let agent = rows.firstIndex(where: { $0.source == .agent }) else { return rows }
+        var rest = rows
+        rest.insert(rest.remove(at: agent), at: 0)
+        return rest
     }
 
     /// The floor: whatever else happened, a non-empty query can always be

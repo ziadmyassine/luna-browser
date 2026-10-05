@@ -71,6 +71,7 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
     private static let newTabItem = "luna.topBar.newTab"
     private static let historyItem = "luna.topBar.history"
     private static let downloadsItem = "luna.topBar.downloads"
+    private static let agentItem = "luna.topBar.agent"
 
     let session: BrowserSession
     let windowID: UUID
@@ -247,7 +248,14 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
         // Extensions last, after Downloads, with the pins at the other end
         // of the cylinder: the button that lists them all is one more shelf,
         // and a pinned one is a shortcut the eye meets first.
-        capsule.items = extensionActions + [newTab, history, downloads] + extensionsButton
+        // The agent panel's button, first of the shelf: the column it opens is
+        // on the bar's trailing side. Not in a §5.6 window.
+        let agent = TopBarActionItem(
+            id: Self.agentItem, symbolName: "sparkles", image: AgentGlyph.image(pointSize: TopBarMetrics.glyph),
+            label: String(localized: "Agent")
+        ) { AgentPanelButton.toggle() }
+        let agents = session.allowsPinning ? [agent] : []
+        capsule.items = extensionActions + agents + [newTab, history, downloads] + extensionsButton
     }
 
     // MARK: - State

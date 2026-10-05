@@ -31,6 +31,8 @@ final class ControlService {
 
     /// Posted on the main actor when a client connects, names itself or goes.
     static let clientsDidChange = Notification.Name("ControlService.clientsDidChange")
+    /// A session named its task: `userInfo` has its `session` and `title`.
+    static let taskNamed = Notification.Name("ControlService.taskNamed")
 
     /// The stdio server an MCP client is given: `Contents/MacOS/luna-control`,
     /// beside the app's own binary.
@@ -105,6 +107,9 @@ final class ControlService {
     /// The name Luna last gave each session's folder. A folder still called
     /// that follows the session's name; one the user renamed keeps theirs.
     var folderNames: [String: String] = [:]
+    /// What each session said it is doing (`name_task`), which its folder is
+    /// called in place of the session's or the app's name.
+    var taskNames: [String: String] = [:]
     /// The newest word from each session: its app and its name.
     var agents: [String: ControlClient] = [:]
     /// Calls running per folder. The folder shows as controlled while this is
@@ -229,8 +234,8 @@ final class ControlService {
             return .text("Waited \(seconds) s.")
         case .closeTab:
             return try closeTab(call, in: session, for: client)
-        case let .requestUser(reason):
-            return await requestUser(reason, for: client, in: session)
+        case .requestUser, .nameTask, .askUser:
+            return await speak(call.command, for: client, in: session)
         case let .viewport(size):
             return await viewport(size, tab: id, for: client, in: session)
         default:

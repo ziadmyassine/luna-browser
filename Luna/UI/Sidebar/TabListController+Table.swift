@@ -109,6 +109,7 @@ extension TabListController: NSTableViewDelegate {
         case .close: onCloseTab?(id)
         case .audio: onToggleMute?(id)
         case .devices: onStopDevices?(id)
+        case .agent: onActivateTab?(id)
         case .none: break
         }
     }

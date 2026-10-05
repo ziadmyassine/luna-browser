@@ -44,6 +44,8 @@ enum CommandBarAction: Sendable, Hashable {
     case openSettings(String)
     /// Put a quick answer on the clipboard (§9.2's maths and units).
     case copy(String)
+    /// Give what was typed to the agent panel as a task.
+    case askAgent(String)
 }
 
 /// §9.2's "app commands": the three it names. The rest of the menu bar reaches
@@ -116,6 +118,10 @@ enum CommandBarSource: Sendable, Hashable, Comparable, CaseIterable {
     /// tier holds only while the query reads as an address; otherwise
     /// `CommandBarRanking.searchFirst` lifts the row to the top.
     case search
+    /// What was typed, as a task for the agent panel — offered only when it
+    /// reads as a request (`AgentPrompt`), and then first
+    /// (`CommandBarRanking.agentFirst`).
+    case agent
     /// A command, or a Settings section, that the query reached only through
     /// its keywords — nothing in its own name answered.
     ///

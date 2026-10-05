@@ -271,6 +271,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
         // and a command can stop applying — Back with nothing behind it — so
         // this one is asked again each time the bar opens.
         sources.shortcuts = BrowserCommand.commandBarEntries
+        sources.offersAgent = session.allowsPinning
         if sitesSpace != activeSpaceID { sources.sites = [] }
         loadSites(inSpace: activeSpaceID)
 
@@ -455,7 +456,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
             }
         case let .copy(answer):
             copy(answer)
-        case .unarchiveTab, .command, .runCommand, .openSettings:
+        case .unarchiveTab, .command, .runCommand, .openSettings, .askAgent:
             onExternalAction?(action)
         }
     }

@@ -227,7 +227,10 @@ private final class CommandBarRowView: NSView {
     private func fill() {
         // A site's icon is its own colours, not chrome ink — so a favicon is
         // never a template and `applyTokens` leaves its tint alone.
-        icon.image = favicon ?? NSImage(systemSymbolName: result.symbolName, accessibilityDescription: nil)
+        // The agent's row wears the rover's face, as its buttons do.
+        icon.image = favicon ?? (result.source == .agent
+            ? AgentGlyph.image(pointSize: Tokens.Metric.faviconSize)
+            : NSImage(systemSymbolName: result.symbolName, accessibilityDescription: nil))
         favicon?.isTemplate = false
         if favicon != nil { icon.contentTintColor = nil }
         title.stringValue = result.title
@@ -307,6 +310,7 @@ private final class CommandBarRowView: NSView {
         case .shortcut, .keywordShortcut: "menu command"
         case .settings, .keywordSettings: "settings section"
         case .search: "search"
+        case .agent: "agent"
         case .suggestion: "suggestion"
         }
     }

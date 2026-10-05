@@ -242,6 +242,7 @@ final class SidebarViewController: NSViewController, WindowScoped {
         list.mutedTabIDs = session.mutedTabIDs
         (list.controlledGroupIDs, list.workingTabs) = (session.controlledGroupIDs, session.controlledTabs)
         (list.controlBadges, list.controlFaces) = (session.controlBadges, session.controlFaces)
+        list.needsYouTabs = session.controlNeedsYouTabs
         // §3.4b: the two tiers arrive already arranged — `TabList` owns the
         // order, including where a group stands among the loose tabs, so the
         // column has no arrangement of its own to disagree with it.

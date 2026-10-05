@@ -62,6 +62,8 @@ extension AppDelegate {
             NSApp.sendAction(command.action, to: nil, from: nil)
         case let .openSettings(section):
             showSettings(section: section)
+        case let .askAgent(task):
+            front?.ask(task)
         case .activateTab, .open, .copy:
             // The bar performs these itself; they never reach here.
             break

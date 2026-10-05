@@ -102,6 +102,13 @@ extension Tokens {
         /// number. §6.4 stamps each archived tab with the time it was closed,
         /// and a column of times in proportional digits walks left and right as
         /// the minutes change under it.
+        /// The agent panel (`Luna/Features/Agent`): the task's name, its state
+        /// under it, the conversation, and its steps — the sidebar's row type
+        /// for the words and a size down for what is said about them.
+        static var agentTitle: NSFont { .systemFont(ofSize: 13, weight: .semibold) }
+        static var agentStatus: NSFont { .systemFont(ofSize: 11, weight: .regular) }
+        static var agentBody: NSFont { .systemFont(ofSize: 13, weight: .regular) }
+        static var agentStep: NSFont { .systemFont(ofSize: 12, weight: .regular) }
         static var rowTimestamp: NSFont { .monospacedDigitSystemFont(ofSize: 11, weight: .regular) }
 
         /// The weight an SF Symbol has to be set at to draw the same stroke as

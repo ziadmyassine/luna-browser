@@ -18,6 +18,9 @@ import BrowserKit
 
 extension TabListController {
 
+    /// `ControlService.refreshBadges`'s symbol for a folder waiting on the user.
+    static let needsYouBadge = "hand.raised.fill"
+
     func content(for row: Int) -> SidebarRowContent {
         switch list[row] {
         case .addTab:
@@ -45,15 +48,24 @@ extension TabListController {
     /// state's symbol in place of the icon. Its plate says when the agent is
     /// working, not a shimmer on the title, which lagged the whole row.
     private func groupContent(_ group: TabGroup) -> SidebarRowContent {
-        let badge = controlBadges[group.id]
+        // Waiting on the user is a raised hand at the row's end, and working
+        // is the rover there; pause and stop still take the icon's place.
+        let needsYou = controlBadges[group.id] == Self.needsYouBadge
+        let badge = needsYou ? nil : controlBadges[group.id]
         let face = controlFaces[group.id]
-        return SidebarRowContent(
+        var content = SidebarRowContent(
             title: group.name,
             symbolName: badge ?? group.symbolName,
             favicon: badge == nil ? face?.appID.flatMap(ControlAppIcon.image(for:)) : nil,
             disclosure: group.isCollapsed ? .collapsed : .expanded,
             tint: face.map { Tokens.Agent.tint(forApp: $0.appID) }
         )
+        if needsYou {
+            content.trailing = .agent(needsYou: true)
+        } else if controlledGroupIDs.contains(group.id) {
+            content.trailing = .agent(needsYou: false)
+        }
+        return content
     }
 
     private func tabContent(_ tab: Tab) -> SidebarRowContent {
@@ -73,6 +85,10 @@ extension TabListController {
         let trailing: SidebarRowContent.Trailing
         if hoveredRow.flatMap({ list[$0] }) == .tab(tab.id) {
             trailing = .close
+        } else if needsYouTabs.contains(tab.id) {
+            trailing = .agent(needsYou: true)
+        } else if workingTabs[tab.id] != nil {
+            trailing = .agent(needsYou: false)
         } else if let devices = SidebarRowContent.Trailing.inUse(state) {
             trailing = devices
         } else if state?.isPlayingAudio == true || muted {

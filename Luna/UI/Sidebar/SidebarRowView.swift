@@ -32,6 +32,9 @@ struct SidebarRowContent: Equatable {
         case devices(camera: Bool)
         /// Revealed on hover (§3.4).
         case close
+        /// A Luna Control agent at work here: the rover while it works, a
+        /// raised hand while it waits for the user. Clicking goes there.
+        case agent(needsYou: Bool)
     }
 
     /// What a tab row draws when the site has no favicon and the user has chosen no icon
@@ -256,6 +259,12 @@ final class SidebarRowView: NSView {
                 label: "Close Tab",
                 pointSize: Tokens.Metric.rowTrailingGlyph
             )
+        case let .agent(needsYou):
+            trailing.isHidden = false
+            let ink = Tokens.Metric.rowTrailingGlyph
+            if needsYou { trailing.configure(symbolName: "hand.raised.fill", label: "The agent needs you", pointSize: ink) } else {
+                trailing.configure(image: AgentGlyph.image(pointSize: ink), label: "The agent is working here", pointSize: ink)
+            }
         }
     }
 

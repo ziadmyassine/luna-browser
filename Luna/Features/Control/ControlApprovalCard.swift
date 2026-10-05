@@ -62,8 +62,7 @@ final class ControlApprovalCardView: NSView {
     private let stack = NSStackView()
 
     init(request: ControlApprovals.Request, waiting: Int, onAnswer: @escaping (ControlApprovals.Answer) -> Void) {
-        headline = request.isHandoff
-            ? String(localized: "\(request.client) needs you to") : String(localized: "\(request.client) wants to")
+        headline = Self.headline(for: request)
         super.init(frame: .zero)
         wantsLayer = true
         translatesAutoresizingMaskIntoConstraints = false
@@ -79,6 +78,32 @@ final class ControlApprovalCardView: NSView {
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         layer.map { Tokens.Shadow.popover.apply(to: $0, in: effectiveAppearance) }
+    }
+
+    private static func headline(for request: ControlApprovals.Request) -> String {
+        if !request.choices.isEmpty { return String(localized: "\(request.client) needs you") }
+        return request.isHandoff
+            ? String(localized: "\(request.client) needs you to") : String(localized: "\(request.client) wants to")
+    }
+
+    /// The mark before the headline: a question's raised hand — the one the
+    /// folder and the tab wear — or the app's icon.
+    private func mark(for request: ControlApprovals.Request) -> NSView? {
+        if !request.choices.isEmpty {
+            let hand = NSImageView(image: NSImage(systemSymbolName: "hand.raised.fill", accessibilityDescription: nil) ?? NSImage())
+            hand.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: Tokens.Metric.faviconSize, weight: .semibold)
+            hand.contentTintColor = Tokens.Text.primary
+            return hand
+        }
+        let app = ControlApp.all.first { $0.folderName == request.client }
+        guard let icon = app.flatMap({ ControlAppIcon.image(for: $0.id) }) else { return nil }
+        let image = NSImageView(image: icon)
+        image.imageScaling = .scaleProportionallyUpOrDown
+        NSLayoutConstraint.activate([
+            image.widthAnchor.constraint(equalToConstant: Tokens.Metric.faviconSize),
+            image.heightAnchor.constraint(equalToConstant: Tokens.Metric.faviconSize)
+        ])
+        return image
     }
 
     /// How far the sheet runs up under the page's top edge: its own corner,
@@ -97,20 +122,12 @@ final class ControlApprovalCardView: NSView {
     ) {
         let title = label(headline, font: Tokens.TypeScale.settingsHeading, color: Tokens.Text.primary)
         var top: [NSView] = [title]
-        if let icon = ControlApp.all.first(where: { $0.folderName == request.client }).flatMap({ ControlAppIcon.image(for: $0.id) }) {
-            let image = NSImageView(image: icon)
-            image.imageScaling = .scaleProportionallyUpOrDown
-            NSLayoutConstraint.activate([
-                image.widthAnchor.constraint(equalToConstant: Tokens.Metric.faviconSize),
-                image.heightAnchor.constraint(equalToConstant: Tokens.Metric.faviconSize)
-            ])
-            top.insert(image, at: 0)
-        }
+        if let mark = mark(for: request) { top.insert(mark, at: 0) }
         let head = NSStackView(views: top)
         head.spacing = Tokens.Metric.chromeGap
 
         let action = request.site.map { "\(request.summary) on \($0)" } ?? request.summary
-        var views: [NSView] = [
+        var views: [NSView] = request.choices.isEmpty ? [
             head,
             label(action, font: Tokens.TypeScale.settingsRow, color: Tokens.Text.primary),
             label(
@@ -119,7 +136,7 @@ final class ControlApprovalCardView: NSView {
                     : String(localized: "Luna asks because \(request.reason)."),
                 font: Tokens.TypeScale.settingsCaption, color: Tokens.Text.secondary
             )
-        ]
+        ] : [head, label(action, font: Tokens.TypeScale.settingsRow, color: Tokens.Text.secondary)]
         if waiting > 1 {
             views.append(label(
                 String(localized: "\(waiting - 1) more waiting"),
@@ -161,6 +178,13 @@ final class ControlApprovalCardView: NSView {
             let button = SettingsPushButton(title: title, isDestructive: destructive)
             button.onActivate = { onAnswer(answer) }
             return button
+        }
+        guard request.choices.isEmpty else {
+            // One button per answer, in the agent's order.
+            let row = NSStackView(views: request.choices.enumerated().map { button($1, .choice($0)) })
+            row.spacing = Tokens.Metric.chromeGap
+            row.distribution = .fillEqually
+            return row
         }
         var buttons = request.isHandoff ? [
             button(String(localized: "Not Now"), .deny),

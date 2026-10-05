@@ -109,6 +109,12 @@ extension BrowserSession {
         notifyChange()
     }
 
+    func setControlNeedsYou(_ tabs: Set<UUID>) {
+        guard tabs != controlNeedsYouTabs else { return }
+        controlNeedsYouTabs = tabs
+        notifyChange()
+    }
+
     func setControlFaces(_ faces: [UUID: ControlFace]) {
         guard faces != controlFaces else { return }
         controlFaces = faces

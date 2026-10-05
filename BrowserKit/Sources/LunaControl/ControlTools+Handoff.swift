@@ -10,6 +10,14 @@ extension ControlTools {
         the user opens it to read your reason and press Done. Say exactly what they should do.
         """, ["reason": ["type": "string", "description": "What the user should do, in one or two sentences."]],
              required: ["reason"], tabbed: false),
+        tool("ask_user", """
+        Ask the user a short question with two to four answers, and wait for the one they pick, up to five \
+        minutes. Luna shows it over the page as a card with one button per answer. Use it when a choice is \
+        theirs to make — which dates, which seat, which of two flights — rather than guessing.
+        """, [
+            "question": ["type": "string", "description": "One short question."],
+            "options": ["type": "array", "items": ["type": "string"], "description": "Two to four short answers."]
+        ], required: ["question", "options"], tabbed: false),
         tool("dialog", """
         Answer the alert, confirm or prompt the page has open. Luna holds a dialog from a tab in your folder \
         for you rather than showing it to the user, and dismisses it after 30 seconds; every other call on \

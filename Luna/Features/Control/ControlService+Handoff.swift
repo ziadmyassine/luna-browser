@@ -21,13 +21,43 @@ extension ControlService {
     func requestUser(_ reason: String, for client: ControlClient, in session: BrowserSession) async -> ControlResult {
         let request = ControlApprovals.Request(
             client: client.displayName, folder: folder(for: client, in: session), site: nil,
-            summary: reason, reason: "", grantable: false, isHandoff: true
+            summary: reason, reason: "", grantable: false, isHandoff: true, tab: currentTab[client.connection]
         )
         switch await approvals.ask(request) {
-        case .once, .always:
+        case .once, .always, .choice:
             return .text("The user says it is done. Read the page again before carrying on.")
         case .deny:
             return .error("The user will not do that step. Ask them what they want instead.")
+        case .timedOut:
+            return .error("The user did not answer within five minutes.")
+        case .stopped:
+            return .error(refusal(for: client.session) ?? "The user stopped this call.")
+        }
+    }
+
+    /// The calls that speak to the user rather than act on a page.
+    func speak(_ command: ControlCommand, for client: ControlClient, in session: BrowserSession) async -> ControlResult {
+        switch command {
+        case let .requestUser(reason): await requestUser(reason, for: client, in: session)
+        case let .nameTask(title): nameTask(title, for: client, in: session)
+        case let .askUser(question, options): await askUser(question, options: options, for: client, in: session)
+        default: .error("Luna cannot do that here.")
+        }
+    }
+
+    // MARK: - ask_user
+
+    func askUser(_ question: String, options: [String], for client: ControlClient, in session: BrowserSession) async
+        -> ControlResult {
+        let request = ControlApprovals.Request(
+            client: client.displayName, folder: folder(for: client, in: session), site: nil,
+            summary: question, reason: "", grantable: false, tab: currentTab[client.connection], choices: options
+        )
+        switch await approvals.ask(request) {
+        case let .choice(index) where options.indices.contains(index):
+            return .text("The user chose: \(options[index])")
+        case .deny, .choice, .once, .always:
+            return .error("The user did not pick any of those. Ask them what they want instead.")
         case .timedOut:
             return .error("The user did not answer within five minutes.")
         case .stopped:
@@ -160,7 +190,7 @@ extension ControlService {
         let answer = await approvals.ask(ControlApprovals.Request(
             client: displayName(of: agent), folder: folder, site: site, summary: record.summary,
             reason: risky ? "it downloads a file that can run programs on this Mac" : ControlRisk.download.reason,
-            grantable: false
+            grantable: false, tab: id
         ))
         let approved = answer == .once || answer == .always
         if !approved { record.decision = answer == .stopped ? "stopped" : "declined" }

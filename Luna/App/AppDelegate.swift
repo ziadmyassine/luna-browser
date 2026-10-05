@@ -395,6 +395,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // leaving WebContent processes to process teardown. Every session: a
         // §5.6 window has one of its own.
         control?.stop()
+        // The agent panel's Claude Code, which would otherwise outlive Luna.
+        AgentCenter.shared.shutDown()
         var torn: Set<ObjectIdentifier> = []
         for window in windows where torn.insert(ObjectIdentifier(window.session)).inserted {
             window.session.tearDown()
