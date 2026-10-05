@@ -155,6 +155,7 @@ extension BrowserSession {
             }.show(in: hostWindow)
         } else {
             activeTabBySpace[spaceID] = child.id
+            showUnderFoldedFolder(child.id)
         }
         promote(child.id)
         enforceLiveTabBudget()

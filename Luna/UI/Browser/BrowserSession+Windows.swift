@@ -150,6 +150,7 @@ extension BrowserSession {
         if !others.isEmpty {
             let next = rowBelow(id, in: tab.spaceID)
             for other in others { windowFocus[other]?.tabBySpace[tab.spaceID] = next }
+            next.map(showUnderFoldedFolder)
         }
         windowFocus[window, default: WindowFocus(spaceID: tab.spaceID)].spaceID = tab.spaceID
         activateTab(id, inWindow: window)
@@ -172,6 +173,9 @@ extension BrowserSession {
         guard !holders.isEmpty else { return }
         let next = successor()
         for window in holders { windowFocus[window]?.tabBySpace[spaceID] = next }
+        // The tab the selection lands on is shown under its folded folder, as
+        // going to it any other way shows it (`activateTab`).
+        next.map(showUnderFoldedFolder)
     }
 
     /// Takes a deleted Space out of every window (§5.4): what each had selected

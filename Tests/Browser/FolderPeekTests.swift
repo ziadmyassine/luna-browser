@@ -89,6 +89,20 @@ final class FolderPeekTests: XCTestCase {
         XCTAssertFalse(columnRows(folder).contains(.tab(folder.first)))
     }
 
+    /// Closing a tab hands the selection to its neighbour; one inside a folded
+    /// folder shows under it, as going to it any other way does.
+    func testClosingIntoAFoldedFolderShowsTheTabItLandsOn() async throws {
+        let folder = try await folder()
+        folder.session.activateTab(folder.loose)
+        folder.session.setGroupCollapsed(true, forGroup: folder.group)
+        folder.session.closeTab(folder.loose)
+        let landed = try XCTUnwrap(folder.session.activeTabID)
+        XCTAssertTrue([folder.first, folder.second].contains(landed), "the selection went somewhere else")
+        XCTAssertEqual(folder.session.group(folder.group)?.isCollapsed, true, "closing opened the folder")
+        XCTAssertTrue(columnRows(folder).contains(.tab(landed)), "the tab you are on is hidden in the folder")
+        XCTAssertTrue(barTabs(folder).contains(landed))
+    }
+
     /// Opening and folding again starts over: only the tab you are on then.
     func testOpeningAndFoldingAgainStartsOver() async throws {
         let folder = try await folder()

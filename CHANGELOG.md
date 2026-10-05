@@ -7,6 +7,7 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-05
 
+- **Closing a tab into a closed folder shows where you landed** (§3.4b): when closing a tab moves you to a tab inside a closed folder, or a link opens one there, that tab now shows under the folder, as it does when you go to it yourself.
 - **The password list lands under the field at once** (§14.3): on sign-ins that slide their next step in, like Microsoft's, the list now waits for the field to stop moving instead of appearing beside it and jumping across.
 - **A finger on Touch ID signs you in** (§14.3): filling from the password list with Touch ID also presses the page's own button — Next on the name step, Sign in on the password step.
 - **Choose several tabs at once** (§3.4): ⌘-click tabs to add them to the selection, or ⇧-click to take the whole run from the tab you are on. Drag any of them and they all move together — into a folder, the folder tier at the top, the pinned tiles or another Space — with their number on the tab in your hand. Right-click any of them to add them all to a folder, make a new folder with all of them, pin them or close them; Delete closes them and Escape lets them go. One ⌘Z puts them all back.
