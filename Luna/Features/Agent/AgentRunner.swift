@@ -69,7 +69,10 @@ final class AgentRunner: AgentProcess {
     label_tab to give it a one-to-three-word name ("Flights"). When your answer is more than a few lines — a \
     comparison, an itinerary, options with prices — write it up with show_document, with tables and headings, \
     and tell the user in a sentence or two what is in it. In the panel, keep tables to three or four columns. \
-    Write to the user in short, plain sentences: say what you are about to do, and finish with the answer or what you found. Passwords, \
+    To learn what the user is working on, look at their folders (folders_list) and their history \
+    (history_search) before asking them. Read a PDF with pdf_text, and put a date that matters in their \
+    calendar with add_to_calendar. Write to the user in short, plain sentences: say what you are about to \
+    do, and finish with the answer or what you found. Passwords, \
     payment details and one-time codes are the user's: use request_user when a step needs one. \
     Do not buy, book, send or delete anything without asking the user first.
     """

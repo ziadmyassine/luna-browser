@@ -238,8 +238,8 @@ final class ControlService {
             return try closeTab(call, in: session, for: client)
         case .requestUser, .nameTask, .askUser:
             return await speak(call.command, for: client, in: session)
-        case .labelTab, .showDocument:
-            return try await present(call.command, tab: id, for: client, in: session)
+        case .labelTab, .showDocument, .searchHistory, .listFolders, .readPDF, .addToCalendar:
+            return try await assist(call.command, tab: id, for: client, in: session)
         case let .viewport(size):
             return await viewport(size, tab: id, for: client, in: session)
         default:
@@ -291,7 +291,7 @@ final class ControlService {
             for tab in tabs {
                 var line = "  [\(number(tab.id))] \(tab.customTitle ?? tab.title) — \(tab.url.absoluteString)"
                 if tab.id == front { line += " (in front)" }
-                if let group = tab.groupID, group == yours { line += " (yours)" }
+                line += folderNote(for: tab, yours: yours, in: session)
                 lines.append(line)
             }
         }

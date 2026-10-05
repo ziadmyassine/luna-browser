@@ -184,7 +184,8 @@ extension ControlCommand {
     public var acts: Bool {
         switch self {
         case .listTabs, .readPage, .pageText, .find, .scroll, .hover, .screenshot, .console, .network, .wait, .closeTab,
-             .requestUser, .gif, .viewport, .nameTask, .askUser, .labelTab, .showDocument: false
+             .requestUser, .gif, .viewport, .nameTask, .askUser, .labelTab, .showDocument,
+             .searchHistory, .listFolders, .readPDF, .addToCalendar: false
         case let .openTab(url): url != nil
         // Dismissing is what the dialog's timeout does anyway; accepting may
         // be the "Are you sure?" of whatever the page is about to do.

@@ -104,3 +104,35 @@ struct ShowDocumentTests {
         #expect((try? ControlCall.parse(tool: "show_document", arguments: ["title": "x"])?.get()) == nil)
     }
 }
+
+/// The calls past the page: history, folders, a PDF, the calendar.
+@Suite("Beside the page")
+struct BesideThePageTests {
+
+    @Test func historyAndFolders() throws {
+        let history = try #require(ControlCall.parse(tool: "history_search", arguments: ["query": "exchange", "limit": 500]))
+        #expect(try history.get().command == .searchHistory(query: "exchange", limit: 50))
+        let folders = try #require(ControlCall.parse(tool: "folders_list", arguments: [:]))
+        #expect(try folders.get().command == .listFolders)
+    }
+
+    @Test func aPDFByAddressOrInTheTab() throws {
+        let byURL = try #require(ControlCall.parse(tool: "pdf_text", arguments: ["url": "https://fund.dk/form.pdf"]))
+        #expect(try byURL.get().command == .readPDF(URL(string: "https://fund.dk/form.pdf")))
+        let inTab = try #require(ControlCall.parse(tool: "pdf_text", arguments: [:]))
+        #expect(try inTab.get().command == .readPDF(nil))
+        #expect((try? ControlCall.parse(tool: "pdf_text", arguments: ["url": "javascript:alert(1)"])?.get()) == nil)
+    }
+
+    @Test func aDayOrATime() throws {
+        #expect(try ControlCall.date("2027-01-01").allDay)
+        #expect(try !ControlCall.date("2027-01-01T09:00").allDay)
+        #expect((try? ControlCall.date("next tuesday")) == nil)
+        let call = try #require(ControlCall.parse(tool: "add_to_calendar", arguments: ["title": "Book club", "start": "2027-01-01"]))
+        guard case let .addToCalendar(title, _, end, allDay, _) = try call.get().command else {
+            Issue.record("not an event")
+            return
+        }
+        #expect(title == "Book club" && allDay && end == nil)
+    }
+}

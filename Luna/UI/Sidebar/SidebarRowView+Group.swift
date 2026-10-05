@@ -67,4 +67,9 @@ extension SidebarRowView {
         ).pixelAligned
     }
 
+    /// The square this row's icon is drawn in — a folder's is the larger one.
+    /// See `Metric.groupIconSize`.
+    static func iconSlot(for content: SidebarRowContent) -> CGFloat {
+        content.disclosure == nil ? Tokens.Metric.faviconSize : Tokens.Metric.groupIconSize
+    }
 }

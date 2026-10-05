@@ -59,6 +59,11 @@ public enum ControlCommand: Sendable, Equatable {
     /// `show_document`: a Markdown document the agent wrote, which Luna saves
     /// and opens in a tab of the agent's folder, set for reading.
     case showDocument(title: String, markdown: String)
+    /// The calls past the page (`ControlTools+Assist`).
+    case searchHistory(query: String, limit: Int)
+    case listFolders
+    case readPDF(URL?)
+    case addToCalendar(title: String, start: Date, end: Date?, allDay: Bool, notes: String?)
     /// `ask_user`: a question for the user and the answers they may pick.
     case askUser(question: String, options: [String])
     /// Answers the `alert`, `confirm` or `prompt` open in the tab.
@@ -181,7 +186,7 @@ extension ControlCall {
             guard args.int("tabId") != nil else { throw ControlError("tabId is required.") }
             return .closeTab
         case "wait": return .wait(seconds: min(max(args.values["seconds"]?.double ?? 1, 0), 30))
-        case "request_user", "name_task", "ask_user", "label_tab", "show_document": return try asking(tool, args)
+        case let name where besideThePage.contains(name): return try asking(name, args)
         case "dialog": return try dialog(args)
         case "file_upload": return .upload(ref: try args.required("ref"), files: try uploads(args.values["files"]))
         default: throw ControlError("Luna has no tool called \(tool).")
@@ -189,7 +194,13 @@ extension ControlCall {
     }
 
     /// The calls about the task rather than the page: the three that speak to
-    /// the user, and `label_tab`.
+    /// the user, the ones that show the agent's work, and the ones that reach
+    /// past the page (`ControlTools+Assist`).
+    private static let besideThePage: Set<String> = [
+        "request_user", "name_task", "ask_user", "label_tab", "show_document",
+        "history_search", "folders_list", "pdf_text", "add_to_calendar"
+    ]
+
     private static func asking(_ tool: String, _ args: Arguments) throws -> ControlCommand {
         switch tool {
         case "request_user": .requestUser(String(try args.required("reason").prefix(500)))
@@ -197,6 +208,7 @@ extension ControlCall {
             String($0.trimmingCharacters(in: .whitespacesAndNewlines).prefix(40))
         }.flatMap { $0.isEmpty ? nil : $0 })
         case "label_tab": try labelTab(args)
+        case "history_search", "folders_list", "pdf_text", "add_to_calendar": try assisting(tool, args)
         case "show_document": .showDocument(title: try taskTitle(args), markdown: String(try args.required("markdown").prefix(400_000)))
         default: try askUser(args)
         }
@@ -208,6 +220,43 @@ extension ControlCall {
         let options = items.compactMap(\.string).map { String($0.prefix(40)) }.filter { !$0.isEmpty }
         guard (2 ... 4).contains(options.count) else { throw ControlError("Give two to four options.") }
         return .askUser(question: question, options: options)
+    }
+
+    private static func assisting(_ tool: String, _ args: Arguments) throws -> ControlCommand {
+        switch tool {
+        case "history_search":
+            return .searchHistory(query: args.string("query") ?? "", limit: min(max(args.int("limit") ?? 20, 1), 50))
+        case "folders_list":
+            return .listFolders
+        case "pdf_text":
+            return .readPDF(try args.string("url").map { text in
+                guard let url = URL(string: text), ["http", "https", "file"].contains(url.scheme?.lowercased() ?? "") else {
+                    throw ControlError("url must be an http, https or file address.")
+                }
+                return url
+            })
+        default:
+            let (start, allDay) = try date(args.required("start"))
+            return .addToCalendar(
+                title: String(try args.required("title").prefix(120)), start: start,
+                end: try args.string("end").map { try date($0).date }, allDay: allDay, notes: args.string("notes")
+            )
+        }
+    }
+
+    /// An ISO 8601 date, with a time or without one (a whole day).
+    static func date(_ text: String) throws -> (date: Date, allDay: Bool) {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        let withZone = ISO8601DateFormatter()
+        if let date = withZone.date(from: trimmed) { return (date, false) }
+        let local = DateFormatter()
+        local.locale = Locale(identifier: "en_US_POSIX")
+        local.timeZone = .current
+        for (format, allDay) in [("yyyy-MM-dd'T'HH:mm:ss", false), ("yyyy-MM-dd'T'HH:mm", false), ("yyyy-MM-dd", true)] {
+            local.dateFormat = format
+            if let date = local.date(from: trimmed) { return (date, allDay) }
+        }
+        throw ControlError("“\(text)” is not an ISO 8601 date, like 2027-01-01 or 2027-01-01T09:00.")
     }
 
     private static func labelTab(_ args: Arguments) throws -> ControlCommand {

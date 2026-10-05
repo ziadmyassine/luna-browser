@@ -7,6 +7,8 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-05
 
+- **Astro can see more of what you are working on** (Luna Control): `folders_list` shows your sidebar folders and their tabs, and `tabs_list` now names the folder each tab is in; `history_search` lets Astro (and only Astro) look through the pages you have visited; `pdf_text` reads a PDF's text, signed in as you, or one in Downloads; and `add_to_calendar` opens an event in Calendar for you to confirm.
+- **Sidebar icons sit level with their names** (§3.4): favicons and emoji were centred on the row rather than on the letters beside them and stood about a point low; symbols, a point and a half.
 - **Astro's conversation fades out at its edges**: where it scrolls under the task pill and the field, the words blur more and more and fade away instead of being cut off by a hard line.
 - **Astro writes up what it finds** (Luna Control): the new `show_document` lets an agent save its findings as a Markdown document and open it in a tab of its folder, in Luna's reader with its type, size and width options; Astro uses it for comparisons, itineraries and anything longer than a few lines.
 - **Tables in Astro's replies are tables**: a Markdown table in the panel is a grid on glass with a header row and lines between rows, instead of every cell on a line of its own; code is a box of its own.

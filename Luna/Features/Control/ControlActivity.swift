@@ -55,6 +55,15 @@ enum ControlActivity {
         case let .nameTask(title, _): String(localized: "Call the task “\(title)”")
         case let .labelTab(title): String(localized: "Call a tab “\(title)”")
         case let .showDocument(title, _): String(localized: "Write up “\(title)”")
+        case let .searchHistory(query, _):
+            if query.isEmpty {
+                String(localized: "Look at your history")
+            } else {
+                String(localized: "Look for “\(clip(query))” in your history")
+            }
+        case .listFolders: String(localized: "Look at your folders")
+        case let .readPDF(url): String(localized: "Read \(url.flatMap(host) ?? String(localized: "a PDF"))")
+        case let .addToCalendar(title, _, _, _, _): String(localized: "Add “\(clip(title))” to your calendar")
         case let .askUser(question, _): String(localized: "Ask you: \(clip(question))")
         case let .openTab(url): url.flatMap(host).map { String(localized: "Open \($0)") } ?? String(localized: "Open a tab")
         case let .navigate(.url(url)): host(url).map { String(localized: "Go to \($0)") } ?? String(localized: "Go to a page")
@@ -100,7 +109,8 @@ enum ControlActivity {
         "tab_close": "xmark.square", "wait": "hourglass", "request_user": "person.fill.questionmark",
         "dialog": "exclamationmark.bubble", "file_upload": "arrow.up.doc",
         "name_task": "character.cursor.ibeam", "ask_user": "hand.raised", "label_tab": "tag",
-        "show_document": "doc.richtext"
+        "show_document": "doc.richtext", "history_search": "clock.arrow.circlepath", "folders_list": "folder",
+        "pdf_text": "doc.text.magnifyingglass", "add_to_calendar": "calendar.badge.plus"
     ]
 
     /// How an entry ended, from the audit record's two words.

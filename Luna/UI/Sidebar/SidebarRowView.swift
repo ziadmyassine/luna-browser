@@ -97,6 +97,9 @@ final class SidebarRowView: NSView {
     var isSelected = false { didSet { refreshInk() } }
     var isHovered = false { didSet { refreshInk() } }
     private let icon = NSImageView()
+    /// Whether the icon is an SF Symbol, whose ink sits lower in its box than
+    /// a favicon's (`Tokens.Metric.rowSymbolLift`).
+    private var iconIsSymbol = false
     // Internal rather than private because `SidebarRowView+Group.swift` is the
     // other half of this class; nothing outside that pair touches it.
     /// §3.4b's fold mark. Not a button: the whole header folds, and a 16 pt
@@ -209,6 +212,7 @@ final class SidebarRowView: NSView {
         icon.image = next.favicon
             ?? emoji
             ?? NSImage(systemSymbolName: next.symbolName, accessibilityDescription: nil)
+        iconIsSymbol = next.favicon == nil && emoji == nil
         icon.image?.isTemplate = next.favicon == nil && emoji == nil
         dot.isHidden = !next.hasUnread
         setAccessibilityLabel(next.title)
@@ -389,7 +393,7 @@ final class SidebarRowView: NSView {
         let glyph = Self.iconSlot(for: content)
         icon.frame = NSRect(
             x: Tokens.Metric.rowFaviconInset + indent - (glyph - Tokens.Metric.faviconSize) / 2,
-            y: contentMidY - glyph / 2,
+            y: contentMidY - glyph / 2 - (iconIsSymbol ? Tokens.Metric.rowSymbolLift : Tokens.Metric.rowIconLift),
             width: glyph,
             height: glyph
         ).pixelAligned
@@ -439,12 +443,6 @@ final class SidebarRowView: NSView {
         shimmerMask.frame = shimmer.bounds
         applyFade(overflowing: natural > box.width, width: box.width)
         CATransaction.commit()
-    }
-
-    /// The square this row's icon is drawn in — a folder's is the larger one.
-    /// See `Metric.groupIconSize`.
-    static func iconSlot(for content: SidebarRowContent) -> CGFloat {
-        content.disclosure == nil ? Tokens.Metric.faviconSize : Tokens.Metric.groupIconSize
     }
 
     /// What the title gives back to the chevron standing after it. Nothing on a
