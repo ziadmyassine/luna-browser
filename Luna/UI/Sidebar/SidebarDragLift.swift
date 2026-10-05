@@ -28,9 +28,20 @@ final class SidebarDragLiftView: NSView {
     /// placement by whoever started the gesture — a tile lifts as a tile.
     var shape: Shape = .row { didSet { needsLayout = true } }
 
+    /// How many tabs the lift carries. Above one, the number stands at the
+    /// row's trailing end, where a row's close button would be.
+    var count = 1 {
+        didSet {
+            badge.stringValue = "\(count)"
+            badge.isHidden = count < 2
+            needsLayout = true
+        }
+    }
+
     private let pill = RowPillView(role: .selected)
     private let icon = NSImageView()
     private let title = NSTextField(labelWithString: "")
+    private let badge = NSTextField(labelWithString: "")
 
     init(content: SidebarRowContent) {
         super.init(frame: .zero)
@@ -56,7 +67,13 @@ final class SidebarDragLiftView: NSView {
         title.cell?.usesSingleLineMode = true
         title.stringValue = content.title
 
-        for view in [pill, icon, title] { addSubview(view) }
+        badge.font = Tokens.TypeScale.sectionLabel
+        badge.textColor = Tokens.Text.primary
+        badge.alignment = .center
+        badge.wantsLayer = true
+        badge.isHidden = true
+
+        for view in [pill, icon, title, badge] { addSubview(view) }
         setAccessibilityElement(false)
     }
 
@@ -157,13 +174,15 @@ final class SidebarDragLiftView: NSView {
             // the title steps sideways the moment the tab is picked up.
             let titleX = icon.frame.maxX + Tokens.Metric.rowTitleGap
             let height = title.intrinsicContentSize.height
+            let badgeBox = layoutBadge()
             title.frame = NSRect(
                 x: titleX,
                 y: (bounds.height - height) / 2,
-                width: max(bounds.maxX - Tokens.Metric.rowInset - titleX, 0),
+                width: max((badgeBox?.minX ?? bounds.maxX - Tokens.Metric.rowInset) - titleX, 0),
                 height: height
             ).integral
             title.alphaValue = 1
+            badge.alphaValue = 1
         case .tile:
             // §3.3's tiles are icon only (§30.5).
             icon.frame = NSRect(
@@ -173,7 +192,23 @@ final class SidebarDragLiftView: NSView {
                 height: glyph
             ).pixelAligned
             title.alphaValue = 0
+            // A tile has no room for it; the count stays in the hand.
+            badge.alphaValue = 0
         }
+    }
+
+    /// The count, a glyph's height and capsule-round, inset from the trailing
+    /// end as the icon is from the leading one. Nil while there is one tab.
+    private func layoutBadge() -> NSRect? {
+        guard !badge.isHidden else { return nil }
+        let glyph = Tokens.Metric.faviconSize
+        let width = max(badge.intrinsicContentSize.width + glyph / 2, glyph)
+        let inset = Tokens.Metric.rowFaviconInset - Tokens.Metric.rowInset
+        let box = NSRect(x: bounds.maxX - inset - width, y: (bounds.height - glyph) / 2, width: width, height: glyph)
+            .pixelAligned
+        badge.frame = box
+        badge.layer?.cornerRadius = glyph / 2
+        return box.insetBy(dx: -Tokens.Metric.rowTitleGap, dy: 0)
     }
 
     // MARK: - Appearance
@@ -182,6 +217,9 @@ final class SidebarDragLiftView: NSView {
 
     override func updateLayer() {
         applyShadow()
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            badge.layer?.backgroundColor = Tokens.Surface.selected.cgColor
+        }
     }
 
     private func applyShadow() {

@@ -98,14 +98,25 @@ struct SidebarList: Equatable, Sendable {
     ///   out, and `New Tab` is then the top of the column with nothing above
     ///   it: both halves of it mean the head of today's tabs, and both open
     ///   their gap underneath it.
+    /// - Parameter carrying: what §6.6's lift has in the air besides the row it
+    ///   is drawn as. A folder's id folds it, so it travels as its header and
+    ///   cannot be dropped among its own tabs; a tab's id takes its row out, so
+    ///   several marked tabs travel as one. Indices then count the list without
+    ///   them, which is the list they land in.
     init(
         saved: [SidebarSlot] = [],
         today: [SidebarSlot] = [],
         essentials: [Tab] = [],
         revealingSaved: Bool = false,
         pinning: Bool = true,
-        peeking: Set<UUID> = []
+        peeking: Set<UUID> = [],
+        carrying: Set<UUID> = []
     ) {
+        // A carried folder shows none of its tabs, not even the one it keeps
+        // out while folded.
+        let peeking = peeking.subtracting(Self.tabs(ofFoldersIn: carrying, in: saved + today))
+        let saved = Self.without(carrying, in: saved)
+        let today = Self.without(carrying, in: today)
         self.essentials = essentials
         showsRule = pinning && (!saved.isEmpty || revealingSaved)
 
@@ -154,6 +165,28 @@ struct SidebarList: Equatable, Sendable {
 
     /// Where a drop past the last row lands — the foot of today's tabs.
     private let end: SidebarDestination
+
+    private static func tabs(ofFoldersIn ids: Set<UUID>, in slots: [SidebarSlot]) -> [UUID] {
+        slots.flatMap { slot -> [UUID] in
+            guard case let .group(group, tabs) = slot, ids.contains(group.id) else { return [] }
+            return tabs.map(\.id)
+        }
+    }
+
+    /// `slots` with the carried tabs taken out and the carried folders folded.
+    private static func without(_ carrying: Set<UUID>, in slots: [SidebarSlot]) -> [SidebarSlot] {
+        guard !carrying.isEmpty else { return slots }
+        return slots.compactMap { slot in
+            switch slot {
+            case let .tab(tab):
+                return carrying.contains(tab.id) ? nil : slot
+            case let .group(group, tabs):
+                var folded = group
+                if carrying.contains(group.id) { folded.isCollapsed = true }
+                return .group(folded, tabs: tabs.filter { !carrying.contains($0.id) })
+            }
+        }
+    }
 
     var count: Int { rows.count }
 

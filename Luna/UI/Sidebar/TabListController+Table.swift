@@ -154,7 +154,7 @@ final class SeparatorRowView: NSView {
 @MainActor
 final class SidebarTableView: NSTableView {
 
-    enum Command { case previousTab, nextTab, confirm, close }
+    enum Command { case previousTab, nextTab, confirm, close, cancel }
 
     var onCommandKey: ((Command) -> Bool)?
     var onFocusChange: (() -> Void)?
@@ -234,7 +234,7 @@ final class SidebarTableView: NSTableView {
         case .rightArrow where modifiers == [.command, .option]: return .nextTab
         case .carriageReturn, .enter: return .confirm
         case .delete, .backspace, .deleteForward: return .close
-        default: return nil
+        default: return event.keyCode == 53 ? .cancel : nil
         }
     }
 

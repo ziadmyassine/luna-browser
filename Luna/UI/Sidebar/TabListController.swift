@@ -49,6 +49,8 @@ final class TabListController: NSObject {
     /// the rows with no context menu rather than a shorter one: a second, smaller answer
     /// to the same right-click is exactly what §3.4a exists to avoid.
     var menuActions: ((UUID) -> TabMenu.Actions?)?
+    /// The same menu for several marked tabs — `BrowserSession.tabMenuActions(for:)`.
+    var manyMenuActions: (([UUID]) -> TabMenu.ManyActions?)?
 
     private(set) var list = SidebarList()
     /// What the list was last handed, so a drag can rebuild the rows with
@@ -147,6 +149,12 @@ final class TabListController: NSObject {
     /// Where the lift would land, in row space — or nil while it is over the
     /// §3.3 grid, where the list's answer is "nowhere, close up".
     var gapRow: Int?
+    /// What the lift carries besides its own row — see `SidebarList.init(carrying:)`.
+    var carriedIDs: Set<UUID> = []
+    /// Tabs marked with ⌘- and ⇧-click, the selected one among them, and the
+    /// pill each of the others wears. See `TabListController+Marking.swift`.
+    var markedTabIDs: Set<UUID> = []
+    var markPills: [UUID: RowPillView] = [:]
 
     override init() {
         super.init()
@@ -250,10 +258,12 @@ final class TabListController: NSObject {
             essentials: shown.essentials,
             revealingSaved: isRevealingSaved,
             pinning: allowsPinning,
-            peeking: peekingTabIDs
+            peeking: peekingTabIDs,
+            carrying: carriedIDs
         )
         let diff = next.rows.difference(from: list.rows)
         list = next
+        pruneMarks()
         pillClock = replacing || diff.isEmpty ? nil : Tokens.Motion.tabInsert
         defer { pillClock = nil }
         if replacing {
@@ -318,6 +328,9 @@ final class TabListController: NSObject {
 
     private func setActive(_ id: UUID?, movingPills animated: Bool = true) {
         activeTabID = id
+        // The selected tab is always one of the marked ones; going anywhere
+        // else is leaving them.
+        if let id, !markedTabIDs.contains(id) { clearMarks() }
         isApplyingSelection = true
         if let id, let row = list.row(of: id) {
             table.selectRowIndexes([row], byExtendingSelection: false)
@@ -353,11 +366,9 @@ final class TabListController: NSObject {
     private func press(row: Int, event: NSEvent) {
         table.window?.makeFirstResponder(table)
         switch list[row] {
-        case .tab:
-            // Selected on the press, exactly as a table selects: the page is up
-            // before the gesture is over. The lift takes the rest of it.
-            table.selectRowIndexes([row], byExtendingSelection: false)
-            onTabPress?(row, event)
+        case let .tab(id):
+            guard !mark(id, for: event) else { return }
+            press(tab: id, row: row, event: event)
         case let .group(id):
             // A folder's header does two things, told apart by whether the hand
             // moved. Still there it folds — the whole header, not only the
@@ -413,8 +424,9 @@ final class TabListController: NSObject {
             default: return false
             }
         case .close:
-            guard case let .tab(id)? = list[table.selectedRow] else { return false }
-            onCloseTab?(id)
+            return closeSelected()
+        case .cancel:
+            return clearMarksFromKeyboard()
         }
         return true
     }

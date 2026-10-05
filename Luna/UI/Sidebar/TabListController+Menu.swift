@@ -41,7 +41,9 @@ extension TabListController {
                 emoji: { [weak self] in self?.beginPickingEmoji(group: group.id) }
             )
         }
-        guard let tab = list.tab(at: row), let actions = menuActions?(tab.id) else { return nil }
+        guard let tab = list.tab(at: row) else { return nil }
+        if markedTabIDs.count > 1, markedTabIDs.contains(tab.id) { return markedMenu() }
+        guard let actions = menuActions?(tab.id) else { return nil }
         return TabMenu.build(
             for: tab,
             isMuted: mutedTabIDs.contains(tab.id),
@@ -49,6 +51,21 @@ extension TabListController {
             others: list.groups(besides: list.group(ofTab: tab.id)?.id),
             actions: actions,
             rename: { [weak self] in self?.beginRenaming(tab: tab.id) }
+        )
+    }
+
+    /// The menu on a marked tab, for all of them. A folder they are all already
+    /// in is not offered as somewhere to go.
+    private func markedMenu() -> NSMenu? {
+        let ids = markedInOrder
+        guard let actions = manyMenuActions?(ids) else { return nil }
+        let folders = Set(ids.map { list.group(ofTab: $0)?.id })
+        let shared = folders.count == 1 ? folders.first ?? nil : nil
+        return TabMenu.build(
+            count: ids.count,
+            folders: list.groups(besides: shared),
+            inFolder: folders.contains { $0 != nil },
+            actions: actions
         )
     }
 

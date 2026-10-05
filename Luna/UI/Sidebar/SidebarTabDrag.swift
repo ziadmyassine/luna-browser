@@ -11,7 +11,10 @@
 //  The row is replaced by a lift — §3.4's selected pill, favicon and title —
 //  pinned to the sidebar's x and following the pointer's y, while the list opens
 //  a gap under it. Carried into the §3.3 grid it becomes a tile. A §3.4b group
-//  travels as its header, and the saved tier's rule comes out for every drag.
+//  travels as its header, folded for the length of the gesture so it cannot be
+//  dropped among its own tabs; several marked tabs travel as the one pressed,
+//  with the others out of the list and their count on the lift. The saved
+//  tier's rule comes out for every drag.
 //
 //  Nothing is committed until the mouse comes up: a live `reorderTab` per row
 //  crossed would be a dozen SQLite writes and undo entries for one gesture.
@@ -38,11 +41,24 @@ enum SidebarDropTarget: Equatable, Sendable {
 private enum SidebarCargo: Equatable {
     case tab(id: UUID, kind: TabKind)
     case group(TabGroup)
+    /// Marked tabs (`TabListController+Marking.swift`), in row order, carried
+    /// as `lead`, the one pressed.
+    case tabs(lead: UUID, all: [UUID])
 
     var id: UUID {
         switch self {
         case let .tab(id, _): id
         case let .group(group): group.id
+        case let .tabs(lead, _): lead
+        }
+    }
+
+    /// What leaves the list for the gesture besides the lifted row.
+    var carried: Set<UUID> {
+        switch self {
+        case .tab: []
+        case let .group(group): [group.id]
+        case let .tabs(lead, all): Set(all).subtracting([lead])
         }
     }
 
@@ -77,6 +93,9 @@ final class SidebarTabDragController {
     var onDropInEssentials: ((_ id: UUID, _ index: Int, _ wasPinned: Bool) -> Void)?
     /// Dropped on a §3.5 Space dot.
     var onDropOnSpace: ((UUID, UUID) -> Void)?
+    /// Several marked tabs dropped, in row order, wherever they landed. A list
+    /// landing's index counts the run without any of them.
+    var onDropTabs: ((_ ids: [UUID], _ landing: SidebarDropTarget) -> Void)?
     /// A tab pulled clear of the column (`TabTearOff`): the lift is already
     /// down, and the tab leaves as AppKit's drag. Nil keeps every tab in the
     /// list, as a §5.6 window does — its session goes with its one window.
@@ -132,7 +151,10 @@ final class SidebarTabDragController {
         if let group = list.list.group(at: row) {
             return track(cargo: .group(group), content: content, origin: origin, event: event)
         } else if let tab = list.list.tab(at: row) {
-            return track(cargo: .tab(id: tab.id, kind: tab.kind), content: content, origin: origin, event: event)
+            let marked = list.markedInOrder
+            let cargo: SidebarCargo = marked.count > 1 && marked.contains(tab.id)
+                ? .tabs(lead: tab.id, all: marked) : .tab(id: tab.id, kind: tab.kind)
+            return track(cargo: cargo, content: content, origin: origin, event: event)
         }
         return false
     }
@@ -207,6 +229,7 @@ final class SidebarTabDragController {
     private func begin(cargo: SidebarCargo, content: SidebarRowContent, from origin: NSRect) {
         gesture += 1
         let view = SidebarDragLiftView(content: content)
+        if case let .tabs(_, all) = cargo { view.count = all.count }
         view.frame = origin
         view.shape = cargo.isTile ? .tile : .row
         host.addSubview(view, positioned: .above, relativeTo: nil)
@@ -226,6 +249,7 @@ final class SidebarTabDragController {
         // Then §3.4b's rule, and only then the row lookup: revealing the rule
         // inserts a row, so an index read a moment earlier would be one out.
         list.setRevealingSaved(true)
+        list.setCarried(cargo.carried)
         if cargo.isTile {
             // Out of the grid for the length of the gesture: its slot closes up
             // behind it, so the index under the pointer is the index it lands at.
@@ -239,7 +263,7 @@ final class SidebarTabDragController {
 
     private func row(of cargo: SidebarCargo) -> Int? {
         switch cargo {
-        case let .tab(id, _): list.list.row(of: id)
+        case let .tab(id, _), let .tabs(id, _): list.list.row(of: id)
         case let .group(group): list.list.row(ofGroup: group.id)
         }
     }
@@ -383,8 +407,10 @@ final class SidebarTabDragController {
             // a second lift is already up and the list belongs to it now.
             guard mine == gesture else { return }
             clearGrid()
+            list.setCarried([])
             list.setRevealingSaved(false)
             list.endDrag()
+            if landing != nil, case .tabs = cargo { list.clearMarks() }
         }
 
         // Every landing the lift can reach is somewhere on screen, so it goes
@@ -418,6 +444,19 @@ final class SidebarTabDragController {
         }
     }
 
+    /// Puts the grid back to its resting shape: no slot held open, no tile in
+    /// the air, no room reserved for one.
+    private func clearGrid() {
+        grid.dropIndex = nil
+        grid.draggedID = nil
+        grid.isAwaitingDrop = false
+    }
+}
+
+// MARK: - Landing
+
+extension SidebarTabDragController {
+
     /// The one session call a landing means. `reorderTab` takes the index the
     /// thing ends up at, so a move further down inside the run it is already in
     /// has to account for the gap its own removal leaves.
@@ -441,17 +480,17 @@ final class SidebarTabDragController {
                 index -= 1
             }
             onDropGroup?(group.id, destination.kind, index)
+        case let (.tabs(lead, all), .list(row, destination)?):
+            var landed = destination
+            if let from = list.list.currentIndex(of: lead, in: destination), from < landed.index {
+                landed.index -= 1
+            }
+            onDropTabs?(all, .list(row: row, destination: landed))
+        case let (.tabs(_, all), landing?):
+            onDropTabs?(all, landing)
         case (.group, .essentials?), (.group, .space?), (_, nil):
             break
         }
-    }
-
-    /// Puts the grid back to its resting shape: no slot held open, no tile in
-    /// the air, no room reserved for one.
-    private func clearGrid() {
-        grid.dropIndex = nil
-        grid.draggedID = nil
-        grid.isAwaitingDrop = false
     }
 }
 

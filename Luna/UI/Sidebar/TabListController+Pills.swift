@@ -44,6 +44,7 @@ extension TabListController {
         placePlate(groupPlate, in: groupPlateBox(), animated: animated)
         placeControlPlates(animated: animated)
         placeTabGlows(animated: animated)
+        placeMarkPills(animated: animated)
     }
 
     /// §3.4b's plate round the folder the pointer is in — over its header, any
@@ -75,7 +76,9 @@ extension TabListController {
             movePills()
             return
         }
-        for pill in [selectionPill, hoverPill, groupPlate] + controlPlates.values + tabGlows.values { pill.fade(to: 0) }
+        for pill in [selectionPill, hoverPill, groupPlate] + controlPlates.values + tabGlows.values + markPills.values {
+            pill.fade(to: 0)
+        }
     }
 
     /// Keeps the shared fills behind the row views AppKit keeps adding — the
@@ -84,7 +87,7 @@ extension TabListController {
     /// outline lies over the hover plate so its colour is not drawn over, and
     /// a working tab's outline over the pills, whose fill would cover its rim.
     func sendPillsToBack() {
-        let fills = Array(tabGlows.values) + [selectionPill, hoverPill] + Array(controlPlates.values)
+        let fills = Array(tabGlows.values) + [selectionPill, hoverPill] + Array(markPills.values) + Array(controlPlates.values)
             + [groupPlate, groupDrop, dropMark]
         for fill in fills where fill.superview === table {
             table.addSubview(fill, positioned: .below, relativeTo: nil)

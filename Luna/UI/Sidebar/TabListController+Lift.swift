@@ -160,6 +160,14 @@ extension TabListController {
         return (header + 1) ..< end
     }
 
+    /// Folds what the lift carries out of the list, or — with nothing — back
+    /// in. See `SidebarList.init(carrying:)`.
+    func setCarried(_ ids: Set<UUID>) {
+        guard ids != carriedIDs else { return }
+        carriedIDs = ids
+        rebuild()
+    }
+
     func beginDrag(atRow row: Int) {
         isDragging = true
         draggedRow = row

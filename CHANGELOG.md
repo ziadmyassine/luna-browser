@@ -7,6 +7,8 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-05
 
+- **Choose several tabs at once** (§3.4): ⌘-click tabs to add them to the selection, or ⇧-click to take the whole run from the tab you are on. Drag any of them and they all move together — into a folder, the folder tier at the top, the pinned tiles or another Space — with their number on the tab in your hand. Right-click any of them to add them all to a folder, make a new folder with all of them, pin them or close them; Delete closes them and Escape lets them go. One ⌘Z puts them all back.
+- **A folder you drag takes its tabs with it** (§3.4b): an open folder folds while it is in the air, so it can no longer be dropped among its own tabs, and opens again where you put it.
 - **A hidden cookie pop-up no longer locks the page** (§17.2): when the annoyance list hides a cookie pop-up and the page stays greyed out and frozen behind it — borger.dk did — Luna clears the empty cover and turns scrolling back on, so the page works. A dialog with anything in it, like a sign-in box, is left alone.
 - **The blocking lists' own site fixes now apply** (§17.2): hundreds of "don't hide this on that site" lines in the lists were being dropped; they now keep a hide off the site that asked for it, while it still works everywhere else.
 - **Luna Control's JavaScript tool works on strict pages**: on a page whose security rules forbid running text as code, like borger.dk, the code now runs in Luna's own isolated world instead of failing, and the answer says that the page's own variables are not visible there.

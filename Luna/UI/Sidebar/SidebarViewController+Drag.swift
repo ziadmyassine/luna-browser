@@ -66,6 +66,16 @@ extension SidebarViewController {
         controller.onDropOnSpace = { [weak self] id, space in
             self?.session.moveTab(id, toSpace: space)
         }
+        // Several marked tabs, landing together wherever one would have.
+        controller.onDropTabs = { [weak self] ids, landing in
+            guard let self else { return }
+            switch landing {
+            case let .list(_, destination): session.moveTabs(ids, to: destination)
+            case let .essentials(index):
+                session.moveTabs(ids, to: SidebarDestination(kind: .essential, groupID: nil, index: index))
+            case let .space(space): session.moveTabs(ids, toSpace: space)
+            }
+        }
         list.onTabPress = { [weak controller] row, event in controller?.track(row: row, event: event) ?? false }
         essentials.onDragTile = { [weak controller] id, tile, event in
             controller?.track(essential: id, from: tile, event: event)
