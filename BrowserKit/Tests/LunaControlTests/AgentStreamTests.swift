@@ -56,5 +56,32 @@ struct AgentStreamTests {
         let call = try #require(ControlCall.parse(tool: "name_task", arguments: ["title": "  Lisbon trip.\n"]))
         #expect(try call.get().command == .nameTask("Lisbon trip"))
         #expect(!ControlCommand.nameTask("x").acts)
+        let iconed = try #require(ControlCall.parse(tool: "name_task", arguments: ["title": "Lisbon trip", "icon": " ✈️ "]))
+        #expect(try iconed.get().command == .nameTask("Lisbon trip", icon: "✈️"))
+    }
+}
+
+/// `label_tab`: a tab's name and icon, from the agent.
+@Suite("Label tab")
+struct LabelTabTests {
+
+    @Test func aNameAndAnIconOnAColour() throws {
+        let call = try #require(ControlCall.parse(tool: "label_tab", arguments: [
+            "tabId": 3, "title": " Flights\n", "symbol": "airplane", "color": "Teal"
+        ]))
+        #expect(try call.get().command == .labelTab(title: "Flights", symbol: "airplane", colour: "teal"))
+        #expect(!ControlCommand.labelTab(title: "x", symbol: nil, colour: nil).acts)
+    }
+
+    @Test func itNeedsATabAndSomethingToSay() {
+        #expect((try? ControlCall.parse(tool: "label_tab", arguments: ["title": "Flights"])?.get()) == nil)
+        #expect((try? ControlCall.parse(tool: "label_tab", arguments: ["tabId": 3])?.get()) == nil)
+        #expect((try? ControlCall.parse(tool: "label_tab", arguments: ["tabId": 3, "title": "x", "color": "beige"])?.get()) == nil)
+    }
+
+    @Test func agentsAreToldToNameThings() {
+        #expect(ControlSession.instructions.contains("name_task"))
+        #expect(ControlSession.instructions.contains("label_tab"))
+        #expect(ControlTools.all.contains { $0["name"]?.string == "label_tab" })
     }
 }

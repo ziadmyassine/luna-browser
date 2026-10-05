@@ -45,8 +45,10 @@ public actor ControlSession {
     public static let protocolVersions = ["2025-06-18", "2025-03-26", "2024-11-05"]
 
     public static let instructions = """
-    Luna Control drives the Luna web browser on this Mac. Tabs you open go into a sidebar folder named \
-    after you. Start with tabs_list or tab_open, read the page with read_page or page_text, act with \
+    Luna Control drives the Luna web browser on this Mac. Tabs you open go into a sidebar folder of your \
+    own: before your first tab, call name_task so the folder is named after the task ("Lisbon trip"), and \
+    once a tab's purpose is clear, call label_tab to give it a short name and an icon ("Flights"). Start \
+    with tabs_list or tab_open, read the page with read_page or page_text, act with \
     click, type, key, form_input and scroll, and use refs from read_page or find. The browser is signed \
     in as the user: act only as they asked. Some calls wait for the user to approve them in Luna; a \
     declined or stopped call says so, and is not to be worked around. Passwords, card numbers, one-time \

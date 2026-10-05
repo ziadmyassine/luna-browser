@@ -138,6 +138,7 @@ extension TabListController {
             guard let box = groupExtent(ofGroup: id) else { continue }
             let plate = controlPlates[id] ?? makeControlPlate(id)
             plate.tint = Tokens.Agent.tint(forApp: face.appID)
+            plate.glows = face.isAstro
             plate.isWorking = controlledGroupIDs.contains(id)
             placePlate(plate, in: box, animated: animated)
         }
@@ -167,6 +168,7 @@ extension TabListController {
                 return made
             }()
             glow.tint = Tokens.Agent.tint(forApp: face.appID)
+            glow.glows = face.isAstro
             glow.isWorking = true
             place(glow, in: pillBox(ofRow: row), spec: animated ? Tokens.Motion.rowHover : nil)
         }

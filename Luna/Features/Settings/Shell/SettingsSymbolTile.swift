@@ -19,8 +19,8 @@ final class SettingsSymbolTile: NSView {
         /// joined by dotted lines, in a gradient from the first colour at the
         /// top-left to the second at the bottom-right.
         case connected(NSColor, NSColor)
-        /// Astro's face (`AgentGlyph`), in the same kind of gradient.
-        case astro(NSColor, NSColor)
+        /// Astro (`AgentGlyph`), in its own colours.
+        case astro
     }
 
     private let style: Style
@@ -75,7 +75,7 @@ final class SettingsSymbolTile: NSView {
         switch style {
         case let .symbol(colour): drawGlyph(colour)
         case let .connected(from, to): drawConnected(in: context, colours: [from, to])
-        case let .astro(from, to): drawAstro(colours: [from, to])
+        case .astro: AgentGlyph.draw(in: bounds.insetBy(dx: side * 0.17, dy: side * 0.17))
         }
     }
 
@@ -92,23 +92,6 @@ final class SettingsSymbolTile: NSView {
             x: bounds.midX - drawn.width / 2, y: bounds.midY - drawn.height / 2,
             width: drawn.width, height: drawn.height
         ))
-    }
-
-    /// The face filled with the gradient, at the share of the tile a symbol
-    /// fills; the face is drawn into a square, so it is sized by its side.
-    private func drawAstro(colours: [NSColor]) {
-        let point = side * Self.glyphRatio
-        let face = AgentGlyph.image(pointSize: point - 2)
-        let filled = NSImage(size: face.size, flipped: false) { rect in
-            NSGradient(starting: colours[0], ending: colours[1])?.draw(in: rect, angle: -45)
-            face.draw(in: rect, from: .zero, operation: .destinationIn, fraction: 1)
-            return true
-        }
-        filled.draw(
-            in: NSRect(x: bounds.midX - face.size.width / 2, y: bounds.midY - face.size.height / 2,
-                       width: face.size.width, height: face.size.height),
-            from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil
-        )
     }
 
     // MARK: Luna Control's glyph

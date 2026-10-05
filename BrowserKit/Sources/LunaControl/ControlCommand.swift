@@ -50,8 +50,13 @@ public enum ControlCommand: Sendable, Equatable {
     /// Asks the user to do a step only they can, and waits until they say
     /// it is done.
     case requestUser(String)
-    /// `name_task`: what the agent's folder is called from now on.
-    case nameTask(String)
+    /// `name_task`: what the agent's folder is called from now on, and the
+    /// icon it wears — an emoji or an SF Symbol name — when one is given.
+    case nameTask(String, icon: String? = nil)
+    /// `label_tab`: what one of the agent's tabs is called in the sidebar
+    /// and the icon it wears there — an SF Symbol on a tile of one of
+    /// `ControlCall.tabColours` — in place of the page's own. Nil leaves that part as it is.
+    case labelTab(title: String?, symbol: String?, colour: String?)
     /// `ask_user`: a question for the user and the answers they may pick.
     case askUser(question: String, options: [String])
     /// Answers the `alert`, `confirm` or `prompt` open in the tab.
@@ -174,18 +179,22 @@ extension ControlCall {
             guard args.int("tabId") != nil else { throw ControlError("tabId is required.") }
             return .closeTab
         case "wait": return .wait(seconds: min(max(args.values["seconds"]?.double ?? 1, 0), 30))
-        case "request_user", "name_task", "ask_user": return try asking(tool, args)
+        case "request_user", "name_task", "ask_user", "label_tab": return try asking(tool, args)
         case "dialog": return try dialog(args)
         case "file_upload": return .upload(ref: try args.required("ref"), files: try uploads(args.values["files"]))
         default: throw ControlError("Luna has no tool called \(tool).")
         }
     }
 
-    /// The three calls that speak to the user rather than the page.
+    /// The calls about the task rather than the page: the three that speak to
+    /// the user, and `label_tab`.
     private static func asking(_ tool: String, _ args: Arguments) throws -> ControlCommand {
         switch tool {
         case "request_user": .requestUser(String(try args.required("reason").prefix(500)))
-        case "name_task": .nameTask(try taskTitle(args))
+        case "name_task": .nameTask(try taskTitle(args), icon: args.string("icon").map {
+            String($0.trimmingCharacters(in: .whitespacesAndNewlines).prefix(40))
+        }.flatMap { $0.isEmpty ? nil : $0 })
+        case "label_tab": try labelTab(args)
         default: try askUser(args)
         }
     }
@@ -196,6 +205,25 @@ extension ControlCall {
         let options = items.compactMap(\.string).map { String($0.prefix(40)) }.filter { !$0.isEmpty }
         guard (2 ... 4).contains(options.count) else { throw ControlError("Give two to four options.") }
         return .askUser(question: question, options: options)
+    }
+
+    /// The tiles `label_tab` may put an icon on, by the names macOS gives them.
+    public static let tabColours = [
+        "red", "orange", "yellow", "green", "mint", "teal", "cyan", "blue", "indigo", "purple", "pink", "brown", "gray"
+    ]
+
+    private static func labelTab(_ args: Arguments) throws -> ControlCommand {
+        guard args.int("tabId") != nil else { throw ControlError("tabId is required.") }
+        let title = args.string("title").map { $0.components(separatedBy: .newlines).joined(separator: " ") }
+            .map { String($0.trimmingCharacters(in: .whitespaces).prefix(40)) }.flatMap { $0.isEmpty ? nil : $0 }
+        let symbol = args.string("symbol").map { String($0.trimmingCharacters(in: .whitespaces).prefix(60)) }
+            .flatMap { $0.isEmpty ? nil : $0 }
+        let colour = args.string("color")?.lowercased()
+        if let colour, !tabColours.contains(colour) {
+            throw ControlError("color must be one of \(tabColours.joined(separator: ", ")).")
+        }
+        guard title != nil || symbol != nil else { throw ControlError("Give a title, a symbol or both.") }
+        return .labelTab(title: title, symbol: symbol, colour: colour)
     }
 
     /// A folder's name: one line, trimmed, and short enough for a sidebar row.

@@ -189,7 +189,8 @@ They can only close tabs in their own folder.
 | `wait` | Sleep up to 30 s |
 | `request_user` | Ask the user to do a step only they can (`reason`), and wait up to five minutes for **Done** |
 | `ask_user` | Ask a short `question` with two to four `options`; the user picks one on a card over the page ("Claude needs you"), and the answer is the result. Waits up to five minutes |
-| `name_task` | Name the task in a few words (`title`). The agent's sidebar folder takes that name in place of the session's or the app's |
+| `name_task` | Name the task in a few words (`title`), with an `icon` (an emoji or an SF Symbol) if it likes. The agent's sidebar folder takes that name and icon in place of the session's or the app's |
+| `label_tab` | Name one of the agent's own tabs for what it is for (`title`) and give it an icon (`symbol`, an SF Symbol, on a tile of one `color`). The sidebar shows them in place of the page's title and favicon |
 | `dialog` | Answer the `alert`/`confirm`/`prompt` open in the tab: `action` `accept` or `dismiss`, `text` for a prompt |
 | `batch` | Up to 20 of the above in order (`actions: [{tool, args}]`). Stops at the first failure; a step's `ref` may be `"$N"`, the first ref in step N's result. No nesting |
 
@@ -286,7 +287,7 @@ Luna's own agent, beside the page: `⌘E` (View ▸ Show Agent, and Astro's face
 at the end of the page bar's extensions cylinder, in the sidebar's pill or in
 the top bar's buttons) shows and hides a column on
 the side the sidebar is not on. A task typed there — or in `⌘T`, whose first
-row is **Ask your agent** when what was typed reads as a request — starts
+row, under the search, is **Ask Astro** when what was typed reads as a request — starts
 Claude Code in the background (`claude -p`, stream-json in and out, Luna
 Control as its only MCP server, `--permission-mode dontAsk`), and the panel
 shows its words and each step as it goes. Writing while it works goes to it

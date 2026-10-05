@@ -371,8 +371,18 @@ final class ControlCapsuleButton: NSButton {
 
     @objc private func fire() { onActivate?() }
 
+    /// The words alone. Kept apart from `attributedTitle`, whose string has
+    /// the shortcut on the end: read back as the title, Take Over kept Hand
+    /// Back's `⌘↩` after the agent was handed back.
+    private var words = ""
+
     override var title: String {
-        didSet { if title != oldValue { applyTitle() } }
+        get { words }
+        set {
+            guard newValue != words else { return }
+            words = newValue
+            applyTitle()
+        }
     }
 
     /// The keys that press it, set after the title in the secondary ink —
@@ -382,7 +392,7 @@ final class ControlCapsuleButton: NSButton {
     }
 
     private func applyTitle() {
-        let text = NSMutableAttributedString(string: title, attributes: [
+        let text = NSMutableAttributedString(string: words, attributes: [
             .font: Tokens.TypeScale.settingsRow,
             .foregroundColor: Tokens.Text.primary
         ])

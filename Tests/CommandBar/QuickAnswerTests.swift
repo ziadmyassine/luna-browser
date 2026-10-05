@@ -87,12 +87,12 @@ final class QuickAnswerTests: XCTestCase {
         return CommandBarRanking.merge(query: query, sources: sources, limit: 8)
     }
 
-    /// The answer leads, and the search for the same words comes second.
-    func testAnAnswerIsTheTopRowAndCopies() {
+    /// The search leads, as it always does, and the answer is right under it.
+    func testAnAnswerIsTheSecondRowAndCopies() {
         let rows = merge("5 km in miles")
-        XCTAssertEqual(rows.first?.source, .answer)
-        XCTAssertEqual(rows.first?.action, .copy("3.10686 mi"))
-        XCTAssertEqual(rows.dropFirst().first?.source, .search)
+        XCTAssertEqual(rows.first?.source, .search)
+        XCTAssertEqual(rows.dropFirst().first?.source, .answer)
+        XCTAssertEqual(rows.dropFirst().first?.action, .copy("3.10686 mi"))
         XCTAssertNil(CommandBarRanking.autofill(query: "5+5", results: merge("5+5")), "an answer was autofilled")
     }
 

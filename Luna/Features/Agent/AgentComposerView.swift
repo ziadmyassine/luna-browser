@@ -4,7 +4,8 @@
 //
 //  Where the user writes to the agent: a capsule with a field and one round
 //  button at its end — send while there is something to send, Stop while the
-//  agent works and the field is empty. Return sends.
+//  agent works and the field is empty. Return sends. Round it runs a ring of
+//  Astro's light, lavender to ice, which turns while Astro works.
 //
 
 import AppKit
@@ -19,6 +20,8 @@ final class AgentComposerView: NSView, NSTextFieldDelegate {
     var isEnabled = true { didSet { if isEnabled != oldValue { refresh() } } }
 
     private let field = NSTextField()
+    private let ring = CAGradientLayer()
+    private let ringShape = CAShapeLayer()
     private let button = GlassButton(
         shape: Tokens.Metric.controlCircle, symbolName: "arrow.up",
         pointSize: Tokens.Metric.agentStepGlyph + 1, label: String(localized: "Send")
@@ -28,6 +31,17 @@ final class AgentComposerView: NSView, NSTextFieldDelegate {
         super.init(frame: frameRect)
         wantsLayer = true
         Glass.apply(.control, to: self, cornerRadius: Tokens.Metric.agentComposerHeight / 2)
+        ring.type = .conic
+        ring.startPoint = CGPoint(x: 0.5, y: 0.5)
+        ring.endPoint = CGPoint(x: 0.5, y: 0)
+        ringShape.fillColor = nil
+        ringShape.strokeColor = NSColor.black.cgColor
+        ringShape.lineWidth = 1.5
+        ring.mask = ringShape
+        ring.shadowColor = Tokens.Astro.from.cgColor
+        ring.shadowRadius = 6
+        ring.shadowOffset = .zero
+        layer?.addSublayer(ring)
         field.isBordered = false
         field.drawsBackground = false
         field.focusRingType = .none
@@ -59,11 +73,56 @@ final class AgentComposerView: NSView, NSTextFieldDelegate {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
+    override func layout() {
+        super.layout()
+        Tokens.Motion.immediately {
+            ring.frame = bounds
+            ringShape.frame = bounds
+            let radius = bounds.height / 2
+            ringShape.path = CGPath(roundedRect: bounds.insetBy(dx: 0.75, dy: 0.75), cornerWidth: radius - 0.75,
+                                    cornerHeight: radius - 0.75, transform: nil)
+        }
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        paintRing()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        spinRing()
+    }
+
+    private func paintRing() {
+        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let alpha = Tokens.Astro.ringAlpha(dark: dark) * (isRunning ? 1 : 0.55)
+        let from = Tokens.Astro.from.withAlphaComponent(alpha).cgColor
+        let to = Tokens.Astro.to.withAlphaComponent(alpha).cgColor
+        ring.colors = [from, to, from]
+        ring.shadowOpacity = isRunning ? 0.7 : 0
+    }
+
+    /// The light runs round the ring while Astro works.
+    private func spinRing() {
+        guard isRunning, window != nil, !Tokens.Motion.reduceMotion else { return ring.removeAnimation(forKey: "spin") }
+        // Left running: restarting it on every keystroke made it stutter.
+        guard ring.animation(forKey: "spin") == nil else { return }
+        let spin = CAKeyframeAnimation(keyPath: "endPoint")
+        spin.values = (0...8).map { step in
+            let angle = Double(step) / 8 * 2 * .pi
+            return NSValue(point: NSPoint(x: 0.5 + 0.5 * sin(angle), y: 0.5 - 0.5 * cos(angle)))
+        }
+        spin.duration = 3
+        spin.repeatCount = .infinity
+        ring.add(spin, forKey: "spin")
+    }
+
     func focus() {
         window?.makeFirstResponder(field)
     }
 
-    /// What the field holds — for the Command Bar's "Ask your agent", which
+    /// What the field holds — for the Command Bar's "Ask Astro", which
     /// arrives with its text already written.
     var text: String {
         get { field.stringValue }
@@ -76,9 +135,11 @@ final class AgentComposerView: NSView, NSTextFieldDelegate {
     private var hasText: Bool { !field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     private func refresh() {
+        paintRing()
+        spinRing()
         field.isEnabled = isEnabled
         field.placeholderString = isRunning
-            ? String(localized: "Tell it more while it works…") : String(localized: "Ask your agent to do something…")
+            ? String(localized: "Tell it more while it works…") : String(localized: "Ask Astro to do something…")
         let stops = isRunning && !hasText
         button.setSymbol(stops ? "stop.fill" : "arrow.up")
         button.setAccessibilityLabel(stops ? String(localized: "Stop") : String(localized: "Send"))

@@ -173,7 +173,7 @@ enum SettingsSectionRegistry {
     static func tileStyle(for id: String) -> SettingsSymbolTile.Style {
         switch id {
         case LunaControlSection.id: .connected(Tokens.Tile.controlFrom, Tokens.Tile.controlTo)
-        case AstroSection.id: .astro(Tokens.Tile.controlFrom, Tokens.Tile.controlTo)
+        case AstroSection.id: .astro
         case AppearanceSection.id: .symbol(Tokens.Tile.white)
         case PrivacySection.id, AccountSection.id: .symbol(Tokens.Tile.blue)
         case SpacesSection.id: .symbol(Tokens.Tile.purple)

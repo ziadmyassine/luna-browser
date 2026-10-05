@@ -115,6 +115,37 @@ extension BrowserSession {
         notifyChange()
     }
 
+    func setAstroWorking(_ groups: Set<UUID>) {
+        guard groups != astroWorkingGroups else { return }
+        astroWorkingGroups = groups
+        notifyChange()
+    }
+
+    /// `label_tab`'s name and icon for a tab. Not on the undo stack: the
+    /// agent's labels are not something the user did.
+    func labelControlledTab(_ id: UUID, title: String?, symbol: String?, colour: String?) {
+        guard var tab = list.tab(id) else { return }
+        if let title { tab.customTitle = title }
+        if let symbol { tab.customSymbolName = symbol }
+        write(tab)
+        if symbol != nil { setTabTile(colour, for: id) }
+        notifyChange()
+    }
+
+    static let tabTilesKey = "control.tabTiles"
+
+    static func savedTabTiles() -> [UUID: String] {
+        let saved = UserDefaults.standard.dictionary(forKey: tabTilesKey) as? [String: String] ?? [:]
+        return Dictionary(uniqueKeysWithValues: saved.compactMap { key, value in UUID(uuidString: key).map { ($0, value) } })
+    }
+
+    func setTabTile(_ colour: String?, for id: UUID) {
+        guard controlTabTiles[id] != colour else { return }
+        controlTabTiles[id] = colour
+        let saved = Dictionary(uniqueKeysWithValues: controlTabTiles.map { ($0.key.uuidString, $0.value) })
+        UserDefaults.standard.set(saved, forKey: Self.tabTilesKey)
+    }
+
     func setControlFaces(_ faces: [UUID: ControlFace]) {
         guard faces != controlFaces else { return }
         controlFaces = faces

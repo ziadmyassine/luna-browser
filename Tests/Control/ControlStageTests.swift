@@ -116,7 +116,7 @@ final class ControlStageTests: XCTestCase {
         XCTAssertEqual(service.pausedCalls[client.session]?.count, 1, "the agent was not held while taken over")
 
         let resume = try XCTUnwrap(controller.controlSurface.capsule?.button, "the capsule went with the pause")
-        XCTAssertEqual(resume.title, "Resume")
+        XCTAssertEqual(resume.title, "Hand Back")
         click(resume)
         let resumed = await waiting.value
         XCTAssertFalse(resumed.isError, "Resume did not let the waiting call through: \(text(resumed))")

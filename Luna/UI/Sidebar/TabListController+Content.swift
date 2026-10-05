@@ -53,6 +53,18 @@ extension TabListController {
         let needsYou = controlBadges[group.id] == Self.needsYouBadge
         let badge = needsYou ? nil : controlBadges[group.id]
         let face = controlFaces[group.id]
+        // Astro's folder is a folder like the user's own — no app's icon —
+        // ringed in Astro's lavender (the plate, `placeControlPlates`), with
+        // Astro, or the hand, at its end.
+        if face?.isAstro == true {
+            var content = SidebarRowContent(
+                title: group.name,
+                symbolName: badge ?? (group.symbolName == BrowserSession.controlFolderSymbol ? "folder" : group.symbolName),
+                disclosure: group.isCollapsed ? .collapsed : .expanded
+            )
+            if needsYou || controlledGroupIDs.contains(group.id) { content.trailing = .agent(needsYou: needsYou) }
+            return content
+        }
         var content = SidebarRowContent(
             title: group.name,
             symbolName: badge ?? group.symbolName,
@@ -87,7 +99,7 @@ extension TabListController {
             trailing = .close
         } else if needsYouTabs.contains(tab.id) {
             trailing = .agent(needsYou: true)
-        } else if workingTabs[tab.id] != nil {
+        } else if workingTabs[tab.id] != nil || isAstroWorking(in: tab) {
             trailing = .agent(needsYou: false)
         } else if let devices = SidebarRowContent.Trailing.inUse(state) {
             trailing = devices
@@ -101,7 +113,8 @@ extension TabListController {
             // §3.4a: a chosen symbol replaces the favicon, so the row draws its symbol
             // slot instead — the path the New Tab row takes.
             symbolName: tab.customSymbolName ?? SidebarRowContent.siteFallbackSymbol,
-            favicon: tab.customSymbolName == nil ? icons.favicon(for: url) : nil,
+            favicon: tab.customSymbolName.map { symbol in tabTiles[tab.id].flatMap { TabTile.image(symbol: symbol, colour: $0) } }
+                ?? icons.favicon(for: url),
             hasUnread: tab.hasUnread,
             isLoading: state?.isLoading ?? false,
             trailing: trailing,
@@ -111,6 +124,16 @@ extension TabListController {
             trailingInset: list.group(ofTab: tab.id) == nil ? 0 : Tokens.Metric.groupMemberTrailingInset,
             isDormant: tab.isDormant
         )
+    }
+}
+
+extension TabListController {
+
+    /// Every tab in a folder Astro is working in wears Astro, for the whole
+    /// turn, as the picture of a plan under way.
+    func isAstroWorking(in tab: Tab) -> Bool {
+        guard let group = tab.groupID else { return false }
+        return controlFaces[group]?.isAstro == true && controlledGroupIDs.contains(group)
     }
 }
 

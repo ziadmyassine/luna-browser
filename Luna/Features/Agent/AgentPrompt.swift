@@ -3,7 +3,7 @@
 //  Luna
 //
 //  Whether what was typed into ⌘T reads as a task for the agent rather than
-//  a search: the Command Bar offers "Ask your agent" only then. A few words
+//  a search: the Command Bar offers "Ask Astro" only then. A few words
 //  are a search; a sentence, or a short one that starts the way a request
 //  starts, is a task.
 //

@@ -100,6 +100,8 @@ extension BrowserSession {
         let previous = tab.customSymbolName
         tab.customSymbolName = next
         write(tab)
+        // An icon the user picks is theirs: the agent's tile goes with the agent's icon.
+        setTabTile(nil, for: id)
         registerUndo("Change Icon") { $0.setIcon(previous, forTab: id) }
         notifyChange()
     }

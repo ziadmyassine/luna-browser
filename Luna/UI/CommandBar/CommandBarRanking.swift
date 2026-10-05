@@ -128,7 +128,7 @@ enum CommandBarRanking {
         let ordered = order(rows)
         guard let lead = leadRow(query: query, sources: sources) else {
             let rows = searchFirst(dedupe(ordered, adoptingOpenTabs: !hasDirect), query: rawQuery)
-            return Array(agentFirst(rows).prefix(limit))
+            return Array(agentAfterSearch(rows).prefix(limit))
         }
         // Before the dedupe, so an open tab on the very page the lead opens
         // hands it `Switch to tab` rather than appearing as a second row.
@@ -145,14 +145,15 @@ enum CommandBarRanking {
     /// complete it from the best page, as `gith` completes `github.com`; that
     /// page keeps the top row, or autofill would have nothing to complete from.
     ///
-    /// An answer stays above it: the search is the second reading of `5+5`.
+    /// Above an answer too: the search is what Return does, and `5+5`'s
+    /// answer is one row down, where it can still be copied.
     private static func searchFirst(_ rows: [CommandBarResult], query: String) -> [CommandBarResult] {
-        let answers = rows.prefix { $0.source == .answer }.count
-        guard let index = rows.firstIndex(where: { $0.source == .search }), index > answers else { return rows }
+        guard let index = rows.firstIndex(where: { $0.source == .search }), index > 0 else { return rows }
         var rest = rows
         let search = rest.remove(at: index)
+        let answers = rest.prefix { $0.source == .answer }.count
         guard autofill(query: query, results: Array(rest.dropFirst(answers))) == nil else { return rows }
-        rest.insert(search, at: answers)
+        rest.insert(search, at: 0)
         return rest
     }
 
@@ -312,24 +313,27 @@ enum CommandBarRanking {
         )
     }
 
-    /// "Ask your agent", with what it would do under it.
+    /// "Ask Astro", with what it would do under it.
     private static func agentRow(query: String) -> CommandBarResult {
         CommandBarResult(
             source: .agent,
-            title: String(localized: "Ask your agent"),
+            title: String(localized: "Ask Astro"),
             subtitle: String(localized: "in tabs of its own, where you can see"),
             action: .askAgent(query),
             symbolName: "sparkles"
         )
     }
 
-    /// The agent's row first, where Return takes it. It is only there at all
-    /// for a query that reads as a request (`AgentPrompt`), and for one of
-    /// those the request is what was meant; the search is one row down.
-    static func agentFirst(_ rows: [CommandBarResult]) -> [CommandBarResult] {
+    /// The agent's row straight under the search, one ↓ from Return. It is
+    /// only there at all for a query that reads as a request (`AgentPrompt`);
+    /// the search stays first even then, because Return searching is the one
+    /// thing the bar always does.
+    static func agentAfterSearch(_ rows: [CommandBarResult]) -> [CommandBarResult] {
         guard let agent = rows.firstIndex(where: { $0.source == .agent }) else { return rows }
         var rest = rows
-        rest.insert(rest.remove(at: agent), at: 0)
+        let row = rest.remove(at: agent)
+        let search = rest.firstIndex { $0.source == .search }
+        rest.insert(row, at: search.map { $0 + 1 } ?? 0)
         return rest
     }
 

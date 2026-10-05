@@ -9,8 +9,9 @@
 
 import AppKit
 
-/// The agent's pointer: the rover's face on a night-coloured puck ringed in
-/// its app's colour, and a pill beside it saying the agent is working, where
+/// The agent's pointer: Astro itself, in its own colours, with a ring in its
+/// app's colour spreading from it on a click, and a pill beside it saying the
+/// agent is working, where
 /// it last clicked, hovered, typed or dragged. A picture only: it takes no
 /// events, and the page never sees it.
 @MainActor
@@ -63,15 +64,12 @@ final class ControlAgentPointer: NSView {
         puck.bounds = CGRect(x: 0, y: 0, width: side, height: side)
         puck.position = CGPoint(x: Self.tip.x, y: Self.tip.y)
         puck.cornerRadius = side / 2
-        puck.backgroundColor = Tokens.Moon.skyTop.cgColor
-        puck.borderWidth = 2
         puck.shadowColor = NSColor.black.cgColor
         puck.shadowOpacity = 0.35
         puck.shadowRadius = 3
         puck.shadowOffset = CGSize(width: 0, height: 1)
-        let glyph = side * 0.62
-        face.frame = CGRect(x: (side - glyph) / 2, y: (side - glyph) / 2 - 0.5, width: glyph, height: glyph)
-        face.contents = AgentGlyph.tinted(pointSize: glyph, color: Tokens.Moon.glowOuter)
+        face.frame = puck.bounds
+        face.contents = AgentGlyph.image(pointSize: side)
         face.contentsGravity = .resizeAspect
         puck.addSublayer(face)
         ripple.fillColor = nil
@@ -86,7 +84,6 @@ final class ControlAgentPointer: NSView {
 
     /// - Parameter agent: the app's name, which the pill puts in a sentence.
     func configure(agent: String, tint: NSColor) {
-        puck.borderColor = tint.cgColor
         ripple.strokeColor = tint.cgColor
         let ink: NSColor = tint.luminance > 0.6 ? .black : .white
         nameTag.textColor = ink

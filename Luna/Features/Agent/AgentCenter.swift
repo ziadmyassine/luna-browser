@@ -162,6 +162,9 @@ final class AgentCenter {
         task.onChange = { [weak self] in self?.changed() }
         tasks.insert(task, at: 0)
         current = task
+        // Before the agent's first call: its folder is Astro's, named from
+        // the request until the agent names the task.
+        ControlService.astroTasks[task.id.uuidString.lowercased()] = task.title
         launch(for: task, prompt: prompt, resuming: false)
     }
 
@@ -228,6 +231,8 @@ final class AgentCenter {
     }
 
     private func changed() {
+        let working = tasks.filter(\.status.isRunning).map { $0.id.uuidString.lowercased() }
+        ControlService.current?.setAstroWorking(Set(working))
         NotificationCenter.default.post(name: Self.didChange, object: self)
     }
 }

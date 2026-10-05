@@ -60,12 +60,15 @@ final class AgentPanelTests: XCTestCase {
         XCTAssertFalse(AgentPrompt.reads("github.com"))
     }
 
-    func testTheAgentRowLeadsWhenItShows() {
+    func testTheAgentRowComesStraightAfterTheSearch() {
         var sources = CommandBarSources()
         sources.offersAgent = true
         let asked = CommandBarRanking.merge(query: "Catch me up on my pull requests", sources: sources, limit: 8)
-        XCTAssertEqual(asked.first?.source, .agent)
-        XCTAssertEqual(asked.first?.action, .askAgent("Catch me up on my pull requests"))
+        XCTAssertEqual(asked.first?.source, .search, "Return always searches")
+        XCTAssertEqual(asked.dropFirst().first?.source, .agent)
+        XCTAssertEqual(asked.dropFirst().first?.action, .askAgent("Catch me up on my pull requests"))
+        let sum = CommandBarRanking.merge(query: "5+5", sources: sources, limit: 8)
+        XCTAssertEqual(sum.first?.source, .search, "the search is above an answer too")
         let searched = CommandBarRanking.merge(query: "running shoes", sources: sources, limit: 8)
         XCTAssertFalse(searched.contains { $0.source == .agent })
         sources.offersAgent = false
@@ -87,6 +90,6 @@ final class AgentPanelTests: XCTestCase {
         let rover = AgentRoverView(frame: NSRect(x: 0, y: 0, width: 96, height: 96))
         for mood in [AgentRoverView.Mood.idle, .thinking, .working, .happy, .sad, .stopped] { rover.mood = mood }
         XCTAssertEqual(rover.mood, .stopped)
-        XCTAssertTrue(AgentGlyph.image(pointSize: 14).isTemplate)
+        XCTAssertFalse(AgentGlyph.image(pointSize: 14).isTemplate, "Astro wears its own colours")
     }
 }

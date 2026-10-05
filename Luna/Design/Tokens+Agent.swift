@@ -10,6 +10,19 @@ import AppKit
 
 extension Tokens {
 
+    /// Astro's light: the lavender-to-ice of Luna Control's tile, which is the
+    /// moon's glow at the saturation of the colours beside it. Its strengths
+    /// were set by eye against the sidebar's bloom: strong enough to read as
+    /// colour on the dark window, faint enough that the panel's type stays
+    /// the brightest thing in it; light mode needs less to read as much.
+    enum Astro {
+        static var from: NSColor { Tile.controlFrom }
+        static var to: NSColor { Tile.controlTo }
+        static func auraAlpha(dark: Bool) -> CGFloat { dark ? 0.26 : 0.16 }
+        static func bubbleAlpha(dark: Bool) -> CGFloat { dark ? 0.30 : 0.20 }
+        static func ringAlpha(dark: Bool) -> CGFloat { dark ? 0.85 : 0.7 }
+    }
+
     enum Agent {
         /// Claude's clay orange, from its own icon.
         static var claude: NSColor { NSColor(srgbRed: 0xD9 / 255, green: 0x77 / 255, blue: 0x57 / 255, alpha: 1) }
@@ -39,6 +52,7 @@ extension Tokens {
             case "claude-code", "claude-desktop": claude
             case "vscode": vscode
             case "codex", "cursor": .labelColor
+            case "astro": Astro.from
             default: Tokens.Text.secondary
             }
         }

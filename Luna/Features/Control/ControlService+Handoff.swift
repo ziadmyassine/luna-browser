@@ -39,7 +39,7 @@ extension ControlService {
     func speak(_ command: ControlCommand, for client: ControlClient, in session: BrowserSession) async -> ControlResult {
         switch command {
         case let .requestUser(reason): await requestUser(reason, for: client, in: session)
-        case let .nameTask(title): nameTask(title, for: client, in: session)
+        case let .nameTask(title, icon): nameTask(title, icon: icon, for: client, in: session)
         case let .askUser(question, options): await askUser(question, options: options, for: client, in: session)
         default: .error("Luna cannot do that here.")
         }

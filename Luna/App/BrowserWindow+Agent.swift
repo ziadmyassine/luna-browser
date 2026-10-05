@@ -3,7 +3,7 @@
 //  Luna
 //
 //  The agent panel in one window: `⌘E` and the buttons that show and hide it,
-//  and the Command Bar's "Ask your agent", which arrives with the task
+//  and the Command Bar's "Ask Astro", which arrives with the task
 //  already written.
 //
 
@@ -26,7 +26,7 @@ extension BrowserWindow {
         AgentCenter.shared.checkAccount()
     }
 
-    /// The Command Bar's "Ask your agent": the panel opens and the task goes
+    /// The Command Bar's "Ask Astro": the panel opens and the task goes
     /// straight to the agent.
     func ask(_ task: String) {
         setAgentShown(true)

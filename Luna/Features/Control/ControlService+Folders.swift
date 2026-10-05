@@ -37,18 +37,20 @@ extension ControlService {
     /// The app name the user knows an agent by, for its capsule, pointer and
     /// requests.
     func displayName(of agent: String) -> String {
-        agents[agent]?.displayName ?? ControlClient.fallbackName
+        if Self.astroTasks[agent] != nil { return String(localized: "Astro") }
+        return agents[agent]?.displayName ?? ControlClient.fallbackName
     }
 
     func appID(of agent: String) -> String? {
-        agents[agent].flatMap { ControlApp.app(forClient: $0.rawName)?.id }
+        if Self.astroTasks[agent] != nil { return ControlFace.astro }
+        return agents[agent].flatMap { ControlApp.app(forClient: $0.rawName)?.id }
     }
 
     /// What the session's folder should be called: its task (`name_task`),
     /// else the session's own name, else the app's, numbered when another
     /// session already has a folder of that name.
     func folderName(for client: ControlClient, in session: BrowserSession) -> String {
-        let base = taskNames[client.session] ?? client.sessionName ?? client.displayName
+        let base = taskNames[client.session] ?? Self.astroTasks[client.session] ?? client.sessionName ?? client.displayName
         let taken = Set(folders.filter { $0.key != client.session }.compactMap { session.group($0.value)?.name })
         guard taken.contains(base) else { return base }
         return (2...).lazy.map { "\(base) \($0)" }.first { !taken.contains($0) } ?? base
@@ -89,8 +91,11 @@ extension ControlService {
 
     /// `name_task`: the folder takes the task's name now if it has one, and
     /// when it is made if not. A folder the user renamed keeps their name.
-    func nameTask(_ title: String, for client: ControlClient, in session: BrowserSession) -> ControlResult {
+    func nameTask(_ title: String, icon: String? = nil, for client: ControlClient, in session: BrowserSession) -> ControlResult {
         taskNames[client.session] = title
+        Self.taskIcons[client.session] = Self.folderIcon(icon, title: title, astro: Self.astroTasks[client.session] != nil)
+            ?? Self.taskIcons[client.session]
+        if let id = folders[client.session] { dress(id, for: client.session, in: session) }
         if let id = folders[client.session], let group = session.group(id), group.name == folderNames[client.session] {
             let name = folderName(for: client, in: session)
             if name != group.name {
@@ -130,7 +135,8 @@ extension ControlService {
         let remembered = defaults.dictionary(forKey: Self.folderAppsKey) as? [String: String] ?? [:]
         var faces: [UUID: ControlFace] = [:]
         for group in session.list.groupsBySpace.values.joined()
-        where owners[group.id] != nil || group.symbolName == BrowserSession.controlFolderSymbol {
+        where owners[group.id] != nil || group.symbolName == BrowserSession.controlFolderSymbol
+            || remembered[group.id.uuidString] != nil {
             let app = owners[group.id].flatMap(appID(of:))
                 ?? remembered[group.id.uuidString]
                 ?? ControlApp.all.first { $0.folderName == group.name }?.id
@@ -156,6 +162,7 @@ extension ControlService {
         folders[client.session] = group.id
         folderNames[client.session] = group.name
         guard isNew else { return }
+        if let session { dress(group.id, for: client.session, in: session) }
         if let app = appID(of: client.session) {
             var remembered = defaults.dictionary(forKey: Self.folderAppsKey) as? [String: String] ?? [:]
             remembered[group.id.uuidString] = app

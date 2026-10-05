@@ -54,6 +54,12 @@ final class RowPillView: NSView {
         }
     }
 
+    /// Astro's plate: a soft glow of its lavender round the rim, brighter
+    /// while it works, and a spark that runs lavender into ice.
+    var glows = false {
+        didSet { if glows != oldValue { needsDisplay = true } }
+    }
+
     /// Whether the agent a tinted plate belongs to is working in its folder:
     /// a spark of the tint runs round the rim (`Motion.agentSpark`).
     var isWorking = false {
@@ -130,6 +136,14 @@ final class RowPillView: NSView {
         let light = (tint?.blended(withFraction: Tokens.Agent.sparkLift, of: .white) ?? .white).cgColor
         let clear = light.copy(alpha: 0) ?? NSColor.clear.cgColor
         spark.colors = [clear, clear, light, clear]
+        layer.shadowOpacity = 0
+        guard glows else { return }
+        let ice = Tokens.Astro.to.blended(withFraction: Tokens.Agent.sparkLift, of: .white)?.cgColor ?? light
+        spark.colors = [clear, clear, light, ice]
+        layer.shadowColor = (tint ?? Tokens.Astro.from).cgColor
+        layer.shadowOffset = .zero
+        layer.shadowRadius = isWorking ? 8 : 5
+        layer.shadowOpacity = isWorking ? 0.55 : 0.25
     }
 
     private func applyWorking() {
@@ -176,6 +190,8 @@ final class RowPillView: NSView {
         // easing behind the page reads as lag.
         Tokens.Motion.immediately {
             placeSpark()
+            // The glow round the plate's shape, not round its faint fill.
+            layer?.shadowPath = CGPath(roundedRect: bounds, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
             bandClip.frame = bounds
             let width = (bounds.width * (progress ?? 0)).rounded()
             let x = userInterfaceLayoutDirection == .rightToLeft ? bounds.width - width : 0

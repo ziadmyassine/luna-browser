@@ -236,6 +236,8 @@ final class ControlService {
             return try closeTab(call, in: session, for: client)
         case .requestUser, .nameTask, .askUser:
             return await speak(call.command, for: client, in: session)
+        case .labelTab:
+            return label(id, call.command, for: client, in: session)
         case let .viewport(size):
             return await viewport(size, tab: id, for: client, in: session)
         default:

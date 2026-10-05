@@ -39,6 +39,7 @@ final class AgentPanelView: NSView {
     private let transcript = AgentTranscriptView()
     private let composer = AgentComposerView()
     private let empty = AgentEmptyView()
+    private let aura = AgentAura()
     private var watch: (any NSObjectProtocol)?
     private var clock: Timer?
 
@@ -99,6 +100,13 @@ final class AgentPanelView: NSView {
         titles.translatesAutoresizingMaskIntoConstraints = false
         titleCapsule.addSubview(titles)
 
+        addSubview(aura)
+        NSLayoutConstraint.activate([
+            aura.topAnchor.constraint(equalTo: topAnchor),
+            aura.bottomAnchor.constraint(equalTo: bottomAnchor),
+            aura.leadingAnchor.constraint(equalTo: leadingAnchor),
+            aura.trailingAnchor.constraint(equalTo: trailingAnchor)
+        ])
         for view in [history, more, rover, titleCapsule, transcript, composer, empty] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
@@ -182,13 +190,14 @@ final class AgentPanelView: NSView {
         empty.show(blocker: blocker, engine: center.engine)
         composer.isEnabled = blocker == nil
         composer.isRunning = task?.status.isRunning ?? false
+        aura.isLively = composer.isRunning
         guard let task, hasTask else {
             transcript.show(nil)
             return
         }
         titleLabel.stringValue = task.title
         statusLabel.stringValue = Self.status(of: task)
-        rover.mood = Self.mood(for: task.status)
+        rover.mood = Self.mood(for: task)
         transcript.show(task)
     }
 
@@ -201,6 +210,15 @@ final class AgentPanelView: NSView {
         case .stopped: String(localized: "Stopped")
         case .failed: String(localized: "Needs a hand")
         }
+    }
+
+    /// Astro's mood for a task: waving while a step is waiting on the user
+    /// (`ask_user`, `request_user`), else what its state says.
+    static func mood(for task: AgentTask) -> AgentRoverView.Mood {
+        let asking = task.items.contains { item in
+            if case let .step(_, _, symbol, .running) = item { ["hand.raised", "person.fill.questionmark"].contains(symbol) } else { false }
+        }
+        return asking ? .waving : mood(for: task.status)
     }
 
     static func mood(for status: AgentTask.Status) -> AgentRoverView.Mood {
@@ -226,52 +244,21 @@ final class AgentPanelView: NSView {
     // MARK: - History and the menu
 
     private func showHistory() {
-        let menu = NSMenu()
-        menu.autoenablesItems = false
-        menu.addItem(SidebarMenu.glyphItem(String(localized: "New Task"), symbol: "plus") { [weak self] in
+        AgentMenus.show(AgentMenus.history(center) { [weak self] in
             self?.center.newTask()
             self?.focusComposer()
-        })
-        let earlier = center.tasks
-        if !earlier.isEmpty { menu.addItem(.separator()) }
-        for task in earlier {
-            let symbol = task.status.isRunning ? "circle.dotted" : "checkmark.circle"
-            let item = SidebarMenu.glyphItem(task.title, symbol: symbol) { [weak self] in self?.center.show(task) }
-            item.state = task === center.current ? .on : .off
-            menu.addItem(item)
-        }
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: history.bounds.maxY + 4), in: history)
+        }, from: history)
     }
 
     private func showMenu() {
-        let menu = NSMenu()
-        menu.autoenablesItems = false
-        menu.addItem(SidebarMenu.glyphItem(String(localized: "New Task"), symbol: "plus") { [weak self] in
+        let content = AgentMenus.more(center) { [weak self] in
             self?.center.newTask()
             self?.focusComposer()
-        })
-        if let task = center.current {
-            if task.status.isRunning {
-                menu.addItem(SidebarMenu.glyphItem(String(localized: "Stop"), symbol: "stop.fill") { [weak self] in
-                    self?.center.stop()
-                })
-            }
-            menu.addItem(SidebarMenu.glyphItem(String(localized: "Show Its Folder"), symbol: "folder") { [weak self] in
-                self?.onRevealFolder?(task.id.uuidString.lowercased())
-            })
-        }
-        menu.addItem(.separator())
-        for engine in AgentEngine.allCases {
-            let item = SidebarMenu.glyphItem(String(localized: "Use \(engine.name)"), symbol: "sparkle") { [weak self] in
-                self?.center.use(engine)
-            }
-            item.state = engine == AgentEngine.chosen ? .on : .off
-            menu.addItem(item)
-        }
-        menu.addItem(.separator())
-        menu.addItem(SidebarMenu.glyphItem(String(localized: "Hide Agent"), symbol: "sidebar.trailing") { [weak self] in
+        } revealFolder: { [weak self] task in
+            self?.onRevealFolder?(task.id.uuidString.lowercased())
+        } hide: { [weak self] in
             self?.onClose?()
-        })
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: more.bounds.maxY + 4), in: more)
+        }
+        AgentMenus.show(content, from: more)
     }
 }
