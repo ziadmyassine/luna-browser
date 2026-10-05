@@ -185,6 +185,8 @@ final class AgentTask: Identifiable {
         items[items.count - 1] = .text(id: id, text: text, writing: false)
     }
 
+    static let unshownTools: Set<String> = ["ToolSearch"]
+
     private func startStep(id: String, name: String, input: [String: JSONValue]) {
         // Naming the task is not a step the user needs to read: the title
         // above the conversation changes instead.
@@ -192,6 +194,8 @@ final class AgentTask: Identifiable {
             if let title = input["title"]?.string { self.title = title }
             return
         }
+        // Claude Code's own housekeeping, which means nothing to the user.
+        guard !Self.unshownTools.contains(name) else { return }
         let step = AgentSteps.describe(name: name, input: input)
         items.append(.step(id: id, title: step.title, symbol: step.symbol, state: .running))
     }

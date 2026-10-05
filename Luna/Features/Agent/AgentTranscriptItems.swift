@@ -4,10 +4,9 @@
 //
 //  The pieces `AgentTranscriptView` stacks: the user's bubble, the agent's
 //  paragraph, a card of steps, a note when something went wrong, the
-//  shimmering line while it thinks, and the turn's clock. Each draws with the
-//  same washes as the rest of Luna's chrome — `Surface.selected` for what the
-//  user said, `Surface.hover` for what the agent did — rather than colours
-//  of its own.
+//  shimmering line while it thinks, and the turn's clock. The bubble and the
+//  cards are Liquid Glass, as Luna's other raised surfaces are, with a breath
+//  of Astro's lavender over the bubble and in the cards' rims.
 //
 
 import AppKit
@@ -34,7 +33,6 @@ final class AgentBubble: NSView {
         fill.layer?.masksToBounds = true
         tint.startPoint = CGPoint(x: 0, y: 1)
         tint.endPoint = CGPoint(x: 1, y: 0)
-        tint.zPosition = -1
         fill.layer?.addSublayer(tint)
         fill.translatesAutoresizingMaskIntoConstraints = false
         addSubview(fill)
@@ -56,6 +54,8 @@ final class AgentBubble: NSView {
             label.trailingAnchor.constraint(equalTo: fill.trailingAnchor, constant: -pad)
         ])
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        // Under the lavender, which is added first and so stays above it.
+        Glass.apply(.control, to: fill, cornerRadius: Tokens.Metric.agentBubbleRadius)
     }
 
     @available(*, unavailable)
@@ -73,8 +73,7 @@ final class AgentBubble: NSView {
 
     override func updateLayer() {
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        let alpha = Tokens.Astro.bubbleAlpha(dark: dark)
-        fill.layer?.backgroundColor = Tokens.Surface.hover.cgColor
+        let alpha = Tokens.Astro.bubbleAlpha(dark: dark) * 0.7
         tint.colors = [Tokens.Astro.from.withAlphaComponent(alpha).cgColor, Tokens.Astro.to.withAlphaComponent(alpha * 0.8).cgColor]
         fill.layer?.borderColor = Tokens.Astro.from.withAlphaComponent(alpha * 0.9).cgColor
         fill.layer?.borderWidth = Tokens.Metric.hairline
@@ -160,6 +159,7 @@ final class AgentStepsCard: NSView {
             rows.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
             rows.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10)
         ])
+        Glass.apply(.control, to: self, cornerRadius: Tokens.Metric.agentBubbleRadius - 2)
     }
 
     @available(*, unavailable)
@@ -170,7 +170,6 @@ final class AgentStepsCard: NSView {
     override var wantsUpdateLayer: Bool { true }
 
     override func updateLayer() {
-        layer?.backgroundColor = Tokens.Surface.hover.cgColor
         // A hint of Astro's lavender in the rim: the card is the agent's doing.
         layer?.borderColor = Tokens.Astro.from.withAlphaComponent(0.28).cgColor
         layer?.borderWidth = Tokens.Metric.hairline
