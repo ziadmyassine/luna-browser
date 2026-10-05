@@ -24,6 +24,8 @@ final class AgentTranscriptView: NSView {
     private var widthBound: Set<ObjectIdentifier> = []
     private let working = AgentWorkingLine()
     private let thinking = AgentThinkingLine()
+    private let topBlur = AgentEdgeBlur(edge: .top)
+    private let bottomBlur = AgentEdgeBlur(edge: .bottom)
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -34,7 +36,10 @@ final class AgentTranscriptView: NSView {
         scrollView.contentView.drawsBackground = false
         scrollView.documentView = column
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.wantsLayer = true
         addSubview(scrollView)
+        addSubview(topBlur)
+        addSubview(bottomBlur)
 
         stack.orientation = .vertical
         stack.alignment = .leading
@@ -51,16 +56,30 @@ final class AgentTranscriptView: NSView {
             column.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
             column.trailingAnchor.constraint(equalTo: scrollView.contentView.trailingAnchor),
             column.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
-            stack.topAnchor.constraint(equalTo: column.topAnchor, constant: Tokens.Metric.agentItemGap),
+            // Room at both ends for the fade, so nothing is faded at rest.
+            stack.topAnchor.constraint(equalTo: column.topAnchor, constant: AgentEdgeBlur.depth),
             stack.leadingAnchor.constraint(equalTo: column.leadingAnchor, constant: inset),
             stack.trailingAnchor.constraint(equalTo: column.trailingAnchor, constant: -inset),
-            stack.bottomAnchor.constraint(equalTo: column.bottomAnchor, constant: -Tokens.Metric.agentItemGap)
+            stack.bottomAnchor.constraint(equalTo: column.bottomAnchor, constant: -AgentEdgeBlur.depth),
+            topBlur.topAnchor.constraint(equalTo: topAnchor),
+            topBlur.leadingAnchor.constraint(equalTo: leadingAnchor),
+            topBlur.trailingAnchor.constraint(equalTo: trailingAnchor),
+            topBlur.heightAnchor.constraint(equalToConstant: AgentEdgeBlur.depth),
+            bottomBlur.bottomAnchor.constraint(equalTo: bottomAnchor),
+            bottomBlur.leadingAnchor.constraint(equalTo: leadingAnchor),
+            bottomBlur.trailingAnchor.constraint(equalTo: trailingAnchor),
+            bottomBlur.heightAnchor.constraint(equalToConstant: AgentEdgeBlur.depth)
         ])
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    override func layout() {
+        super.layout()
+        Tokens.Motion.immediately { scrollView.layer?.mask = AgentEdgeBlur.fadeMask(for: scrollView.bounds) }
     }
 
     /// Shows `task`'s conversation, or nothing.

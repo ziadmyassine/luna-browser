@@ -7,6 +7,7 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-05
 
+- **Astro's conversation fades out at its edges**: where it scrolls under the task pill and the field, the words blur more and more and fade away instead of being cut off by a hard line.
 - **Astro writes up what it finds** (Luna Control): the new `show_document` lets an agent save its findings as a Markdown document and open it in a tab of its folder, in Luna's reader with its type, size and width options; Astro uses it for comparisons, itineraries and anything longer than a few lines.
 - **Tables in Astro's replies are tables**: a Markdown table in the panel is a grid on glass with a header row and lines between rows, instead of every cell on a line of its own; code is a box of its own.
 - **Luna Control's questions look like Luna's toasts**: a request or a question from an agent is the toast's glass pill under the bar, with its answers as words on it — on one line when it fits, wrapping into the same glass when it does not.
