@@ -48,6 +48,10 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-04
 
+- **History's first day sits closer to the header** (§11.3): "Today" now starts 8 pt under the History title and search field, the same gap Downloads leaves, instead of 16; the first page is 26 pt under the header instead of 34.
+- **Suggest strong passwords is off until you turn it on** (§14.5): a signup form no longer offers a generated password unless you switch it on in Settings › Passwords. If you had already set it either way, your choice is kept.
+- **Luna can ask where to save each download** (§3.5): turn on "Ask where to save each download" in Settings › General › Downloads and every download opens a save panel on its window, with the file's name filled in, starting in your downloads folder or wherever you saved last. Cancel stops the download and leaves nothing behind. Off, which is the default, downloads go straight to your folder as before.
+- **Import and export passwords** (§14): Settings › Passwords can add passwords from a CSV file exported by Chrome, Arc, Dia, the Passwords app, 1Password or Bitwarden, and save Luna’s own passwords to a CSV file after Touch ID. A password Luna already has for the same site and account is replaced by the imported one.
 - **The page bar wears the painting's sky** (§3.2b): over an error page, the bar across the top is the colour of the painting's sky, pale by day and deep blue by night, instead of plain white or grey.
 - **Error pages are moon paintings** (§4.5): each of the six (offline, can't find the site, not private, blocked, not secure, didn't load) is a painted moonscape with its own little scene, by day in light mode and by night in dark, with a big headline set in the sky and one answer under it instead of a box with buttons. Increase Contrast keeps the plain card.
 - **An extension's page can send you to its website** (§16): 1Password's Sign in button on its welcome page did nothing; a tab now swaps to the right kind of page view when it crosses between an extension's pages and the web, either way.
@@ -57,6 +61,9 @@ under Unreleased; a release will take the entries since the last one.
 - **A folder picks an emoji from its name** (§3.4b): name a folder "Running shoes" and it gets 👟, "Gaming" 🎮, "Skole" 🏫. It reads English and Danish words, and any emoji you type in the name. An icon you chose yourself is never replaced. A folder's emoji is drawn a favicon's size, level with its name.
 - **Folders sit as close together as tabs** (§3.4b): a closed folder's row is now a tab's height, so a run of folders in Pinned is spaced like the tabs below it.
 - **A folder's name and the tab highlight move with the rows** (§3.4b): the name holds still while a folder opens and closes, the highlight on the tab you are on slides with its row instead of trailing it, and the arrow after the name steps aside while you rename the folder instead of sitting under the new name.
+- **Choose where Dia's things go before importing** (§23.2): after you tick Dia on first run, a step lists what Dia has — Favorites, bookmarks bar, bookmark folders, history — with how many of each, and you pick Favorites, Pinned folders or Skip for each. Bookmark folders no longer turn into pinned folders unless you leave them set to that, and nested folders keep both names, as "Work / Archive". Dia 1.51 keeps its own pinned tabs and pinned folders in an encrypted database, so Luna cannot bring those across.
+- **First run comes before the browser** (§30.17): a fresh install opens on the welcome window alone, and the browser window opens when you finish or close it, already in the theme you chose and with what you imported; a link that launched Luna opens then.
+- **The welcome window is readable in Light mode** (§30.17): choosing Light (or Auto on a light Mac) turned the text and Back button dark on a dark left pane; the pane now turns light with them, as you choose.
 
 ### 2026-10-03
 

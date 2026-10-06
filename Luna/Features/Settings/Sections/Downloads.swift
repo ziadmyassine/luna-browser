@@ -2,8 +2,8 @@
 //  Downloads.swift
 //  Luna
 //
-//  docs/SETTINGS-SPEC.md §3.5: where downloads land, and whether safe files
-//  open by themselves.
+//  docs/SETTINGS-SPEC.md §3.5: where downloads land, whether to ask each time,
+//  and whether safe files open by themselves.
 //
 //  The folder is a pop-up, not an `NSPathControl`. The path control draws the
 //  folder's name hard against its leading edge and its chevron against the
@@ -19,12 +19,12 @@ final class DownloadsSection: SettingsGroup {
 
     static let id = "downloads"
     static let title = String(localized: "Downloads")
-    static let keywords = ["files", "save to", "folder", "destination", "open safe files"]
+    static let keywords = ["files", "save to", "folder", "destination", "open safe files", "ask where", "save as"]
 
     private let folder = NSPopUpButton(frame: .zero, pullsDown: true)
 
     func add(to body: SettingsBody) {
-        body.card(Self.title, [saveLocationRow(), autoOpenRow()])
+        body.card(Self.title, [saveLocationRow(), askEachTimeRow(), autoOpenRow()])
     }
 
     // MARK: Where files go
@@ -96,6 +96,17 @@ final class DownloadsSection: SettingsGroup {
         }
         UserDefaults.standard.set(chosen.path(percentEncoded: false), forKey: DownloadDestination.directoryKey)
         refreshFolder()
+    }
+
+    private func askEachTimeRow() -> (view: NSView, terms: [String]) {
+        let title = String(localized: "Ask where to save each download")
+        let row = SettingsRow.toggle(
+            title,
+            value: UserDefaults.standard.bool(forKey: DownloadDestination.askKey)
+        ) { ask in
+            UserDefaults.standard.set(ask, forKey: DownloadDestination.askKey)
+        }
+        return (view: row, terms: [title, "ask", "save as", "choose", "where", "location", "every time"])
     }
 
     // MARK: Opening

@@ -335,7 +335,10 @@ private final class DownloadTask: NSObject, WKDownloadDelegate {
             return nil
         }
 
-        let destination = await DownloadDestination.resolve(name)
+        let window = download.webView?.window
+        guard let destination = await DownloadDestination.decide(name, ask: { name, folder in
+            await Self.askWhereToSave(name, in: folder, window: window)
+        }) else { return nil }
         item.willWrite(to: destination, progress: download.progress)
         observeProgress(download.progress)
         manager.started(item)
@@ -359,6 +362,21 @@ private final class DownloadTask: NSObject, WKDownloadDelegate {
             return await alert.beginSheetModal(for: window) == .alertFirstButtonReturn
         }
         return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    /// A sheet on the window the download came from, so it reads as that
+    /// page's question; app-modal only when there is no such window.
+    private static func askWhereToSave(_ name: String, in folder: URL, window: NSWindow?) async -> URL? {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = name
+        panel.directoryURL = folder
+        panel.canCreateDirectories = true
+        let response = if let window {
+            await panel.beginSheetModal(for: window)
+        } else {
+            panel.runModal()
+        }
+        return response == .OK ? panel.url : nil
     }
 
     // MARK: Progress (trap 3)

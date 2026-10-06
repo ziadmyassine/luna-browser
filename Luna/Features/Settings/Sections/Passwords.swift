@@ -20,6 +20,7 @@
 
 import AppKit
 import BrowserKit
+import UniformTypeIdentifiers
 
 /// A group on the Privacy & Passwords page (`SettingsGroup`).
 @MainActor
@@ -34,7 +35,7 @@ final class PasswordsSection: SettingsGroup {
     /// One card: where passwords go first, then the four switches, then
     /// passkeys, whose row says why it is off rather than a note under it.
     func add(to body: SettingsBody) {
-        body.card(Self.title, [storageRow()] + switchRows() + [passkeysRow(), manageRow()])
+        body.card(Self.title, [storageRow()] + switchRows() + [passkeysRow(), manageRow(), importRow(), exportRow()])
         refreshStorageLine()
     }
 
@@ -102,6 +103,96 @@ final class PasswordsSection: SettingsGroup {
             }
         }
         return (row, [title, "manage", "edit", "delete", "passwords app"])
+    }
+
+    // MARK: Import and export (#5, P2.3)
+
+    private func importRow() -> (view: NSView, terms: [String]) {
+        let title = String(localized: "Add passwords from a CSV file")
+        let row = SettingsRow.button(title, action: String(localized: "Import Passwords…")) {
+            Self.importPasswords()
+        }
+        return (row, [title, "import", "csv", "chrome", "arc", "dia", "1password", "bitwarden"])
+    }
+
+    private func exportRow() -> (view: NSView, terms: [String]) {
+        let title = String(localized: "Save Luna’s passwords to a CSV file")
+        let row = SettingsRow.button(title, action: String(localized: "Export Passwords…")) {
+            Task { await Self.exportPasswords() }
+        }
+        return (row, [title, "export", "csv", "backup"])
+    }
+
+    private static func importPasswords() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.commaSeparatedText]
+        panel.allowsMultipleSelection = false
+        panel.prompt = String(localized: "Import")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard let text = try? String(contentsOf: url, encoding: .utf8),
+              let logins = try? PasswordCSV.logins(fromCSV: text)
+        else {
+            tell(
+                String(localized: "Luna couldn’t read that file"),
+                String(localized: """
+                It needs to be a CSV file with a column for the website and one for the password, \
+                as Chrome, the Passwords app, 1Password and Bitwarden export.
+                """)
+            )
+            return
+        }
+        Task {
+            let result = await CredentialStore.shared.importLogins(logins)
+            tell(
+                String(localized: "Imported \(result.added + result.updated) passwords"),
+                String(localized: """
+                \(result.added) new, \(result.updated) replaced a password Luna already had, \
+                \(result.skipped) skipped for having no password or no website.
+                """)
+            )
+        }
+    }
+
+    /// Touch ID before anything else, so the warning and the file dialog are
+    /// only ever in front of the person who owns the passwords.
+    private static func exportPasswords() async {
+        guard await PasswordAuthorization.confirmExport() else { return }
+        let logins = await CredentialStore.shared.exportLogins()
+        guard !logins.isEmpty else {
+            tell(String(localized: "Luna has no saved passwords to export"), "")
+            return
+        }
+        guard SettingsHost.confirm(
+            String(localized: "Export \(logins.count) passwords?"),
+            String(localized: """
+            The file is not encrypted. Anyone who can open it can read every password in it, \
+            so delete it once you have imported it elsewhere.
+            """),
+            action: String(localized: "Export")
+        ) else { return }
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.commaSeparatedText]
+        panel.nameFieldStringValue = String(localized: "Luna Passwords.csv")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        // Removed first so the file is created owner-only rather than
+        // overwritten in place, keeping whatever mode the old one had.
+        try? FileManager.default.removeItem(at: url)
+        let written = FileManager.default.createFile(
+            atPath: url.path(percentEncoded: false),
+            contents: Data(PasswordCSV.csv(logins).utf8),
+            attributes: [.posixPermissions: 0o600]
+        )
+        if !written {
+            tell(String(localized: "Luna couldn’t save the file"), String(localized: "Choose a folder you can write to."))
+        }
+    }
+
+    private static func tell(_ message: String, _ informative: String) {
+        let alert = NSAlert()
+        alert.messageText = message
+        alert.informativeText = informative
+        alert.runModal()
     }
 
     // MARK: Live state

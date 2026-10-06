@@ -226,7 +226,12 @@ extension HistoryListView: NSTableViewDataSource, NSTableViewDelegate {
 
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
         guard items.indices.contains(row), case .day = items[row] else { return Tokens.Metric.rowHeight }
-        return Tokens.Metric.historyDayHeaderHeight
+        // The first day has no day before it to be parted from. Its gap from
+        // the panel's header is the scroll's top inset alone, as in Downloads;
+        // with the `panelInset` as well it stood 16 pt under the header.
+        return row == 0
+            ? Tokens.Metric.historyDayHeaderHeight - Tokens.Metric.panelInset
+            : Tokens.Metric.historyDayHeaderHeight
     }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {

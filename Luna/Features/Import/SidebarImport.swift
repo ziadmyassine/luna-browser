@@ -166,7 +166,8 @@ enum ArcSidebar {
                 title: title.isEmpty ? saved : title,
                 dateAdded: referenceDate(item["createdAt"]),
                 folderPath: path,
-                placement: placement
+                placement: placement,
+                category: placement == .favorite ? .favorites : (path.isEmpty ? .pinnedTabs : .pinnedFolders)
             ))
         }
     }
@@ -225,7 +226,8 @@ enum DiaFavorites {
                         // two are scoped the same way and the row is a row of
                         // tiles. `spaceName` stays nil: the profile's Space is
                         // the one this import is already making.
-                        placement: .favorite
+                        placement: .favorite,
+                        category: .favorites
                     ))
                 }
             }

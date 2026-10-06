@@ -2322,10 +2322,12 @@ the rest. Luna ships both renditions (`Assets.car` carries the icon under
 on Default the light tile appears in light mode. A dark tile on a light Mac is
 that setting, not a missing variant.
 
-**First run** (`Luna/Features/Onboarding/`, §30.17–30.18) is a window over the
-browser, not a sheet in front of it: the session is restoring behind it, and a
-gate before the thing the gate is about is a form with no context. Closing it
-is an answer, and it never asks twice on its own (`OnboardingState.hasRun`);
+**First run** (`Luna/Features/Onboarding/`, §30.17–30.18) comes before the
+browser: on a fresh install it is the only window, and the browser window — its
+session, its pages, any link that launched Luna — opens once it closes, so the
+browser's first frame already wears the theme and the Spaces first run settled.
+Closing it is an answer like its last page, the browser opens either way, and
+it never asks twice on its own (`OnboardingState.hasRun`);
 Help ▸ **Welcome to Luna** (a `BrowserCommand`, so the Command Bar has it too)
 puts it up again from the first page.
 

@@ -84,13 +84,13 @@ public actor CredentialStore {
 
     // MARK: - Reading
 
-    /// Every credential saved for `site`, newest first. Passwords are not
-    /// fetched — see ``password(for:)``.
+    /// Every credential saved for `site` (every one Luna holds, for nil),
+    /// newest first. Passwords are not fetched — see ``password(for:)``.
     ///
     /// Queries both synchronizable and local items in one pass
     /// (`kSecAttrSynchronizableAny`), so a user who was on a local-only build
     /// before their Mac was signed still sees everything they saved.
-    public func credentials(forSite site: String) -> [Credential] {
+    public func credentials(forSite site: String?) -> [Credential] {
         var query = baseQuery(site: site)
         query[kSecMatchLimit as String] = kSecMatchLimitAll
         query[kSecReturnAttributes as String] = true
@@ -207,6 +207,45 @@ public actor CredentialStore {
         return status == errSecSuccess || status == errSecItemNotFound
     }
 
+    // MARK: - Import and export (#5, P2.3)
+
+    public struct ImportResult: Sendable, Equatable {
+        public let added: Int
+        public let updated: Int
+        /// Rows with no password or no web site, and rows the Keychain refused.
+        public let skipped: Int
+    }
+
+    /// Writes each row through ``save(_:)``, so a site and username Luna
+    /// already holds takes the imported password, as saving a changed
+    /// password on the page does.
+    public func importLogins(_ logins: [PasswordCSV.Login]) -> ImportResult {
+        var added = 0, updated = 0, skipped = 0
+        for login in logins {
+            guard let credential = login.newCredential else { skipped += 1; continue }
+            let existed = credentials(forSite: credential.site).contains { $0.username == credential.username }
+            if !save(credential) {
+                skipped += 1
+            } else if existed {
+                updated += 1
+            } else {
+                added += 1
+            }
+        }
+        return ImportResult(added: added, updated: updated, skipped: skipped)
+    }
+
+    /// Every Luna item with its password, for export. Luna's own only: the
+    /// header explains why Safari's are out of reach.
+    public func exportLogins() -> [PasswordCSV.Login] {
+        credentials(forSite: nil).sorted { ($0.site, $0.username) < ($1.site, $1.username) }.compactMap { item in
+            guard let password = password(for: item) else { return nil }
+            return PasswordCSV.Login(
+                name: item.site, url: "https://\(item.site)/", username: item.username, password: password, note: ""
+            )
+        }
+    }
+
     // MARK: - The day the signature changes
 
     /// Rewrites every local-only item as a synchronizable one, so the passwords
@@ -314,14 +353,16 @@ public actor CredentialStore {
     /// `kSecAttrSynchronizableAny` is on every query: a store that has been
     /// through the M4 signing change holds both kinds, and a query that named
     /// one kind would quietly stop finding the other half.
-    private func baseQuery(site: String) -> [String: Any] {
-        [
+    /// A nil `site` matches every Luna item, which only export asks for.
+    private func baseQuery(site: String?) -> [String: Any] {
+        var query: [String: Any] = [
             kSecClass as String: kSecClassInternetPassword,
             kSecAttrCreator as String: Self.creator,
             kSecAttrSecurityDomain as String: Self.securityDomain,
-            kSecAttrServer as String: site,
             kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
         ]
+        query[kSecAttrServer as String] = site
+        return query
     }
 
     private static func credential(from row: [String: Any]) -> Credential? {

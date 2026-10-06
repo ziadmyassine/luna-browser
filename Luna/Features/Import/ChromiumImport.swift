@@ -324,6 +324,21 @@ protocol ProfileReader: Sendable {
 
 extension ProfileReader {
     var keepsItsOwnStructure: Bool { false }
+
+    /// The mapping step's starting point: how many of each category this
+    /// profile has, answered like for like. Unreadable halves count as none,
+    /// for `run`'s reason — the import itself reports the fault.
+    func defaultMapping() -> ImportMapping {
+        var counts = ImportMapping.counts(of: (try? bookmarks()) ?? [])
+        counts[.history] = ((try? visitCount(after: 0)) ?? nil) ?? 0
+        return ImportMapping(counts: counts)
+    }
+}
+
+extension ImportMapping {
+    static func counts(of bookmarks: [ImportedBookmark]) -> [ImportCategory: Int] {
+        bookmarks.reduce(into: [:]) { counts, bookmark in counts[bookmark.category, default: 0] += 1 }
+    }
 }
 
 extension ChromiumReader: ProfileReader {

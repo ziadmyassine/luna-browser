@@ -61,6 +61,56 @@ final class OnboardingFlowTests: XCTestCase {
         XCTAssertEqual(NSApp.appearance?.name, .darkAqua)
     }
 
+    /// Light, Dark and back on the theme page: the left pane's plate is the
+    /// colour its own appearance resolves, under ink that reads on it. The
+    /// plate is a `CGColor`, which freezes whichever appearance was current
+    /// when it was assigned.
+    func testTheLeftPaneRedrawsForTheThemeItIsOn() throws {
+        NSApp.appearance = NSAppearance(named: .darkAqua)
+        let controller = OnboardingWindowController(store: try store(), sources: [])
+        let window = try XCTUnwrap(controller.window)
+        // On screen, as AppKit only carries a theme change down a window it is
+        // drawing, but off every display and never key.
+        window.setFrameOrigin(NSPoint(x: -20_000, y: -20_000))
+        window.orderBack(nil)
+        defer { window.orderOut(nil) }
+        let view = try XCTUnwrap(window.contentView.flatMap { descendants(of: $0, ofType: OnboardingView.self).first })
+        view.layoutSubtreeIfNeeded()
+        try press(proceed(in: view))
+        XCTAssertEqual(view.currentPage, .theme)
+        let pane = try XCTUnwrap(view.subviews.first)
+        let back = try XCTUnwrap(descendants(of: view, ofType: OnboardingButton.self).first { $0.accessibilityLabel() == "Back" })
+        let inks = [descendants(of: pane, ofType: NSTextField.self).first, descendants(of: back, ofType: NSTextField.self).first]
+
+        for name in [NSAppearance.Name.aqua, .darkAqua, .aqua] {
+            NSApp.appearance = NSAppearance(named: name)
+            // AppKit carries the change down the window on its own display
+            // pass, not inside the setter.
+            let deadline = Date().addingTimeInterval(2)
+            while pane.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) != name, Date() < deadline {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+            }
+            window.displayIfNeeded()
+            let appearance = pane.effectiveAppearance
+            XCTAssertEqual(appearance.bestMatch(from: [.aqua, .darkAqua]), name)
+            let lights = window.standardWindowButton(.closeButton)?.effectiveAppearance
+            XCTAssertEqual(lights?.bestMatch(from: [.aqua, .darkAqua]), name)
+
+            let plate = try XCTUnwrap(pane.layer?.backgroundColor.flatMap(NSColor.init(cgColor:)))
+            let drawn = plate.srgbComponents(for: appearance)
+            let wanted = Tokens.Surface.base.srgbComponents(for: appearance)
+            XCTAssertEqual(drawn.red, wanted.red, accuracy: 0.01, "\(name): the plate is the other theme's")
+            XCTAssertEqual(drawn.green, wanted.green, accuracy: 0.01)
+            XCTAssertEqual(drawn.blue, wanted.blue, accuracy: 0.01)
+
+            for ink in inks {
+                let colour = try XCTUnwrap(ink?.textColor)
+                let ratio = colour.contrastRatio(over: plate, in: appearance)
+                XCTAssertGreaterThan(ratio, 4.5, "\(name): \(ink?.stringValue ?? "") does not read")
+            }
+        }
+    }
+
     // MARK: - Finishing
 
     /// The last page's button closes the window and asks macOS once.
@@ -103,7 +153,7 @@ final class OnboardingFlowTests: XCTestCase {
         let store = try store()
         let session = try await BrowserSession.restored(store: store)
         let delegate = AppDelegate()
-        delegate.presentOnboarding(store: store, session: session) { [] }
+        delegate.presentOnboarding(store: store, session: session, detect: { [] })
         let deadline = Date().addingTimeInterval(3)
         while delegate.onboarding == nil, Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
         let first = try XCTUnwrap(delegate.onboarding, "first run did not come back")
@@ -112,6 +162,47 @@ final class OnboardingFlowTests: XCTestCase {
         first.close()
         XCTAssertNil(delegate.onboarding)
         session.tearDown()
+    }
+
+    // MARK: - Before the browser
+
+    /// A fresh install opens on the welcome window alone: no browser window,
+    /// so no session and no page, until first run is over. A link handed over
+    /// meanwhile waits for the browser, and the close button is an answer
+    /// like the last page's — the browser opens either way, once.
+    func testFirstRunComesBeforeTheBrowserWindow() async throws {
+        let store = try store()
+        let delegate = AppDelegate()
+        var opened = 0
+        delegate.presentFirstRun(opening: Task { store }, detect: { [] }, then: { opened += 1 })
+        let deadline = Date().addingTimeInterval(3)
+        while delegate.onboarding == nil, Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        let onboarding = try XCTUnwrap(delegate.onboarding, "first run never came up")
+        XCTAssertEqual(opened, 0, "the browser opened behind first run")
+        XCTAssertTrue(delegate.windows.isEmpty)
+        XCTAssertNil(delegate.session)
+
+        let link = try XCTUnwrap(URL(string: "https://example.com/"))
+        delegate.application(NSApp, open: [link])
+        XCTAssertEqual(delegate.linksBeforeLaunch, [link], "a link opened somewhere other than after first run")
+        XCTAssertTrue(delegate.windows.isEmpty)
+
+        onboarding.close()
+        XCTAssertEqual(opened, 1)
+        XCTAssertNil(delegate.onboarding)
+    }
+
+    /// The store would not open: the browser opens to say so, rather than
+    /// first run waiting on a store it can never import into.
+    func testFirstRunWithoutAStoreGoesStraightToTheBrowser() async throws {
+        let delegate = AppDelegate()
+        var opened = 0
+        let failing = Task<BrowserStore, any Error> { throw CocoaError(.fileReadNoPermission) }
+        delegate.presentFirstRun(opening: failing, detect: { [] }, then: { opened += 1 })
+        let deadline = Date().addingTimeInterval(3)
+        while opened == 0, Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertEqual(opened, 1)
+        XCTAssertNil(delegate.onboarding)
     }
 
     // MARK: - Fixtures

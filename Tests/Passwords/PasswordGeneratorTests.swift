@@ -165,4 +165,18 @@ final class PasswordGeneratorTests: XCTestCase {
         }
         XCTAssertEqual(seen.count, 10, "2000 draws that miss a value are not uniform")
     }
+
+    // MARK: - Setting
+
+    func testSuggestingIsOffUntilTheUserTurnsItOn() {
+        let defaults = UserDefaults.standard
+        let stored = defaults.object(forKey: PasswordSettings.Key.generate)
+        defer { defaults.set(stored, forKey: PasswordSettings.Key.generate) }
+
+        defaults.removeObject(forKey: PasswordSettings.Key.generate)
+        XCTAssertFalse(PasswordSettings.offersGeneratedPasswords, "unset must read as off")
+
+        PasswordSettings.offersGeneratedPasswords = true
+        XCTAssertTrue(PasswordSettings.offersGeneratedPasswords, "a stored choice must survive the new default")
+    }
 }
