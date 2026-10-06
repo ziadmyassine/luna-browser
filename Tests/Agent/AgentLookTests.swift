@@ -62,16 +62,31 @@ final class AgentLookTests: XCTestCase {
         XCTAssertEqual(steps.map(\.id), ["a", "b"])
     }
 
-    func testThinkingShowsOnlyWhenNothingElseDoes() {
+    func testTheActivityLineSaysWhatAstroIsDoing() {
         let task = AgentTask(id: UUID(), prompt: "x")
         task.beginTurn()
-        XCTAssertEqual(AgentThinkingLine.words(for: task), "Getting ready…")
+        XCTAssertEqual(AgentThinkingLine.activity(for: task)?.words, "Getting ready…")
         task.apply(.thinking)
-        XCTAssertEqual(AgentThinkingLine.words(for: task), "Thinking…")
+        XCTAssertEqual(AgentThinkingLine.activity(for: task)?.mood, .thinking)
         task.apply(.toolStarted(id: "t", name: "mcp__luna__read_page", input: [:]))
-        XCTAssertNil(AgentThinkingLine.words(for: task), "the step's own spinner says it")
+        XCTAssertEqual(AgentThinkingLine.activity(for: task)?.mood, .working)
+        XCTAssertEqual(AgentPanelView.mood(for: task), .working, "the header's Astro does the same")
+        task.apply(.toolFinished(id: "t", failed: false))
+        task.apply(.text("Found it"))
+        XCTAssertEqual(AgentThinkingLine.activity(for: task)?.mood, .writing)
         task.apply(.finished(failed: false, message: nil))
-        XCTAssertNil(AgentThinkingLine.words(for: task))
+        XCTAssertNil(AgentThinkingLine.activity(for: task), "the turn is over")
+    }
+
+    func testNoNotchIsLitBesideADockedInspector() {
+        let bounds = CGRect(x: 0, y: 0, width: 356, height: 600)
+        let notches = (width: CGFloat(16), onLeading: true)
+        let lit = AgentAura.outline(of: bounds, notches: notches)
+        XCTAssertTrue(lit.contains(CGPoint(x: 8, y: 592)) && lit.contains(CGPoint(x: 8, y: 8)), "both notches at rest")
+        let docked = AgentAura.outline(of: bounds, notches: notches, inspector: 0...240)
+        XCTAssertTrue(docked.contains(CGPoint(x: 8, y: 592)), "the page still meets the panel at the top")
+        XCTAssertFalse(docked.contains(CGPoint(x: 8, y: 8)), "an inspector docked along the bottom stands in that corner")
+        XCTAssertFalse(docked.contains(CGPoint(x: 8, y: 300)), "and the strip between stays dark")
     }
 
     func testAstroWavesWhileItAsksTheUser() {

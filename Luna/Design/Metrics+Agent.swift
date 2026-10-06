@@ -30,9 +30,16 @@ extension Tokens.Metric {
     /// share of the column so it reads as a reply from the side.
     static let agentBubbleRadius: CGFloat = 14
     static let agentBubbleShare: CGFloat = 0.82
-    /// The field the user writes in, and the gap between conversation items.
+    /// The field the user writes in, and the gap between conversation items:
+    /// at 10 a reply's paragraphs and the card beside them ran together.
     static let agentComposerHeight: CGFloat = 44
-    static let agentItemGap: CGFloat = 10
+    static let agentItemGap: CGFloat = 14
+    /// Above each of the user's messages after the first, so a turn reads
+    /// as a turn: about two lines of the conversation's type.
+    static let agentTurnGap: CGFloat = 28
+    /// Astro beside what it is doing (`AgentThinkingLine`), a size up from
+    /// the steps' glyphs so its face still reads while it moves.
+    static let agentActivityFace: CGFloat = 22
     /// The steps' glyphs, set a size under the text beside them.
     static let agentStepGlyph: CGFloat = 12
 }

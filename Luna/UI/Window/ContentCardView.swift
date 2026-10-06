@@ -110,6 +110,16 @@ final class ContentCardView: NSView {
         }
     }
 
+    /// Told when a view comes into the card or leaves it. A docked Web
+    /// Inspector is one, and the card goes clear under it, so the agent
+    /// panel's light reaching under the card would show (`AgentPanelHost`).
+    var onSubviewsChange: (() -> Void)?
+
+    /// Where a docked Web Inspector stands, in the card's coordinates.
+    var dockedInspectorFrame: NSRect? {
+        subviews.first(where: Self.isDockedInspector)?.frame
+    }
+
     /// Files and web links dropped on the page bar, or on a card with no page
     /// (`WindowDrop`). A web view registers for drops itself, so over the page
     /// it is the one asked.
@@ -515,6 +525,7 @@ extension ContentCardView {
     /// and the inspector's own close button.
     override func didAddSubview(_ subview: NSView) {
         super.didAddSubview(subview)
+        onSubviewsChange?()
         guard Self.isDockedInspector(subview) else { return }
         followFrames(true)
         dockedInspector = subview as? WKWebView
@@ -531,6 +542,7 @@ extension ContentCardView {
 
     override func willRemoveSubview(_ subview: NSView) {
         super.willRemoveSubview(subview)
+        onSubviewsChange?()
         guard Self.isDockedInspector(subview) else { return }
         followFrames(false)
         NotificationCenter.default.removeObserver(self, name: NSView.frameDidChangeNotification, object: subview)

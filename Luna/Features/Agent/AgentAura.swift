@@ -25,6 +25,15 @@ final class AgentAura: NSView {
         didSet { needsLayout = true }
     }
 
+    /// The run of the page's side, in the aura's own coordinates, where a
+    /// docked Web Inspector stands against the panel. The inspector is clear,
+    /// and so is the card under it: there the light fades out towards it
+    /// rather than stopping in a straight line, and no notch is lit — the
+    /// inspector's corners are square, and a lit notch showed as a block.
+    var inspector: ClosedRange<CGFloat>? {
+        didSet { if inspector != oldValue { needsLayout = true } }
+    }
+
     /// Whether Astro is working, which sets the light moving.
     var isLively = false {
         didSet { if isLively != oldValue { animate() } }
@@ -71,21 +80,52 @@ final class AgentAura: NSView {
             top.frame = CGRect(x: bounds.midX - width / 2, y: bounds.maxY - width * 0.42, width: width, height: width * 0.8)
             bottom.frame = CGRect(x: bounds.midX - width / 2, y: -width * 0.42, width: width, height: width * 0.7)
             shape.frame = bounds
-            shape.path = Self.outline(of: bounds, notches: notches)
+            shape.path = Self.outline(of: bounds, notches: notches, inspector: inspector)
+            shape.mask = fade()
         }
     }
 
-    /// The panel's own column, and a corner's square at each end of the strip.
-    static func outline(of bounds: CGRect, notches: (width: CGFloat, onLeading: Bool)?) -> CGPath {
+    /// The panel's own column, and a corner's square at each end of the
+    /// strip that no inspector stands beside.
+    static func outline(of bounds: CGRect, notches: (width: CGFloat, onLeading: Bool)?, inspector: ClosedRange<CGFloat>? = nil)
+        -> CGPath {
         guard let notches, notches.width > 0, notches.width < bounds.width else { return CGPath(rect: bounds, transform: nil) }
         let side = notches.width
         let path = CGMutablePath()
         let stripX = notches.onLeading ? bounds.minX : bounds.maxX - side
         let columnX = notches.onLeading ? bounds.minX + side : bounds.minX
         path.addRect(CGRect(x: columnX, y: bounds.minY, width: bounds.width - side, height: bounds.height))
-        path.addRect(CGRect(x: stripX, y: bounds.minY, width: side, height: side))
-        path.addRect(CGRect(x: stripX, y: bounds.maxY - side, width: side, height: side))
+        for y in [bounds.minY, bounds.maxY - side] where !(inspector?.overlaps(y...(y + side)) ?? false) {
+            path.addRect(CGRect(x: stripX, y: y, width: side, height: side))
+        }
         return path
+    }
+
+    /// Beside a docked inspector, the light fading to nothing across the
+    /// strip and the panel's own inset, so it is gone by the inspector's edge;
+    /// everywhere else, whole.
+    private func fade() -> CALayer? {
+        guard let inspector, let notches else { return nil }
+        let band = min(notches.width + Tokens.Metric.agentPanelInset, bounds.width)
+        let run = CGRect(x: notches.onLeading ? bounds.minX : bounds.maxX - band, y: inspector.lowerBound,
+                         width: band, height: inspector.upperBound - inspector.lowerBound).intersection(bounds)
+        let mask = CALayer()
+        mask.frame = bounds
+        let path = CGMutablePath()
+        path.addRect(bounds)
+        path.addRect(run)
+        let whole = CAShapeLayer()
+        whole.frame = bounds
+        whole.path = path
+        whole.fillRule = .evenOdd
+        let ramp = CAGradientLayer()
+        ramp.frame = run
+        ramp.colors = [NSColor.clear.cgColor, NSColor.black.cgColor]
+        ramp.startPoint = CGPoint(x: notches.onLeading ? 0 : 1, y: 0.5)
+        ramp.endPoint = CGPoint(x: notches.onLeading ? 1 : 0, y: 0.5)
+        mask.addSublayer(whole)
+        mask.addSublayer(ramp)
+        return mask
     }
 
     override func viewDidMoveToWindow() {

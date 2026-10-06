@@ -87,25 +87,22 @@ final class AgentPanelView: NSView {
     // MARK: - Building
 
     private func build() {
-        let inset = Tokens.Metric.agentPanelInset
         titleCapsule.wantsLayer = true
         Glass.apply(.control, to: titleCapsule, cornerRadius: Tokens.Metric.agentTitleCapsule.cornerRadius)
         titleLabel.font = Tokens.TypeScale.agentTitle
         titleLabel.textColor = Tokens.Text.primary
         titleLabel.lineBreakMode = .byTruncatingTail
-        titleLabel.alignment = .left
+        titleLabel.alignment = .center
         statusLabel.font = Tokens.TypeScale.agentStatus
         statusLabel.textColor = Tokens.Text.secondary
-        statusLabel.alignment = .left
+        statusLabel.alignment = .center
         let titles = NSStackView(views: [titleLabel, statusLabel])
         titles.orientation = .vertical
         titles.spacing = 0
         titles.translatesAutoresizingMaskIntoConstraints = false
         titleCapsule.addSubview(titles)
-        rover.translatesAutoresizingMaskIntoConstraints = false
-        titleCapsule.addSubview(rover)
 
-        for view in [history, more, titleCapsule, transcript, composer, empty] as [NSView] {
+        for view in [history, more, rover, titleCapsule, transcript, composer, empty] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
         }
@@ -113,38 +110,36 @@ final class AgentPanelView: NSView {
         layOutBody()
     }
 
-    /// History, the task's pill and the menu, on the line the browser's own
-    /// top row is centred on — the sidebar's buttons, the page bar's. The
-    /// pill fills the room between the two buttons, Astro alive at its
-    /// leading end and the task's name and what it is doing beside it.
+    /// History, Astro and the menu on the line the browser's own top row is
+    /// centred on — the sidebar's buttons, the page bar's — and the task's
+    /// pill under Astro: its name, and what it is doing.
     private func layOutHeader(titles: NSView) {
         let inset = Tokens.Metric.agentPanelInset
-        let gap = Tokens.Metric.chromeGap
         let circle = Tokens.Metric.sidebarCircle
-        let line = Tokens.Metric.pageBar / 2
-        let pill = Tokens.Metric.agentTitleCapsule.height
-        let face = pill - 10
+        let capsule = Tokens.Metric.agentTitleCapsule
+        let text = Tokens.Metric.pillTextInset + 4
         NSLayoutConstraint.activate([
+            rover.centerYAnchor.constraint(equalTo: topAnchor, constant: Tokens.Metric.pageBar / 2),
+            rover.centerXAnchor.constraint(equalTo: centerXAnchor),
+            rover.widthAnchor.constraint(equalToConstant: Tokens.Metric.agentRover),
+            rover.heightAnchor.constraint(equalToConstant: Tokens.Metric.agentRover),
             history.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
-            history.centerYAnchor.constraint(equalTo: topAnchor, constant: line),
+            history.centerYAnchor.constraint(equalTo: rover.centerYAnchor),
             history.widthAnchor.constraint(equalToConstant: circle.width),
             history.heightAnchor.constraint(equalToConstant: circle.height),
             more.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
-            more.centerYAnchor.constraint(equalTo: history.centerYAnchor),
+            more.centerYAnchor.constraint(equalTo: rover.centerYAnchor),
             more.widthAnchor.constraint(equalToConstant: circle.width),
             more.heightAnchor.constraint(equalToConstant: circle.height),
 
-            titleCapsule.leadingAnchor.constraint(equalTo: history.trailingAnchor, constant: gap),
-            titleCapsule.trailingAnchor.constraint(equalTo: more.leadingAnchor, constant: -gap),
-            titleCapsule.centerYAnchor.constraint(equalTo: history.centerYAnchor),
-            titleCapsule.heightAnchor.constraint(equalToConstant: pill),
-            rover.leadingAnchor.constraint(equalTo: titleCapsule.leadingAnchor, constant: 6),
-            rover.centerYAnchor.constraint(equalTo: titleCapsule.centerYAnchor),
-            rover.widthAnchor.constraint(equalToConstant: face),
-            rover.heightAnchor.constraint(equalToConstant: face),
+            titleCapsule.topAnchor.constraint(equalTo: rover.bottomAnchor, constant: Tokens.Metric.chromeGap),
+            titleCapsule.centerXAnchor.constraint(equalTo: centerXAnchor),
+            titleCapsule.heightAnchor.constraint(equalToConstant: capsule.height),
+            titleCapsule.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -2 * inset),
+            titleCapsule.widthAnchor.constraint(greaterThanOrEqualToConstant: capsule.width),
             titles.centerYAnchor.constraint(equalTo: titleCapsule.centerYAnchor),
-            titles.leadingAnchor.constraint(equalTo: rover.trailingAnchor, constant: 6),
-            titles.trailingAnchor.constraint(lessThanOrEqualTo: titleCapsule.trailingAnchor, constant: -(Tokens.Metric.pillTextInset + 4))
+            titles.leadingAnchor.constraint(equalTo: titleCapsule.leadingAnchor, constant: text),
+            titles.trailingAnchor.constraint(equalTo: titleCapsule.trailingAnchor, constant: -text)
         ])
     }
 
@@ -214,13 +209,15 @@ final class AgentPanelView: NSView {
         }
     }
 
-    /// Astro's mood for a task: waving while a step is waiting on the user
-    /// (`ask_user`, `request_user`), else what its state says.
+    /// Astro's mood for a task: what it is doing while a turn runs
+    /// (`AgentThinkingLine.activity`), else what the turn came to.
     static func mood(for task: AgentTask) -> AgentRoverView.Mood {
-        let asking = task.items.contains { item in
-            if case let .step(_, _, symbol, .running) = item { ["hand.raised", "person.fill.questionmark"].contains(symbol) } else { false }
-        }
-        return asking ? .waving : mood(for: task.status)
+        AgentThinkingLine.activity(for: task)?.mood ?? mood(for: task.status)
+    }
+
+    /// Whether a step's glyph is one of a question put to the user.
+    static func asks(_ symbol: String) -> Bool {
+        ["hand.raised", "person.fill.questionmark"].contains(symbol)
     }
 
     static func mood(for status: AgentTask.Status) -> AgentRoverView.Mood {

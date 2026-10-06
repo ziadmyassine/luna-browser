@@ -48,6 +48,12 @@ final class AgentPanelHost {
         trailing?.constant = -width
         trailing?.isActive = true
         if let light = (view as? AgentPanelView)?.aura { installAura(light, in: root, below: card, beside: view) }
+        if let card = card as? ContentCardView {
+            // WebKit sets a docked inspector's frame after adding it.
+            card.onSubviewsChange = { [weak self, weak card] in
+                DispatchQueue.main.async { if let card { self?.shade(beside: card) } }
+            }
+        }
         Tokens.Motion.immediately {
             place(for: state)
             root.layoutSubtreeIfNeeded()
@@ -99,6 +105,28 @@ final class AgentPanelHost {
         card.agentEdge = edge(for: state)
         card.setInsets(insets)
         place(for: state)
+        shade(beside: card)
+    }
+
+    /// Tells the light where a docked Web Inspector stands against the
+    /// panel, if one does: on the panel's side of the card, the whole height
+    /// docked there, or its foot docked along the bottom.
+    func shade(beside card: ContentCardView) {
+        guard let light = aura as? AgentAura else { return }
+        guard let edge = card.agentEdge, let frame = card.dockedInspectorFrame else {
+            guard light.inspector != nil else { return }
+            // Not until the page has grown back over the inspector's place
+            // (`ContentCardView.revealPage`): the card is clear until then.
+            DispatchQueue.main.asyncAfter(deadline: .now() + Tokens.Motion.sidebarCollapse.duration) { [weak card] in
+                MainActor.assumeIsolated {
+                    if card?.dockedInspectorFrame == nil { light.inspector = nil }
+                }
+            }
+            return
+        }
+        let touches = edge == .leading ? frame.minX <= card.bounds.minX + 0.5 : frame.maxX >= card.bounds.maxX - 0.5
+        let run = light.convert(frame, from: card)
+        light.inspector = touches ? run.minY...run.maxY : nil
     }
 
     /// The side the panel belongs on, shown or not: away from the sidebar.

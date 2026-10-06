@@ -3,10 +3,10 @@
 //  Luna
 //
 //  The pieces `AgentTranscriptView` stacks: the user's bubble, the agent's
-//  paragraph, a card of steps, a note when something went wrong, the
-//  shimmering line while it thinks, and the turn's clock. The bubble and the
-//  cards are Liquid Glass, as Luna's other raised surfaces are, with a breath
-//  of Astro's lavender over the bubble and in the cards' rims.
+//  paragraph, a card of steps and a note when something went wrong; the
+//  lines about the turn itself are in `AgentActivityLines.swift`. The bubble
+//  and the cards are Liquid Glass, as Luna's other raised surfaces are, with
+//  a breath of Astro's lavender over the bubble and in the cards' rims.
 //
 
 import AppKit
@@ -135,6 +135,8 @@ final class AgentParagraph: NSView {
                 let label = existing as? NSTextField ?? Self.label()
                 label.attributedStringValue = text
                 views.append(label)
+            case let .quote(text):
+                views.append(AgentQuoteView(text))
             case let .table(table):
                 views.append(AgentTableView(table))
             case let .code(code):
@@ -343,135 +345,5 @@ final class AgentNote: NSView {
 
     override func updateLayer() {
         layer?.backgroundColor = Tokens.Accent.danger.withAlphaComponent(0.10).cgColor
-    }
-}
-
-/// "Thinking", with a light passing across the words while the agent works
-/// out what to do and has not yet said or done anything to show for it.
-@MainActor
-final class AgentThinkingLine: NSView {
-
-    private let face = NSImageView()
-    private let label = NSTextField(labelWithString: "")
-    private let shine = CAGradientLayer()
-
-    var text = "" {
-        didSet { if text != oldValue { label.stringValue = text } }
-    }
-
-    /// What the line says for `task`, or nil when there is nothing to say:
-    /// the agent is writing, a step's own spinner is turning, or the turn is over.
-    static func words(for task: AgentTask) -> String? {
-        guard task.status.isRunning else { return nil }
-        let busy = task.items.contains { item in
-            switch item {
-            case .step(_, _, _, .running), .text(_, _, true): true
-            default: false
-            }
-        }
-        guard !busy else { return nil }
-        return task.status == .starting ? String(localized: "Getting ready…") : String(localized: "Thinking…")
-    }
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        translatesAutoresizingMaskIntoConstraints = false
-        face.image = AgentGlyph.image(pointSize: Tokens.Metric.agentStepGlyph + 3)
-        label.font = Tokens.TypeScale.agentStep
-        label.textColor = Tokens.Text.secondary
-        label.wantsLayer = true
-        for view in [face, label] {
-            view.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(view)
-        }
-        NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: 24),
-            face.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
-            face.centerYAnchor.constraint(equalTo: centerYAnchor),
-            label.leadingAnchor.constraint(equalTo: face.trailingAnchor, constant: 8),
-            label.centerYAnchor.constraint(equalTo: centerYAnchor)
-        ])
-        // The light: the words' own ink, dimmed but for a band that sweeps across.
-        shine.colors = [NSColor(white: 1, alpha: 0.4).cgColor, NSColor.white.cgColor, NSColor(white: 1, alpha: 0.4).cgColor]
-        shine.startPoint = CGPoint(x: 0, y: 0.5)
-        shine.endPoint = CGPoint(x: 1, y: 0.5)
-        shine.locations = [0, 0.15, 0.3]
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("Luna builds its chrome in code; there is no nib to decode.")
-    }
-
-    override func layout() {
-        super.layout()
-        Tokens.Motion.immediately {
-            shine.frame = label.bounds
-            label.layer?.mask = Tokens.Motion.reduceMotion ? nil : shine
-        }
-    }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        shine.removeAllAnimations()
-        guard window != nil, !Tokens.Motion.reduceMotion else { return }
-        let sweep = CABasicAnimation(keyPath: "locations")
-        sweep.fromValue = [-0.3, -0.15, 0]
-        sweep.toValue = [1, 1.15, 1.3]
-        sweep.duration = 1.6
-        sweep.repeatCount = .infinity
-        shine.add(sweep, forKey: "sweep")
-    }
-}
-
-/// "Worked for 13 s" above the agent's answer, with a hairline running on
-/// from the words to the column's edge.
-@MainActor
-final class AgentWorkingLine: NSView {
-
-    private let label = NSTextField(labelWithString: "")
-    private let rule = NSView()
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        translatesAutoresizingMaskIntoConstraints = false
-        label.font = Tokens.TypeScale.agentStatus
-        label.textColor = Tokens.Text.tertiary
-        rule.wantsLayer = true
-        for view in [label, rule] {
-            view.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(view)
-        }
-        NSLayoutConstraint.activate([
-            label.topAnchor.constraint(equalTo: topAnchor, constant: 2),
-            label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2),
-            label.leadingAnchor.constraint(equalTo: leadingAnchor),
-            rule.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 8),
-            rule.trailingAnchor.constraint(equalTo: trailingAnchor),
-            rule.centerYAnchor.constraint(equalTo: label.centerYAnchor),
-            rule.heightAnchor.constraint(equalToConstant: Tokens.Metric.hairline)
-        ])
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("Luna builds its chrome in code; there is no nib to decode.")
-    }
-
-    override var wantsUpdateLayer: Bool { true }
-
-    override func updateLayer() {
-        rule.layer?.backgroundColor = Tokens.Line.hairline.cgColor
-    }
-
-    func show(_ task: AgentTask) {
-        let seconds = Int(task.status.isRunning ? Date().timeIntervalSince(task.turnStartedAt) : task.lastTurn ?? 0)
-        let span = Self.span(seconds)
-        label.stringValue = task.status.isRunning
-            ? String(localized: "Working for \(span)") : String(localized: "Worked for \(span)")
-    }
-
-    static func span(_ seconds: Int) -> String {
-        seconds < 60 ? "\(seconds) s" : "\(seconds / 60) min \(seconds % 60) s"
     }
 }

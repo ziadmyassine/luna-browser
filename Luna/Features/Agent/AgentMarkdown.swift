@@ -20,8 +20,14 @@ import AppKit
 enum AgentMarkdown {
 
     /// How far a list's text stands in from its bullet, per level.
-    static let listIndent: CGFloat = 18
-    static let paragraphGap: CGFloat = 7
+    static let listIndent: CGFloat = 20
+    /// The column's leading: 13 pt type on 3.5 pt more than its line, about
+    /// 1.4 of the size, which a column ~45 characters wide reads easily at.
+    /// At 2 the paragraphs set as one grey block.
+    static let lineGap: CGFloat = 3.5
+    /// Between paragraphs, most of a line; between list items, a third of that.
+    static let paragraphGap: CGFloat = 10
+    static let itemGap: CGFloat = 5
 
     /// The words alone, every block set as text — tables and code included.
     /// `segments` is what the panel draws; this is the same reading as one string.
@@ -113,22 +119,24 @@ enum AgentMarkdown {
         let body = Tokens.TypeScale.agentBody
         let paragraph = NSMutableParagraphStyle()
         paragraph.paragraphSpacing = paragraphGap
-        paragraph.lineSpacing = 2
+        paragraph.lineSpacing = lineGap
         var font = body
         var colour = Tokens.Text.primary
         var attributes: [NSAttributedString.Key: Any] = [:]
         for component in intent?.components ?? [] {
             switch component.kind {
             case let .header(level):
-                font = .systemFont(ofSize: body.pointSize + (level <= 1 ? 3 : level == 2 ? 1.5 : 0), weight: .semibold)
-                paragraph.paragraphSpacingBefore = 4
+                // Each level a clear step: bold and four up for the first,
+                // semibold two up, then semibold at the body's size.
+                font = .systemFont(ofSize: body.pointSize + (level <= 1 ? 4 : level == 2 ? 2 : 0), weight: level <= 1 ? .bold : .semibold)
+                paragraph.paragraphSpacingBefore = paragraphGap / 2
+                paragraph.paragraphSpacing = paragraphGap / 2
             case .codeBlock:
                 font = .monospacedSystemFont(ofSize: body.pointSize - 1.5, weight: .regular)
                 attributes[.backgroundColor] = Tokens.Surface.hover
             case .blockQuote:
+                // Its rule is drawn beside it (`AgentQuoteView`).
                 colour = Tokens.Text.secondary
-                paragraph.headIndent += listIndent / 2
-                paragraph.firstLineHeadIndent += listIndent / 2
             default:
                 break
             }
@@ -139,7 +147,7 @@ enum AgentMarkdown {
             paragraph.headIndent = indent
             paragraph.firstLineHeadIndent = indent - listIndent
             paragraph.tabStops = [NSTextTab(textAlignment: .left, location: indent)]
-            paragraph.paragraphSpacing = 3
+            paragraph.paragraphSpacing = itemGap
             if marker { colour = Tokens.Text.secondary }
         }
         attributes[.font] = font
@@ -161,5 +169,8 @@ enum AgentMarkdown {
         if intent.contains(.emphasized) { traits.insert(.italic) }
         guard !traits.isEmpty else { return }
         attributes[.font] = NSFont(descriptor: font.fontDescriptor.withSymbolicTraits(traits), size: font.pointSize) ?? font
+        // Bold is the agent marking what matters, so it keeps the primary
+        // ink even in a quote, which is set in the secondary.
+        if intent.contains(.stronglyEmphasized) { attributes[.foregroundColor] = Tokens.Text.primary }
     }
 }

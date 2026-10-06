@@ -4,8 +4,8 @@
 //
 //  The conversation in the agent panel: the user's messages in a bubble on
 //  the trailing side, the agent's words set from their Markdown, the steps it
-//  takes in Luna gathered into one card per run of them, a shimmering line
-//  while it thinks, and above each turn how long it has been working. Views
+//  takes in Luna gathered into one card per run of them, a line saying what
+//  Astro is doing while it works, and above each turn how long it has been working. Views
 //  are kept by item and updated in place, so text arriving word by word does
 //  not rebuild the column; an item that is new fades and rises in.
 //
@@ -103,8 +103,8 @@ final class AgentTranscriptView: NSView {
                 arranged.append(working)
             }
         }
-        if let task, let line = AgentThinkingLine.words(for: task) {
-            thinking.text = line
+        if let task, let activity = AgentThinkingLine.activity(for: task) {
+            thinking.activity = activity
             arranged.append(thinking)
         }
         arrange(arranged)
@@ -126,6 +126,11 @@ final class AgentTranscriptView: NSView {
                 stack.insertArrangedSubview(view, at: index)
                 if isNew { Self.arrive(view) }
             }
+        }
+        // A new turn stands apart from the last one.
+        for (index, view) in arranged.enumerated() where index > 0 {
+            let gap = view is AgentBubble ? Tokens.Metric.agentTurnGap : Tokens.Metric.agentItemGap
+            if stack.customSpacing(after: arranged[index - 1]) != gap { stack.setCustomSpacing(gap, after: arranged[index - 1]) }
         }
         for view in arranged where !widthBound.contains(ObjectIdentifier(view)) {
             view.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true

@@ -5,7 +5,8 @@
 //  What Astro does in each mood. Waiting, it breathes, blinks, and now and
 //  then looks about. Thinking, it tilts its head, its eyes wander up and a
 //  thought bubble fills dot by dot. Working, it bobs with its ears lit and a
-//  light sweeps its visor. Asking for the user, it rocks and its ears flash.
+//  light sweeps its visor. Writing, its eyes run along a line and back and
+//  its head keeps a typing beat. Asking for the user, it rocks and its ears flash.
 //  Done, it hops, smiles and sparkles; gone wrong, it sinks and dims;
 //  stopped, it dozes. Whatever the mood, it never holds quite still: it
 //  breathes, and blinks whenever its eyes are open.
@@ -27,7 +28,7 @@ extension AgentRoverView {
         }
         setEyes(mood)
         visor.opacity = mood == .stopped || mood == .sad ? 0.75 : 1
-        for light in earLights { light.opacity = [.thinking, .working, .waving].contains(mood) ? 1 : 0 }
+        for light in earLights { light.opacity = [.thinking, .working, .writing, .waving].contains(mood) ? 1 : 0 }
         for dot in thoughts { dot.opacity = 0 }
         for star in sparkles { star.opacity = 0 }
         scan.opacity = 0
@@ -40,6 +41,7 @@ extension AgentRoverView {
         case .idle: idle()
         case .thinking: think()
         case .working: work()
+        case .writing: write()
         case .waving: wave()
         case .happy: cheer()
         case .sad: droop()
@@ -90,6 +92,16 @@ extension AgentRoverView {
         for light in earLights { add(light, "pulse", pulse(duration: 0.5)) }
         every(2.6) { [weak self] in self?.glance(to: Bool.random() ? -2 : 2) }
         every(4.6) { [weak self] in self?.blink() }
+    }
+
+    private func write() {
+        // Eyes down a little, along the line and back to its start, the way
+        // a reader's go; the head keeps time with the words.
+        add(eyes, "line", keyframes("transform.translation.x", [-3, 3, -3], times: [0, 0.82, 1], duration: 1.3))
+        add(eyes, "down", keyframes("transform.translation.y", [1.5, 1.5], duration: 1.3))
+        add(head, "beat", keyframes("transform.translation.y", [0, 0.9, 0], duration: 0.65))
+        for light in earLights { add(light, "pulse", pulse(duration: 1.3)) }
+        every(5) { [weak self] in self?.blink() }
     }
 
     private func wave() {

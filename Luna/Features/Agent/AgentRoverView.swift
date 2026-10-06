@@ -4,8 +4,8 @@
 //
 //  The agent's face: Astro, a small moon-white helmet with a dark glass
 //  visor, two eyes behind it and a light on each ear. The moods themselves —
-//  what Astro does while it waits, thinks, works, waves for the user, finishes
-//  or fails — are in `AgentRoverView+Moods.swift`; this is the drawing.
+//  what Astro does while it waits, thinks, works, writes, waves for the user,
+//  finishes or fails — are in `AgentRoverView+Moods.swift`; this is the drawing.
 //
 //  Drawn in layers in a 100 × 100 square and scaled to the view, so one
 //  drawing serves the panel's header and its empty state. In the moon's
@@ -19,7 +19,7 @@ import AppKit
 final class AgentRoverView: NSView {
 
     enum Mood: Equatable {
-        case idle, thinking, working, waving, happy, sad, stopped
+        case idle, thinking, working, writing, waving, happy, sad, stopped
     }
 
     var mood: Mood = .idle {
@@ -193,7 +193,7 @@ final class AgentRoverView: NSView {
     /// makes them a little taller, for surprise and for asking.
     func eyePaths(for mood: Mood, open: CGFloat = 1) -> (CGPath, CGPath, Bool) {
         func light(_ x: CGFloat) -> CGPath {
-            let tall: CGFloat = mood == .waving ? 9 : mood == .working ? 6 : 7.2
+            let tall: CGFloat = mood == .waving ? 9 : [.working, .writing].contains(mood) ? 6 : 7.2
             let height = max(tall * open, 1.4)
             return CGPath(ellipseIn: CGRect(x: x - 3.6, y: 49 - height / 2, width: 7.2, height: height), transform: nil)
         }
@@ -206,7 +206,7 @@ final class AgentRoverView: NSView {
         switch mood {
         case .happy: return (arc(42, smile: true), arc(58, smile: true), true)
         case .sad: return (arc(42, smile: false), arc(58, smile: false), true)
-        case .idle, .thinking, .working, .waving, .stopped: return (light(42), light(58), false)
+        case .idle, .thinking, .working, .writing, .waving, .stopped: return (light(42), light(58), false)
         }
     }
 

@@ -3,8 +3,8 @@
 //  Luna
 //
 //  The agent's Markdown cut into what the panel draws differently: prose,
-//  which is one run of text; a table, which is a grid; and code, which is a
-//  box of its own. A table set as text was every cell on a line of its own,
+//  which is one run of text; a quote, which has a rule beside it; a table,
+//  which is a grid; and code, which is a box of its own. A table set as text was every cell on a line of its own,
 //  the headers and the prices a long column of one word each.
 //
 
@@ -14,6 +14,7 @@ extension AgentMarkdown {
 
     enum Segment {
         case text(NSAttributedString)
+        case quote(NSAttributedString)
         case table(Table)
         case code(String)
     }
@@ -39,6 +40,7 @@ extension AgentMarkdown {
     private struct SegmentReader {
         var segments: [Segment] = []
         private var text = TextBuilder()
+        private var quote: (identity: Int, text: TextBuilder)?
         private var table: (identity: Int, header: [Int: NSMutableAttributedString], rows: [Int: [Int: NSMutableAttributedString]])?
         private var code: (identity: Int, text: String)?
 
@@ -48,6 +50,7 @@ extension AgentMarkdown {
             if let tableBlock = components.first(where: { if case .table = $0.kind { true } else { false } }) {
                 flushText()
                 flushCode()
+                flushQuote()
                 if table?.identity != tableBlock.identity {
                     flushTable()
                     table = (tableBlock.identity, [:], [:])
@@ -56,14 +59,25 @@ extension AgentMarkdown {
             } else if let codeBlock = components.first(where: { AgentMarkdown.isCode($0.kind) }) {
                 flushText()
                 flushTable()
+                flushQuote()
                 if code?.identity != codeBlock.identity {
                     flushCode()
                     code = (codeBlock.identity, "")
                 }
                 code?.text += string
+            } else if let quoteBlock = components.first(where: { if case .blockQuote = $0.kind { true } else { false } }) {
+                flushText()
+                flushTable()
+                flushCode()
+                if quote?.identity != quoteBlock.identity {
+                    flushQuote()
+                    quote = (quoteBlock.identity, TextBuilder())
+                }
+                quote?.text.append(run, of: parsed)
             } else {
                 flushTable()
                 flushCode()
+                flushQuote()
                 text.append(run, of: parsed)
             }
         }
@@ -101,6 +115,13 @@ extension AgentMarkdown {
             flushText()
             flushTable()
             flushCode()
+            flushQuote()
+        }
+
+        private mutating func flushQuote() {
+            guard let quote else { return }
+            self.quote = nil
+            if quote.text.result.length > 0 { segments.append(.quote(quote.text.result)) }
         }
 
         private mutating func flushText() {
@@ -207,6 +228,55 @@ final class AgentTableView: NSView {
     override func updateLayer() {
         layer?.borderColor = Tokens.Astro.from.withAlphaComponent(0.28).cgColor
         layer?.borderWidth = Tokens.Metric.hairline
+    }
+}
+
+/// A quote: its words in the secondary ink beside a rule of Astro's lavender.
+/// Indented alone, a quote read as a line that had slipped.
+@MainActor
+final class AgentQuoteView: NSView {
+
+    private let rule = NSView()
+    private let label = NSTextField(wrappingLabelWithString: "")
+
+    init(_ text: NSAttributedString) {
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        rule.wantsLayer = true
+        rule.layer?.cornerRadius = 1
+        label.attributedStringValue = text
+        label.isSelectable = true
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        for view in [rule, label] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
+        }
+        NSLayoutConstraint.activate([
+            rule.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
+            rule.topAnchor.constraint(equalTo: topAnchor, constant: 2),
+            rule.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2),
+            rule.widthAnchor.constraint(equalToConstant: 2),
+            label.leadingAnchor.constraint(equalTo: rule.trailingAnchor, constant: AgentMarkdown.listIndent / 2),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor),
+            label.topAnchor.constraint(equalTo: topAnchor),
+            label.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    override func layout() {
+        super.layout()
+        label.preferredMaxLayoutWidth = max(bounds.width - AgentMarkdown.listIndent / 2 - 4, 40)
+    }
+
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        rule.layer?.backgroundColor = Tokens.Astro.from.cgColor
     }
 }
 

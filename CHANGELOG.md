@@ -5,6 +5,13 @@ under Unreleased; a release will take the entries since the last one.
 
 ## Unreleased
 
+### 2026-10-06
+
+- **Astro stands above its task pill again**: back on the top row between History and ⋯, with the task's name and what it is doing in the pill under it.
+- **Astro shows what it is doing at the foot of the conversation**: a small live Astro beside the words, in the mood for each part of the work — thinking, working in Luna, writing, or waiting for you — instead of a still icon by "Thinking" alone.
+- **Astro's replies are easier to read**: more room between lines, paragraphs and list items, a clear gap before each new message of yours, bolder headings, and quotes set beside a lavender rule.
+- **Astro's light stays off a docked Web Inspector**: docked beside the panel or along the bottom, the inspector is clear, and the panel's light showed through its corners as blocks of lavender and stopped at its edge in a straight line. It now fades out before the inspector.
+
 ### 2026-10-05
 
 - **Downloads a page's own viewer starts now save** (§15.4): a PDF viewer in a frame of the page's own site — a public portal's document viewer — that downloads once the document's data is ready did nothing, because by then WebKit no longer counted the click and Luna stopped downloads from frames without one. A frame of the page's own site may download now. One from another site with no click is still stopped, but says so: a "Download blocked" toast with Download, and a warning in the page's console.
@@ -14,7 +21,7 @@ under Unreleased; a release will take the entries since the last one.
 - **Astro writes up what it finds** (Luna Control): the new `show_document` lets an agent save its findings as a Markdown document and open it in a tab of its folder, in Luna's reader with its type, size and width options; Astro uses it for comparisons, itineraries and anything longer than a few lines.
 - **Tables in Astro's replies are tables**: a Markdown table in the panel is a grid on glass with a header row and lines between rows, instead of every cell on a line of its own; code is a box of its own.
 - **Luna Control's questions look like Luna's toasts**: a request or a question from an agent is the toast's glass pill under the bar, with its answers as words on it — on one line when it fits, wrapping into the same glass when it does not.
-- **Astro's task pill is at the top**: between History and ⋯, with Astro alive at its left end. History's pop-out hangs from its button and ⋯'s ends at its own, so both stay inside the panel.
+- **Astro's pop-outs stay in its panel**: History's pop-out hangs from its button and ⋯'s ends at its own, so both stay inside the panel.
 - **Astro in the sidebar is alive**: it floats, blinks and glances on its folder and on the tab it is working in, and moves from tab to tab as it works; its folder's outline is lighter and only the folder takes an icon — tabs keep their sites' icons. Its panel's light reaches into the page's corners.
 - **The agent button lets go of its hover** (§3.2b): it kept its highlight after the panel opened or closed and the button slid out from under the pointer.
 - **Astro's folders look like plans** (Luna Control): a task's folder is named after it from the start, with an icon that fits it (✈️ for a trip), a lavender outline that glows and a light that runs round it while Astro works, and Astro or a raised hand at the end of each row. Astro names its tabs for what they are for — "Flights", "Hotels", "Things to do". Any app on Luna Control can do the same: `name_task` takes an icon, and the new `label_tab` names a tab.
