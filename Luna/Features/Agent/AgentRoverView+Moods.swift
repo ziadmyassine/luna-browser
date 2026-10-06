@@ -3,7 +3,9 @@
 //  Luna
 //
 //  What Astro does in each mood. Waiting, it breathes, blinks, and now and
-//  then looks about. Thinking, it tilts its head, its eyes wander up and a
+//  then looks about. Ready for a first task, it floats higher, looks down
+//  at the field and about, says hello with a tilt and a glint, and blinks
+//  twice now and then. Thinking, it tilts its head, its eyes wander up and a
 //  thought bubble fills dot by dot. Working, it bobs with its ears lit and a
 //  light sweeps its visor. Writing, its eyes run along a line and back and
 //  its head keeps a typing beat. Asking for the user, it rocks and its ears flash.
@@ -28,7 +30,7 @@ extension AgentRoverView {
         }
         setEyes(mood)
         visor.opacity = mood == .stopped || mood == .sad ? 0.75 : 1
-        for light in earLights { light.opacity = [.thinking, .working, .writing, .waving].contains(mood) ? 1 : 0 }
+        for light in earLights { light.opacity = [.ready, .thinking, .working, .writing, .waving].contains(mood) ? 1 : 0 }
         for dot in thoughts { dot.opacity = 0 }
         for star in sparkles { star.opacity = 0 }
         scan.opacity = 0
@@ -39,6 +41,7 @@ extension AgentRoverView {
     private func animate(_ mood: Mood) {
         switch mood {
         case .idle: idle()
+        case .ready: ready()
         case .thinking: think()
         case .working: work()
         case .writing: write()
@@ -60,6 +63,51 @@ extension AgentRoverView {
         add(head, "breathe", keyframes("transform.translation.y", [0, -1.2, 0], duration: 3.2))
         every(3.8) { [weak self] in self?.blink() }
         every(9.5) { [weak self] in self?.glance(to: Bool.random() ? -3.5 : 3.5) }
+    }
+
+    private func ready() {
+        let float = keyframes("transform.translation.y", [0, -4, 0], duration: 3)
+        float.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        add(head, "float", float)
+        // The shadow narrows and pales as Astro rises off it.
+        add(ground, "shadow", keyframes("transform.scale.x", [1, 0.78, 1], duration: 3))
+        add(ground, "fade", keyframes("opacity", [1, 0.55, 1], duration: 3))
+        let glow = keyframes("opacity", [0.35, 1, 0.35], duration: 2.4)
+        for light in earLights { add(light, "glow", glow) }
+        every(3.6) { [weak self] in self?.blink() }
+        every(5.2) { [weak self] in self?.gesture() }
+    }
+
+    /// One of the things Astro does while it waits for a first task.
+    private func gesture() {
+        switch Int.random(in: 0 ..< 4) {
+        case 0: lookDown()
+        case 1: glance(to: Bool.random() ? -4 : 4)
+        case 2: hello()
+        default:
+            blink()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+                MainActor.assumeIsolated { self?.blink() }
+            }
+        }
+    }
+
+    /// A look down at the field, where the task will be written, and back.
+    private func lookDown() {
+        add(eyes, "look", keyframes("transform.translation.y", [0, 3.5, 3.5, 0], times: [0, 0.2, 0.75, 1], duration: 1.6,
+                                    repeating: false))
+    }
+
+    /// A tilt of the head, the ears flashing and a glint beside it.
+    private func hello() {
+        add(head, "hello", keyframes("transform.rotation.z", [0, 0.14, -0.08, 0.04, 0], duration: 0.9, repeating: false))
+        for light in earLights { add(light, "flash", keyframes("opacity", [1, 0.2, 1, 0.2, 1], duration: 0.6, repeating: false)) }
+        let star = sparkles[1]
+        let pop = keyframes("transform.scale", [0, 1.1, 0], times: [0, 0.4, 1], duration: 0.8, repeating: false)
+        pop.fillMode = .both
+        pop.isRemovedOnCompletion = false
+        star.opacity = 1
+        add(star, "pop", pop)
     }
 
     private func think() {

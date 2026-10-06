@@ -114,7 +114,7 @@ final class AstroHeroView: NSView {
     func show(ready: Bool, text: String) {
         status.stringValue = text
         dot.layer?.backgroundColor = (ready ? Tokens.Moon.glowOuter : Tokens.Moon.dotOff).cgColor
-        rover.mood = ready ? .idle : .stopped
+        rover.mood = ready ? .ready : .stopped
     }
 
     override func layout() {

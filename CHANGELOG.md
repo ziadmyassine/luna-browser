@@ -7,6 +7,8 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-06
 
+- **A New Task button in Astro's panel**: beside ⋯ at the top, it clears the panel for the next task and puts the cursor in the field. A task still running carries on and is in History.
+- **Astro is livelier while it waits for your first task**: it floats higher with its shadow shrinking under it, looks down at the field and around, says hello with a tilt, flashing ears and a glint, and blinks twice now and then. Its page in Settings does the same.
 - **Astro stands above its task pill again**: back on the top row between History and ⋯, with the task's name and what it is doing in the pill under it.
 - **Astro shows what it is doing at the foot of the conversation**: a small live Astro beside the words, in the mood for each part of the work — thinking, working in Luna, writing, or waiting for you — instead of a still icon by "Thinking" alone.
 - **Astro's replies are easier to read**: more room between lines, paragraphs and list items, a clear gap before each new message of yours, bolder headings, and quotes set beside a lavender rule.

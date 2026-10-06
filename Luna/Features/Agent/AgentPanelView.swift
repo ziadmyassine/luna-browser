@@ -3,10 +3,10 @@
 //  Luna
 //
 //  The agent panel: a column beside the page where the user gives Luna's
-//  agent a task and watches it work. History and a menu at the top either
-//  side of the rover, the task's name and what it is doing under them, the
-//  conversation, and the field to write in — which takes more while the agent
-//  works, and turns its button into Stop.
+//  agent a task and watches it work. History on one side of Astro at the
+//  top and New Task and a menu on the other, the task's name and what it is
+//  doing under Astro, the conversation, and the field to write in — which
+//  takes more while the agent works, and turns its button into Stop.
 //
 //  It stands on the window's glass, as the sidebar does; it has no material
 //  of its own. One per window, all showing `AgentCenter`'s task.
@@ -27,6 +27,10 @@ final class AgentPanelView: NSView {
     private let history = GlassButton(
         shape: Tokens.Metric.sidebarCircle, symbolName: "clock.arrow.circlepath",
         pointSize: Tokens.Metric.glyphSize, label: String(localized: "Earlier tasks")
+    )
+    private let fresh = GlassButton(
+        shape: Tokens.Metric.sidebarCircle, symbolName: "square.and.pencil",
+        pointSize: Tokens.Metric.glyphSize, label: String(localized: "New Task")
     )
     private let more = GlassButton(
         shape: Tokens.Metric.sidebarCircle, symbolName: "ellipsis",
@@ -102,7 +106,7 @@ final class AgentPanelView: NSView {
         titles.translatesAutoresizingMaskIntoConstraints = false
         titleCapsule.addSubview(titles)
 
-        for view in [history, more, rover, titleCapsule, transcript, composer, empty] as [NSView] {
+        for view in [history, fresh, more, rover, titleCapsule, transcript, composer, empty] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
         }
@@ -110,9 +114,9 @@ final class AgentPanelView: NSView {
         layOutBody()
     }
 
-    /// History, Astro and the menu on the line the browser's own top row is
-    /// centred on — the sidebar's buttons, the page bar's — and the task's
-    /// pill under Astro: its name, and what it is doing.
+    /// History, Astro, New Task and the menu on the line the browser's own
+    /// top row is centred on — the sidebar's buttons, the page bar's — and
+    /// the task's pill under Astro: its name, and what it is doing.
     private func layOutHeader(titles: NSView) {
         let inset = Tokens.Metric.agentPanelInset
         let circle = Tokens.Metric.sidebarCircle
@@ -131,6 +135,10 @@ final class AgentPanelView: NSView {
             more.centerYAnchor.constraint(equalTo: rover.centerYAnchor),
             more.widthAnchor.constraint(equalToConstant: circle.width),
             more.heightAnchor.constraint(equalToConstant: circle.height),
+            fresh.trailingAnchor.constraint(equalTo: more.leadingAnchor, constant: -Tokens.Metric.chromeGap),
+            fresh.centerYAnchor.constraint(equalTo: rover.centerYAnchor),
+            fresh.widthAnchor.constraint(equalToConstant: circle.width),
+            fresh.heightAnchor.constraint(equalToConstant: circle.height),
 
             titleCapsule.topAnchor.constraint(equalTo: rover.bottomAnchor, constant: Tokens.Metric.chromeGap),
             titleCapsule.centerXAnchor.constraint(equalTo: centerXAnchor),
@@ -167,6 +175,7 @@ final class AgentPanelView: NSView {
     private func wire() {
         history.onActivate = { [weak self] in self?.showHistory() }
         more.onActivate = { [weak self] in self?.showMenu() }
+        fresh.onActivate = { [weak self] in self?.startOver() }
         composer.onSend = { [weak self] text in self?.center.send(text) }
         composer.onStop = { [weak self] in self?.center.stop() }
         empty.onAction = { [weak self] action in self?.perform(action) }
@@ -184,6 +193,8 @@ final class AgentPanelView: NSView {
         transcript.isHidden = !hasTask
         titleCapsule.isHidden = !hasTask
         rover.isHidden = !hasTask
+        // An empty panel is already a new task.
+        fresh.isHidden = !hasTask
         empty.show(blocker: blocker, engine: center.engine)
         composer.isEnabled = blocker == nil
         composer.isRunning = task?.status.isRunning ?? false
@@ -242,17 +253,20 @@ final class AgentPanelView: NSView {
 
     // MARK: - History and the menu
 
+    /// A clean panel with the keyboard in its field. A task still running
+    /// carries on, and is in History.
+    private func startOver() {
+        center.newTask()
+        focusComposer()
+    }
+
     private func showHistory() {
-        AgentMenus.show(AgentMenus.history(center) { [weak self] in
-            self?.center.newTask()
-            self?.focusComposer()
-        }, from: history)
+        AgentMenus.show(AgentMenus.history(center) { [weak self] in self?.startOver() }, from: history)
     }
 
     private func showMenu() {
         let content = AgentMenus.more(center) { [weak self] in
-            self?.center.newTask()
-            self?.focusComposer()
+            self?.startOver()
         } revealFolder: { [weak self] task in
             self?.onRevealFolder?(task.id.uuidString.lowercased())
         } hide: { [weak self] in

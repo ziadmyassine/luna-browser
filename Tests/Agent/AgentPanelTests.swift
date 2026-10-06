@@ -88,7 +88,7 @@ final class AgentPanelTests: XCTestCase {
             XCTAssertGreaterThan(bitmap.pixelsWide, 0)
         }
         let rover = AgentRoverView(frame: NSRect(x: 0, y: 0, width: 96, height: 96))
-        for mood in [AgentRoverView.Mood.idle, .thinking, .working, .happy, .sad, .stopped] { rover.mood = mood }
+        for mood in [AgentRoverView.Mood.idle, .ready, .thinking, .working, .writing, .waving, .happy, .sad, .stopped] { rover.mood = mood }
         XCTAssertEqual(rover.mood, .stopped)
         XCTAssertFalse(AgentGlyph.image(pointSize: 14).isTemplate, "Astro wears its own colours")
     }

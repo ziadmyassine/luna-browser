@@ -78,7 +78,7 @@ final class AgentEmptyView: NSView {
         secondary.title = page.secondary?.title ?? ""
         secondary.isHidden = page.secondary == nil
         rover.mood = switch blocker {
-        case nil: .idle
+        case nil: .ready
         case .signingIn?: .thinking
         default: .stopped
         }
