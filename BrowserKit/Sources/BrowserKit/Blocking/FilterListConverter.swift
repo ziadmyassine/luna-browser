@@ -43,15 +43,22 @@ public enum FilterListConverter {
     /// Part of the cache key beside the list's own bytes (`ContentBlocker.update`), so a
     /// change to what the converter makes of a list recompiles the lists already cached
     /// instead of waiting for upstream to edit them. Bump it with any change to the output.
-    public static let revision = "2"
+    public static let revision = "3"
 
     // MARK: - Entry point
 
     public static func convert(_ text: String) -> Conversion {
         var result = Conversion()
         var unhides: [String: Unhide] = [:]
+        var inCookieSection = false
         for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
+            // A consent screen is the page's to show: hidden, it can leave the page
+            // locked behind it (Planday keeps its sign-in disabled until the banner is
+            // answered). So every section `! *** easylist:easylist_cookie/… ***` opens is
+            // dropped whole, uncounted — `skipped` is for rules we could not express.
+            if trimmed.hasPrefix("! ***") { inCookieSection = trimmed.contains("easylist_cookie/") }
+            if inCookieSection { continue }
             // `!` is a comment, `[Adblock Plus 2.0]` a header, `#` alone a legacy comment.
             if trimmed.isEmpty || trimmed.hasPrefix("!") || trimmed.hasPrefix("[") { continue }
             convert(line: trimmed, into: &result, unhides: &unhides)
@@ -110,8 +117,7 @@ public enum FilterListConverter {
     }
 
     /// `site#@#selector`: the list's own fix for a site its generic `##selector` breaks.
-    /// fanboy-annoyance carries hundreds — `bafin.de#@##cookiebanner` is the typical
-    /// one, a consent dialog hidden while the page stays locked behind it.
+    /// fanboy-annoyance carries hundreds, e.g. `example.com#@#.newsletter-popup`.
     ///
     /// WebKit has no per-rule exception for element hiding — `ignore-previous-rules`
     /// would switch off every rule on the site, ads included — so the exception is
