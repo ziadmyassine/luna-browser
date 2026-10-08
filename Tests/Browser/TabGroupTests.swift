@@ -15,6 +15,7 @@
 //    empty folder is a new one, waiting for its first tab.
 //
 
+import AppKit
 import BrowserKit
 import XCTest
 @testable import Luna
@@ -365,5 +366,104 @@ final class TabGroupTests: XCTestCase {
 
     private func makeSession() async throws -> BrowserSession {
         try await BrowserSession.restored(store: BrowserStore(path: directory.appending(path: "luna.sqlite")))
+    }
+}
+
+// MARK: - Links on the clipboard
+
+extension TabGroupTests {
+
+    func testCopyLinksPutsTheFoldersPagesOnThePasteboardInOrder() async throws {
+        let session = try await makeSession()
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        let a = session.newTab(url: url("a"))
+        let b = session.newTab(url: url("b"))
+        let group = try XCTUnwrap(session.createGroup(name: "Work", containing: [a, b]))
+        let drawn = session.members(ofGroup: group).map(\.url)
+
+        session.copyLinks(ofGroup: group, to: pasteboard)
+
+        XCTAssertEqual(LunaServices.links(on: pasteboard), drawn)
+        XCTAssertEqual(pasteboard.string(forType: .string), drawn.map(\.absoluteString).joined(separator: "\n"))
+    }
+
+    func testCopyLinksAsMarkdownCarriesEachTitle() async throws {
+        let session = try await makeSession()
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        let a = session.newTab(url: url("a"))
+        let group = try XCTUnwrap(session.createGroup(name: "Work", containing: [a]))
+        let title = session.linkTitle(of: a)
+
+        session.copyLinks(ofGroup: group, asMarkdown: true, to: pasteboard)
+
+        XCTAssertEqual(pasteboard.string(forType: .string), "[\(title)](\(url("a").absoluteString))")
+        XCTAssertEqual(LunaServices.links(on: pasteboard), [url("a")])
+    }
+
+    func testPastedLinksLandAtTheEndOfTheFolderInOrder() async throws {
+        let session = try await makeSession()
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        let a = session.newTab(url: url("a"))
+        let group = try XCTUnwrap(session.createGroup(name: "Work", containing: [a]))
+        session.setGroupCollapsed(true, forGroup: group)
+        LunaServices.write([url("x"), url("y")], to: pasteboard)
+
+        let opened = session.pasteLinks(from: pasteboard, intoGroup: group)
+
+        XCTAssertEqual(opened.count, 2)
+        XCTAssertEqual(session.members(ofGroup: group).map(\.url), [url("a"), url("x"), url("y")])
+        XCTAssertEqual(session.group(group)?.isCollapsed, false)
+    }
+
+    func testPastedLinksKeepTheClipboardsOrderAtTheHeadOfToday() async throws {
+        let session = try await makeSession()
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        session.newTab(url: url("old"))
+        LunaServices.write([url("x"), url("y"), url("z")], to: pasteboard)
+
+        session.pasteLinks(from: pasteboard, at: SidebarDestination(kind: .today, groupID: nil, index: 0))
+
+        XCTAssertEqual(
+            session.slots(inTier: .today).compactMap { slot -> URL? in
+                if case let .tab(tab) = slot { return tab.url }
+                return nil
+            },
+            [url("x"), url("y"), url("z"), url("old")]
+        )
+    }
+
+    func testPastingIntoAPinnedFolderKeepsThem() async throws {
+        let session = try await makeSession()
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        let a = session.newTab(url: url("a"))
+        let group = try XCTUnwrap(session.createGroup(name: "Work", containing: [a]))
+        session.setGroupSaved(true, group: group)
+        LunaServices.write([url("x")], to: pasteboard)
+
+        let opened = try XCTUnwrap(session.pasteLinks(from: pasteboard, intoGroup: group).first)
+
+        XCTAssertEqual(session.tab(opened)?.kind, .pinned)
+        XCTAssertEqual(session.tab(opened)?.pinnedURL, url("x"))
+    }
+
+    /// Chrome asks above fifteen bookmarks; so does a paste.
+    func testMoreThanFifteenLinksWaitForAnAnswer() async throws {
+        let session = try await makeSession()
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        let today = SidebarDestination(kind: .today, groupID: nil, index: 0)
+        let before = session.tabs.count
+
+        LunaServices.write((0...BrowserSession.pasteAsksAbove).map { url("\($0)") }, to: pasteboard)
+        XCTAssertEqual(session.pasteLinks(from: pasteboard, at: today), [])
+        XCTAssertEqual(session.tabs.count, before)
+
+        LunaServices.write((1...BrowserSession.pasteAsksAbove).map { url("\($0)") }, to: pasteboard)
+        XCTAssertEqual(session.pasteLinks(from: pasteboard, at: today).count, BrowserSession.pasteAsksAbove)
     }
 }

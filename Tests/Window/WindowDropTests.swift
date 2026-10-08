@@ -24,6 +24,13 @@ private final class Drag: NSObject, @MainActor NSDraggingInfo {
         draggingSourceOperationMask = mask
     }
 
+    init(text: String) {
+        draggingPasteboard = NSPasteboard(name: NSPasteboard.Name("WindowDropTests-\(UUID().uuidString)"))
+        draggingPasteboard.clearContents()
+        draggingPasteboard.setString(text, forType: .string)
+        draggingSourceOperationMask = [.copy, .link, .generic]
+    }
+
     var draggingDestinationWindow: NSWindow? { nil }
     var draggingLocation: NSPoint { .zero }
     var draggedImageLocation: NSPoint { .zero }
@@ -58,6 +65,21 @@ final class WindowDropTests: XCTestCase {
         let mail = URL(string: "mailto:someone@example.com")!
         let drag = Drag([photo, archive, mail, link, page])
         XCTAssertEqual(WindowDrop.pages(on: drag.draggingPasteboard), [photo, link, page])
+    }
+
+    /// A list of links selected in a note: each line is a page.
+    func testTextWithOneLinkPerLineDropsAsThoseLinks() {
+        XCTAssertTrue(WindowDrop.types.contains(.string))
+        let drag = Drag(text: "https://a.example/\nexample.org")
+        XCTAssertEqual(
+            WindowDrop.pages(on: drag.draggingPasteboard),
+            [URL(string: "https://a.example/")!, URL(string: "https://example.org")!]
+        )
+        XCTAssertEqual(WindowDrop.operation(for: drag), .copy)
+    }
+
+    func testTextWithNoLinksIsRefused() {
+        XCTAssertEqual(WindowDrop.operation(for: Drag(text: "just some words")), [])
     }
 
     /// No badge for a drag holding nothing Luna opens; otherwise the first

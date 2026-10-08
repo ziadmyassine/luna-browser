@@ -91,8 +91,24 @@ final class PrivateWindowPinningTests: XCTestCase {
 
         let menu = GroupMenu.build(for: try XCTUnwrap(session.group(id)), actions: actions, rename: {}, emoji: {})
         XCTAssertEqual(menu.items.map(Self.word), [
-            "Rename", "Change Icon", "", "Remove Folder, Keep Tabs", "Close Folder and Tabs"
+            "Rename", "Change Icon", "", "Paste Links", "", "Remove Folder, Keep Tabs", "Close Folder and Tabs"
         ])
+    }
+
+    /// Copy Links only once there is a page to copy, with its Markdown form
+    /// behind ⌥.
+    func testAFolderWithTabsOffersCopyLinks() async throws {
+        let session = try await makeSession(isPrivate: true)
+        let id = try XCTUnwrap(session.createGroup(name: "Work", containing: [try tab(in: session)]))
+
+        let menu = GroupMenu.build(for: try XCTUnwrap(session.group(id)), actions: session.groupMenuActions(for: id))
+        XCTAssertEqual(menu.items.map(Self.word), [
+            "Rename…", "Change Icon", "", "Copy Links", "Copy Links as Markdown", "Paste Links", "",
+            "Remove Folder, Keep Tabs", "Close Folder and Tabs"
+        ])
+        let markdown = try XCTUnwrap(menu.items.first { Self.word($0) == "Copy Links as Markdown" })
+        XCTAssertTrue(markdown.isAlternate)
+        XCTAssertEqual(markdown.keyEquivalentModifierMask, .option)
     }
 
     // MARK: - The column

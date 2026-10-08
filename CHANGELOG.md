@@ -5,6 +5,10 @@ under Unreleased; a release will take the entries since the last one.
 
 ## Unreleased
 
+### 2026-10-08
+
+- **Copy a folder's links, and paste links to open them** (§3.4b): right-click a folder › Copy Links puts every page in it on the clipboard, one per line, the way Dia and Arc copy theirs; hold ⌥ for Copy Links as Markdown, one `[title](link)` per line. Press ⌘V in the sidebar, or choose a folder's Paste Links, and each link opens as a tab in the order it was copied; more than 15 asks first. Text with links in it can now be dragged onto the sidebar or into a folder too.
+
 ### 2026-10-05
 
 - **A hidden cookie pop-up no longer locks the page** (§17.2): when the annoyance list hides a cookie pop-up and the page stays greyed out and frozen behind it — borger.dk did — Luna clears the empty cover and turns scrolling back on, so the page works. A dialog with anything in it, like a sign-in box, is left alone.

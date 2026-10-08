@@ -10,7 +10,9 @@
 //  configuration — so the web view is left alone.
 //
 //  What is taken is what Finder's Open With takes (`AppDelegate.pages`), so a
-//  drop and an open cannot disagree about a file.
+//  drop and an open cannot disagree about a file — or, for dragged text, the
+//  links in it, read as a paste reads them (`LunaServices.links`). A text
+//  field still takes text dropped on it: its field editor is the deeper view.
 //
 
 import AppKit
@@ -20,7 +22,7 @@ import AppKit
 @MainActor
 enum WindowDrop {
 
-    static let types: [NSPasteboard.PasteboardType] = [.fileURL, .URL]
+    static let types: [NSPasteboard.PasteboardType] = [.fileURL, .URL, .string]
 
     /// The pages on a dragged pasteboard, in the order they were dragged.
     ///
@@ -30,7 +32,8 @@ enum WindowDrop {
     static func pages(on pasteboard: NSPasteboard) -> [URL] {
         guard pasteboard.types?.contains(TabTearOff.tabType) != true else { return [] }
         let urls = pasteboard.readObjects(forClasses: [NSURL.self]) as? [URL] ?? []
-        return AppDelegate.pages(in: urls)
+        let pages = AppDelegate.pages(in: urls)
+        return pages.isEmpty ? LunaServices.links(on: pasteboard) : pages
     }
 
     /// Nothing while the drag holds nothing Luna opens, so the pointer shows

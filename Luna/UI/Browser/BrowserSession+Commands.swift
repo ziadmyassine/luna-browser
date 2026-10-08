@@ -29,13 +29,14 @@ extension BrowserSession {
     /// The page's own title, falling back to the row's and then to the host.
     /// Never empty: it is about to be the visible half of a Markdown link, and
     /// `[](https://…)` is not a link anybody can click.
-    var activeTitle: String {
-        guard let id = activeTabID else { return "" }
+    var activeTitle: String { activeTabID.map(linkTitle(of:)) ?? "" }
+
+    func linkTitle(of id: UUID) -> String {
         let live = controller(for: id)?.state.title ?? ""
         let stored = tab(id)?.title ?? ""
         let title = live.isEmpty ? stored : live
         guard title.isEmpty else { return title }
-        return activeURL?.host(percentEncoded: false) ?? ""
+        return (controller(for: id)?.state.url ?? tab(id)?.url)?.host(percentEncoded: false) ?? ""
     }
 
     /// ⌥⌘R. `reloadFromOrigin` rather than `reload`: the point of asking twice
@@ -106,6 +107,52 @@ extension BrowserSession {
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
         (asMarkdown ? PageToast.markdownCopied : .linkCopied).show(in: hostWindow)
+    }
+
+    // MARK: - A folder's links (§3.4b)
+
+    /// Every page in the folder, in drawn order — one per line as text, or one
+    /// `[title](url)` per line for the menu's ⌥ alternate.
+    func copyLinks(ofGroup id: UUID, asMarkdown: Bool = false, to pasteboard: NSPasteboard = .general) {
+        let tabs = members(ofGroup: id).filter { $0.url != Self.blankPage }
+        guard !tabs.isEmpty else { return }
+        if asMarkdown {
+            LunaServices.writeMarkdown(tabs.map { (linkTitle(of: $0.id), $0.url) }, to: pasteboard)
+        } else {
+            LunaServices.write(tabs.map(\.url), to: pasteboard)
+        }
+        (tabs.count == 1 ? PageToast.linkCopied : .linksCopied(tabs.count)).show(in: hostWindow)
+    }
+
+    /// Chrome's `kNumBookmarkUrlsBeforePrompting`: past this, a paste asks
+    /// before it opens a window's worth of tabs.
+    static let pasteAsksAbove = 15
+
+    /// Opens the links on the clipboard as tabs at `landing`, in the
+    /// clipboard's order. Read only here, inside the user's paste: reading the
+    /// general pasteboard anywhere else is macOS's "Allow Paste" prompt.
+    @discardableResult
+    func pasteLinks(from pasteboard: NSPasteboard = .general, at landing: SidebarDestination) -> [UUID] {
+        let links = LunaServices.links(on: pasteboard)
+        if links.isEmpty {
+            PageToast.noLinksToPaste.show(in: hostWindow)
+            return []
+        }
+        if links.count > Self.pasteAsksAbove {
+            PageToast.openLinks(links.count) { [weak self] in self?.openTabs(links, at: landing) }.show(in: hostWindow)
+            return []
+        }
+        return openTabs(links, at: landing)
+    }
+
+    /// The folder menu's Paste Links: after the folder's last tab.
+    @discardableResult
+    func pasteLinks(from pasteboard: NSPasteboard = .general, intoGroup id: UUID) -> [UUID] {
+        guard let group = group(id) else { return [] }
+        return pasteLinks(
+            from: pasteboard,
+            at: SidebarDestination(kind: group.kind, groupID: id, index: members(ofGroup: id).count)
+        )
     }
 
     /// A rendered Markdown page's copy button.

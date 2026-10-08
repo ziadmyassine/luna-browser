@@ -49,6 +49,8 @@ final class TabListController: NSObject {
     /// the rows with no context menu rather than a shorter one: a second, smaller answer
     /// to the same right-click is exactly what §3.4a exists to avoid.
     var menuActions: ((UUID) -> TabMenu.Actions?)?
+    /// ⌘V on the list, with where the links land.
+    var onPasteLinks: ((SidebarDestination) -> Void)?
 
     private(set) var list = SidebarList()
     /// What the list was last handed, so a drag can rebuild the rows with
@@ -183,6 +185,7 @@ final class TabListController: NSObject {
         table.onFocusChange = { [weak self] in self?.movePills() }
         table.onHover = { [weak self] row in self?.setHovered(row) }
         table.onContextMenu = { [weak self] row in self?.contextMenu(forRow: row) }
+        table.onPaste = { [weak self] in self?.pasteLinks() }
 
         for pill in [selectionPill, hoverPill, groupPlate] {
             pill.alphaValue = 0
@@ -417,6 +420,15 @@ final class TabListController: NSObject {
             onCloseTab?(id)
         }
         return true
+    }
+
+    /// Below the selected row, inside its folder if it is in one, the way an
+    /// editor pastes after the selection; with none, the head of Today.
+    private func pasteLinks() {
+        let row = table.selectedRow
+        onPasteLinks?(row >= 0
+            ? list.destination(forRow: row, isBelowMidpoint: true)
+            : SidebarDestination(kind: .today, groupID: nil, index: 0))
     }
 
     /// §21.2, contract rule 4: Increase Contrast is not an appearance.

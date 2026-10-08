@@ -110,6 +110,9 @@ extension SidebarViewController {
         list.onRenameGroup = { [weak self] id, name in self?.session.renameGroup(id, to: name) }
         list.onRenameTab = { [weak self] id, name in self?.session.renameTab(id, to: name) }
         list.onSetGroupIcon = { [weak self] id, symbol in self?.session.setIcon(symbol, forGroup: id) }
+        // A private window's list has no kept tier to land in, so its
+        // destinations are already Today's.
+        list.onPasteLinks = { [weak self] landing in self?.session.pasteLinks(at: landing) }
         session.onGroupCreated = { [weak self] id in self?.list.beginRenaming(group: id) }
         // §3.4b: folding is a fact about the group, so it goes through the
         // session and comes back as a change like any other. The rows are

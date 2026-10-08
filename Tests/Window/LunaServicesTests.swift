@@ -60,6 +60,46 @@ final class LunaServicesTests: XCTestCase {
         }
     }
 
+    // MARK: - A list of links
+
+    /// One address per line reads each line the way the bar would, so a bare
+    /// domain is https rather than the detector's http.
+    func testOneAddressPerLineOpensEachInOrder() {
+        put("https://a.example/x\nhttps://b.example/y\n\n  example.org  ")
+        XCTAssertEqual(
+            LunaServices.links(on: pasteboard),
+            [url("https://a.example/x"), url("https://b.example/y"), url("https://example.org")]
+        )
+    }
+
+    func testMarkdownLinksOpenEachLink() {
+        put("- [A](https://a.example/)\n- [B](https://b.example/)")
+        XCTAssertEqual(LunaServices.links(on: pasteboard), [url("https://a.example/"), url("https://b.example/")])
+    }
+
+    func testWrittenLinksRoundTrip() {
+        let links = [url("https://a.example/"), url("https://b.example/x"), url("https://c.example/?q=1")]
+        LunaServices.write(links, to: pasteboard)
+        XCTAssertEqual(LunaServices.links(on: pasteboard), links)
+        XCTAssertEqual(pasteboard.string(forType: .string), links.map(\.absoluteString).joined(separator: "\n"))
+        XCTAssertEqual(pasteboard.readObjects(forClasses: [NSURL.self])?.count, 3)
+    }
+
+    /// A title is free text: brackets in it are escaped, and an address or a
+    /// domain in it is not taken for a second link.
+    func testMarkdownLinksRoundTrip() {
+        let pages = [
+            (title: "Docs [beta]", url: url("https://a.example/")),
+            (title: "example.org and https://b.example/", url: url("https://b.example/x_(y)"))
+        ]
+        LunaServices.writeMarkdown(pages, to: pasteboard)
+        XCTAssertEqual(
+            pasteboard.string(forType: .string),
+            "[Docs \\[beta\\]](https://a.example/)\n[example.org and https://b.example/](https://b.example/x_(y))"
+        )
+        XCTAssertEqual(LunaServices.links(on: pasteboard), pages.map(\.url))
+    }
+
     // MARK: - Search with Luna
 
     /// The user's engine, as the Command Bar's search row would send it.

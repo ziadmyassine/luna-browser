@@ -1599,14 +1599,29 @@ Folder`) — a submenu because the number of entries is the user's rather than t
 a menu that grows by one every time somebody makes a folder stops being scannable at about the
 fourth. It is the only route a menu offers into the pinned tier, and that is the point: there
 is nothing up there but folders. It does not appear on a §3.3 tile, where the grid is one tile
-per page and has no folders in it. A folder header's own menu is five items —
-`Rename · Change Icon ▸ | Pin Folder | Remove Folder, Keep Tabs · Close Folder and Tabs` —
+per page and has no folders in it. A folder header's own menu is seven items —
+`Rename · Change Icon ▸ | Copy Links · Paste Links | Pin Folder | Remove Folder, Keep Tabs · Close Folder and Tabs` —
 rather than a longer §3.4a,
-because half of that menu has no meaning on a group: no address to copy, nothing to duplicate,
+because half of that menu has no meaning on a group: no one address to copy, nothing to duplicate,
 no sound to mute. **Removing a folder removes a name and never a page**; *Close Folder and
 Tabs* is the one that ends the tabs, and it ends them one at a time through `closeTab` so each
 lands in §6.3's archive with its own undo — and so a *saved* folder dims its tabs on the first
 Close Folder and lets them go on the second, exactly as pressing close on each of them would.
+**A folder's links go on the clipboard, and links on the clipboard come back as tabs.**
+*Copy Links* (left out of an empty folder) writes every page in the folder, in drawn order, as one
+pasteboard item per link carrying URL and text, so a text field pastes them one per line; ⌥ turns
+it into *Copy Links as Markdown*, one `[title](url)` per line as plain text. *Paste Links* opens
+what is on the clipboard after the folder's last tab, and ⌘V with the list focused opens it below
+the selected row — inside its folder if it is in one — or at the head of Today with nothing
+selected. Both keep the clipboard's order, and both read it (`LunaServices.links`) one link per
+line, an address or a Markdown link, falling back to the links found in prose. More than 15
+(Chrome's `kNumBookmarkUrlsBeforePrompting`) opens nothing until §5c's toast, "N links on the
+clipboard", is answered with *Open All*. The clipboard's contents are read only inside the paste:
+Paste Links is always in the menu, and ⌘V validates on the types alone, because reading it
+anywhere else is macOS's "Allow Paste" prompt. A page that takes focus as it loads takes ⌘V with
+it; the list does not guard against that. Text dragged onto the window — the sidebar, a folder,
+the bar or an empty card — opens the links in it the same way (`WindowDrop`), without the 15-link
+question: a drag is deliberate.
 > **The user's word is folder; `group` is the model's.** `TabGroup`, `groupID` and
 > `SidebarDestination.groupID` keep their names, and nothing a user reads says "group" —
 > including the Edit menu, where the undo entries are `New Folder`, `Rename Folder`,
@@ -2580,7 +2595,9 @@ something happened, over the page, is one of these — never a panel, chip or ba
   until 2026-09-29), Mute All / Unmute All, a tab opened behind the one in front (`PageToast.openedInBackground`, Show), and §15.5's slow PDF (`PageToast.openingPDF`, Download: a PDF of 10 MB or more
   as it starts, or one of unknown size still arriving after 3 s), and §14.4's offer to save a
   password (`PageToast.savePassword`: the account and site as detail, Save and Never; leaving it
-  unanswered is Not Now — it was a three-button chip in the window's corner until 2026-10-03).
+  unanswered is Not Now — it was a three-button chip in the window's corner until 2026-10-03), and
+  §3.4b's folder links (`linksCopied`, `noLinksToPaste`, and `openLinks` with Open All for a paste
+  of more than 15).
 - **Not a toast:** a question that needs reading and more than two answers — Luna Control's
   approval card. That is a prompt, and keeps its own surface.
 

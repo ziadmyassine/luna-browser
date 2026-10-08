@@ -173,8 +173,22 @@ final class SidebarTableView: NSTableView {
     /// `NSTableView.menu`: a single menu on the table cannot know which row it
     /// was summoned from, and a menu per row view dies with the recycled view.
     var onContextMenu: ((Int?) -> NSMenu?)?
+    /// Edit ▸ Paste while the list has focus: the links on the clipboard open
+    /// as tabs (§3.4b).
+    var onPaste: (() -> Void)?
 
     override var acceptsFirstResponder: Bool { true }
+
+    @objc func paste(_ sender: Any?) {
+        onPaste?()
+    }
+
+    /// Types only: reading the contents outside the paste itself is macOS's
+    /// "Allow Paste" prompt, and validation runs every time the menu opens.
+    override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
+        guard item.action == #selector(paste(_:)) else { return super.validateUserInterfaceItem(item) }
+        return onPaste != nil && NSPasteboard.general.availableType(from: [.URL, .string]) != nil
+    }
 
     /// The press is handed on whole, not passed to `super`.
     ///
