@@ -61,6 +61,13 @@ final class AgentEmptyView: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
+    /// Only its buttons take a click. It runs the panel's full height, under
+    /// the header's own buttons, and as a plain view it took their clicks.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let hit = super.hitTest(point)
+        return hit === self || hit is NSStackView ? nil : hit
+    }
+
     override func layout() {
         super.layout()
         detail.preferredMaxLayoutWidth = bounds.width

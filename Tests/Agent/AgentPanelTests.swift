@@ -77,6 +77,20 @@ final class AgentPanelTests: XCTestCase {
     }
 
     /// Off screen, in both appearances: the empty panel and one mid-task.
+    /// History, New Task and the menu are there and take a click with or
+    /// without a task on show; the empty panel runs under them and once took it.
+    func testTheHeaderButtonsAlwaysTakeAClick() {
+        let panel = AgentPanelView()
+        panel.frame = NSRect(x: 0, y: 0, width: Tokens.Metric.agentPanelWidth, height: 640)
+        panel.layoutSubtreeIfNeeded()
+        let buttons = panel.subviews.compactMap { $0 as? GlassButton }
+        XCTAssertEqual(buttons.filter { !$0.isHidden }.count, 3)
+        for button in buttons {
+            let hit = panel.hitTest(NSPoint(x: button.frame.midX, y: button.frame.midY))
+            XCTAssertTrue(hit?.isDescendant(of: button) == true, "\(button.accessibilityLabel() ?? "") is covered")
+        }
+    }
+
     func testThePanelDraws() throws {
         for name in [NSAppearance.Name.aqua, .darkAqua] {
             let panel = AgentPanelView()

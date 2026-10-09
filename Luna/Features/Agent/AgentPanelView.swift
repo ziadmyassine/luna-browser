@@ -193,8 +193,6 @@ final class AgentPanelView: NSView {
         transcript.isHidden = !hasTask
         titleCapsule.isHidden = !hasTask
         rover.isHidden = !hasTask
-        // An empty panel is already a new task.
-        fresh.isHidden = !hasTask
         empty.show(blocker: blocker, engine: center.engine)
         composer.isEnabled = blocker == nil
         composer.isRunning = task?.status.isRunning ?? false
