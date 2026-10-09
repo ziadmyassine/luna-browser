@@ -65,6 +65,10 @@ public final class ControlSessionTag: Sendable {
     /// Where Claude Code puts a call's tool-use id in `params._meta`.
     public static let toolUseKey = "claudecode/toolUseId"
 
+    /// Luna's own reader of calls by their tool-use id, over the transcripts
+    /// in the user's `~/.claude`, for calls that arrive without a name.
+    public static let calls = ControlSessionTag(environment: [:])
+
     /// The title of the session a call comes from, found by the call's
     /// tool-use id in the transcripts written to in the last few minutes.
     ///

@@ -95,7 +95,14 @@ public actor ControlSession {
             return id.map { Self.reply(id: $0, result: ["tools": .array(ControlTools.all)]) }
         case "tools/call":
             guard let id else { return nil }
-            if let name = params["_meta"]?[ControlSessionTag.nameKey]?.string { client.sessionName = name }
+            let meta = params["_meta"]
+            // A helper from before it could find the session by the call
+            // (`ControlSessionTag.name(forToolUse:)`) keeps running as long as
+            // the app that started it, so Luna looks it up as well.
+            if let name = meta?[ControlSessionTag.nameKey]?.string
+                ?? meta?[ControlSessionTag.toolUseKey]?.string.flatMap(ControlSessionTag.calls.name(forToolUse:)) {
+                client.sessionName = name
+            }
             return await call(id: id, params: params)
         default:
             // A notification — `initialized`, `cancelled` — needs nothing back.
