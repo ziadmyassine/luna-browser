@@ -20,7 +20,7 @@ extension ControlService {
 
     func requestUser(_ reason: String, for client: ControlClient, in session: BrowserSession) async -> ControlResult {
         let request = ControlApprovals.Request(
-            client: client.displayName, folder: folder(for: client, in: session), site: nil,
+            client: client.shownName, folder: folder(for: client, in: session), site: nil,
             summary: reason, reason: "", grantable: false, isHandoff: true, tab: currentTab[client.connection]
         )
         switch await approvals.ask(request) {
@@ -50,7 +50,7 @@ extension ControlService {
     func askUser(_ question: String, options: [String], for client: ControlClient, in session: BrowserSession) async
         -> ControlResult {
         let request = ControlApprovals.Request(
-            client: client.displayName, folder: folder(for: client, in: session), site: nil,
+            client: client.shownName, folder: folder(for: client, in: session), site: nil,
             summary: question, reason: "", grantable: false, tab: currentTab[client.connection], choices: options
         )
         switch await approvals.ask(request) {

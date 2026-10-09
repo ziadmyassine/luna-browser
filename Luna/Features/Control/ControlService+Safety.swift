@@ -278,7 +278,7 @@ extension ControlService {
         let summary = record.summary
         let site = record.site
         let request = ControlApprovals.Request(
-            client: client.displayName, folder: folder(for: client, in: session), site: site,
+            client: client.shownName, folder: folder(for: client, in: session), site: site,
             summary: summary, reason: reason, grantable: grantable, tab: currentTab[client.connection]
         )
         switch await approvals.ask(request) {

@@ -38,12 +38,12 @@ extension ControlService {
     /// requests.
     func displayName(of agent: String) -> String {
         if Self.astroTasks[agent] != nil { return String(localized: "Astro") }
-        return agents[agent]?.displayName ?? ControlClient.fallbackName
+        return agents[agent]?.shownName ?? ControlClient.fallbackName
     }
 
     func appID(of agent: String) -> String? {
         if Self.astroTasks[agent] != nil { return ControlFace.astro }
-        if agents[agent]?.displayName == "Luna Control" { return ControlFace.lunaControl }
+        if agents[agent]?.displayName == ControlClient.sharedName { return ControlFace.lunaControl }
         return agents[agent].flatMap { ControlApp.app(forClient: $0.rawName)?.id }
     }
 

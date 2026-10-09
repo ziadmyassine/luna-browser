@@ -27,6 +27,19 @@ public struct ControlClient: Sendable, Hashable {
         displayName = Self.displayName(for: rawName)
     }
 
+    /// What the Claude app's local agent mode is called. It connects once for
+    /// every session, so the session making a call is what names it to the
+    /// user (`shownName`), and the helper finds that by the call itself.
+    public static let sharedName = "Luna Control"
+
+    /// What the user sees an agent called — its folder, its capsule, its
+    /// requests: the app, except for the one client that serves every session
+    /// of an app, which is called after the session at work. Grants and the
+    /// audit log stay with `displayName`: they are about the app.
+    public var shownName: String {
+        displayName == Self.sharedName ? sessionName ?? displayName : displayName
+    }
+
     /// What a folder is called when the client gave no name, or one with no
     /// letters in it.
     public static let fallbackName = "Agent"
@@ -47,7 +60,7 @@ public struct ControlClient: Sendable, Hashable {
     /// It is shown as the feature it is using.
     public static func displayName(for rawName: String) -> String {
         var words = split(rawName)
-        if words.prefix(3).map({ $0.lowercased() }) == ["local", "agent", "mode"] { return "Luna Control" }
+        if words.prefix(3).map({ $0.lowercased() }) == ["local", "agent", "mode"] { return sharedName }
         let noise: Set<String> = ["mcp", "client", "cli", "app", "server", "vscode", "desktop", "ide"]
         while words.count > 1, let last = words.last, noise.contains(last.lowercased()) {
             words.removeLast()

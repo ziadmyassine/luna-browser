@@ -153,6 +153,14 @@ struct ControlProtocolTests {
     func prettifiesClientNames(raw: String, pretty: String) {
         #expect(ControlClient.displayName(for: raw) == pretty)
     }
+
+    /// Luna Control serves every session of the Claude app, so the user sees
+    /// it called after the session at work; any other app keeps its name.
+    @Test func lunaControlIsCalledAfterTheSessionAtWork() {
+        #expect(ControlClient(rawName: "local-agent-mode-luna", sessionName: "Main 2").shownName == "Main 2")
+        #expect(ControlClient(rawName: "local-agent-mode-luna").shownName == "Luna Control")
+        #expect(ControlClient(rawName: "claude-code", sessionName: "Main 2").shownName == "Claude Code")
+    }
 }
 
 extension JSONValue {

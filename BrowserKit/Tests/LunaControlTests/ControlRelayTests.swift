@@ -154,6 +154,32 @@ struct ControlRelayTests {
         #expect(seen.withLock { $0.last?.sessionName } == "Fix the sidebar")
     }
 
+    /// The Claude app's agent mode starts one helper for all its sessions and
+    /// gives it none: a call is named after the session whose transcript has
+    /// just written the call's tool-use id.
+    @Test func aCallIsNamedAfterTheSessionThatWroteItsToolUse() throws {
+        let root = URL.temporaryDirectory.appending(path: "lc-\(UUID().uuidString.prefix(8))")
+        let folder = root.appending(path: "projects/-Users-me-app")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let lines = [
+            #"{"type":"custom-title","customTitle":"Main 2","sessionId":"abc"}"#,
+            #"{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_01Luna","name":"mcp__luna__tab_open"}]}}"#
+        ]
+        try Data(lines.joined(separator: "\n").utf8).write(to: folder.appending(path: "abc.jsonl"))
+        try Data(#"{"type":"custom-title","customTitle":"Other","sessionId":"def"}"#.utf8).write(to: folder.appending(path: "def.jsonl"))
+        let tag = ControlSessionTag(environment: ["CLAUDE_CONFIG_DIR": root.path])
+        let call: JSONValue = [
+            "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+            "params": ["name": "tab_open", "_meta": ["claudecode/toolUseId": "toolu_01Luna"]]
+        ]
+        #expect(tag.stamp(call)?["params"]?["_meta"]?[ControlSessionTag.nameKey]?.string == "Main 2")
+        let unknown: JSONValue = [
+            "jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": ["_meta": ["claudecode/toolUseId": "toolu_none"]]
+        ]
+        #expect(tag.stamp(unknown)?["params"]?["_meta"]?[ControlSessionTag.nameKey] == nil, "no session wrote it")
+    }
+
     @Test func theNameTheUserGaveOutranksTheOneTheAppGave() {
         let lines = [
             #"{"type":"custom-title","customTitle":"Main 2","sessionId":"abc"}"#,

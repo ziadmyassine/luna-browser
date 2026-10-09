@@ -17,6 +17,10 @@ public final class ControlSessionTag: Sendable {
 
     public let session: String
     private let transcript: Mutex<Transcript>
+    private let projects: URL
+    /// Sessions found by a call's tool-use id (`name(forToolUse:)`), each
+    /// with its own transcript, and the last one found.
+    private let found: Mutex<(sessions: [String: Transcript], last: String?)> = Mutex(([:], nil))
 
     /// `environment` is the helper's own, inherited from the client that
     /// started it.
@@ -26,6 +30,7 @@ public final class ControlSessionTag: Sendable {
         let root = environment["CLAUDE_CONFIG_DIR"].map { URL(filePath: $0) }
             ?? FileManager.default.homeDirectoryForCurrentUser.appending(path: ".claude")
         transcript = Mutex(Transcript(root: root, session: claudeSession))
+        projects = root.appending(path: "projects")
     }
 
     /// The session's name now, read at most every `Transcript.interval`.
@@ -45,7 +50,7 @@ public final class ControlSessionTag: Sendable {
             meta[Self.sessionKey] = .string(session)
             if let name { meta[Self.nameKey] = .string(name) }
         case "tools/call":
-            guard let name else { return message }
+            guard let name = name ?? meta[Self.toolUseKey]?.string.flatMap(name(forToolUse:)) else { return message }
             meta[Self.nameKey] = .string(name)
         default:
             return message
@@ -53,6 +58,70 @@ public final class ControlSessionTag: Sendable {
         params["_meta"] = .object(meta)
         object["params"] = .object(params)
         return .object(object)
+    }
+
+    // MARK: - A client serving every session
+
+    /// Where Claude Code puts a call's tool-use id in `params._meta`.
+    public static let toolUseKey = "claudecode/toolUseId"
+
+    /// The title of the session a call comes from, found by the call's
+    /// tool-use id in the transcripts written to in the last few minutes.
+    ///
+    /// For a client that connects once for all its sessions: the Claude app's
+    /// local agent mode starts this helper itself, as `local-agent-mode-luna`,
+    /// with no session in its environment, and forwards every session's calls
+    /// through it. The id of the call is in its `_meta`, and the session that
+    /// made it has just written that id to its transcript.
+    func name(forToolUse id: String) -> String? {
+        guard id.hasPrefix("toolu_") || id.count >= 8 else { return nil }
+        let needle = Data(id.utf8)
+        let last = found.withLock { $0.last }
+        let wrote = { (file: URL) in Self.tail(of: file).range(of: needle) != nil }
+        let session = last.flatMap { Self.transcript(of: $0, in: projects) }.flatMap { wrote($0) ? last : nil }
+            ?? Self.recentTranscripts(in: projects).first(where: wrote)?
+            .deletingPathExtension().lastPathComponent
+        guard let session else { return nil }
+        return found.withLock { state in
+            state.last = session
+            var transcript = state.sessions[session] ?? Transcript(root: projects.deletingLastPathComponent(), session: session)
+            let name = transcript.name()
+            state.sessions[session] = transcript
+            return name
+        }
+    }
+
+    /// How recently a transcript must have been written to, and how much of
+    /// its end is searched: the call's id was written moments before the call.
+    static let recentWindow: TimeInterval = 600
+    static let tailLength: UInt64 = 2 << 20
+
+    static func transcript(of session: String, in projects: URL) -> URL? {
+        Transcript.locate(session, in: projects)
+    }
+
+    /// The transcripts written to within `recentWindow`, newest first.
+    static func recentTranscripts(in projects: URL, now: Date = Date()) -> [URL] {
+        let manager = FileManager.default
+        let folders = (try? manager.contentsOfDirectory(at: projects, includingPropertiesForKeys: nil)) ?? []
+        let files = folders.flatMap { folder in
+            ((try? manager.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey])) ?? [])
+                .filter { $0.pathExtension == "jsonl" }
+        }
+        let dated = files.compactMap { file -> (URL, Date)? in
+            guard let date = try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
+                  now.timeIntervalSince(date) < recentWindow else { return nil }
+            return (file, date)
+        }
+        return dated.sorted { $0.1 > $1.1 }.map(\.0)
+    }
+
+    static func tail(of file: URL) -> Data {
+        guard let handle = try? FileHandle(forReadingFrom: file) else { return Data() }
+        defer { try? handle.close() }
+        guard let end = try? handle.seekToEnd() else { return Data() }
+        try? handle.seek(toOffset: end > tailLength ? end - tailLength : 0)
+        return (try? handle.readToEnd()) ?? Data()
     }
 
     /// Claude Code's record of a session, `projects/<folder>/<id>.jsonl`

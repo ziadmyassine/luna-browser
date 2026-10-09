@@ -14,7 +14,7 @@ extension ControlService {
 
     func beginActivity(_ command: ControlCommand, by client: ControlClient) -> UUID {
         let entry = ControlActivity.entry(
-            for: command, agent: client.session, client: client.displayName, appID: appID(of: client.session)
+            for: command, agent: client.session, client: client.shownName, appID: appID(of: client.session)
         )
         activity.insert(entry, at: 0)
         if activity.count > ControlActivity.kept { activity.removeLast(activity.count - ControlActivity.kept) }

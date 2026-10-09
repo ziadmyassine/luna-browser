@@ -65,7 +65,7 @@ extension ControlService {
         let local = NSPoint(x: point.x * zoom, y: webView.isFlipped ? top : webView.bounds.height - top)
         let clicks = if case .click = command { true } else { false }
         surface.point(
-            at: surface.convert(local, from: webView), client: client.displayName,
+            at: surface.convert(local, from: webView), client: client.shownName,
             tint: Tokens.Agent.tint(forApp: appID(of: client.session)),
             clicks: clicks
         )
