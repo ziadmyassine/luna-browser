@@ -200,8 +200,12 @@ public final class ContentBlocker {
     }
 
     private func scheduleRefresh() {
+        // Lists converted by an older converter are due now, not a day after
+        // they were fetched: a fix to the conversion otherwise waited out the
+        // rest of the 24 hours on the lists it fixes.
+        let current = defaults.string(forKey: Key.revision) == FilterListConverter.revision
         let delay = Self.refreshDelay(
-            since: defaults.object(forKey: Key.lastRefresh) as? Date,
+            since: current ? defaults.object(forKey: Key.lastRefresh) as? Date : nil,
             now: Date(),
             interval: refreshInterval,
             grace: hasCachedLists ? Self.postLaunchDelay : Self.firstRunDelay
@@ -241,7 +245,10 @@ public final class ContentBlocker {
             }
         }
 
-        if failures.isEmpty { defaults.set(Date(), forKey: Key.lastRefresh) }
+        if failures.isEmpty {
+            defaults.set(Date(), forKey: Key.lastRefresh)
+            defaults.set(FilterListConverter.revision, forKey: Key.revision)
+        }
         await removeStaleIdentifiers()
         publishStatus(failures: failures)
     }
@@ -417,6 +424,8 @@ public final class ContentBlocker {
 
     enum Key {
         static let lastRefresh = "blocking.lastRefresh"
+        /// The converter's revision the cached lists were made by.
+        static let revision = "blocking.converterRevision"
         static let httpsOnly = "blocking.httpsOnly"
         static func hash(_ category: Category) -> String { "blocking.hash.\(category.rawValue)" }
         static func chunks(_ category: Category) -> String { "blocking.chunks.\(category.rawValue)" }
