@@ -102,6 +102,12 @@ public final class ControlSessionTag: Sendable {
     /// How fresh a transcript must be to have just made a call.
     static let callWindow: TimeInterval = 30
 
+    /// The title of the last session a call was found to come from.
+    public var lastTitle: String? {
+        guard let last = found.withLock({ $0.last }) else { return nil }
+        return title(ofSession: last)
+    }
+
     private func title(ofSession session: String) -> String? {
         found.withLock { state in
             state.last = session

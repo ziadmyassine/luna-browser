@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// What a tool call produced: text, images, or an error the model should read.
 public struct ControlResult: Sendable, Equatable {
@@ -39,6 +40,8 @@ public typealias ControlPerformer = @Sendable (ControlCall, ControlClient) async
 /// An actor because a connection's messages are answered in the order they
 /// arrive and the client named in `initialize` belongs to that connection.
 public actor ControlSession {
+
+    static let log = Logger(subsystem: "dev.novapps.luna", category: "control")
 
     /// The versions this server speaks. A client asking for one of them gets
     /// it back; any other gets the newest, which is how MCP negotiates.
@@ -95,19 +98,33 @@ public actor ControlSession {
             return id.map { Self.reply(id: $0, result: ["tools": .array(ControlTools.all)]) }
         case "tools/call":
             guard let id else { return nil }
-            let meta = params["_meta"]
-            // A helper from before it could find the session by the call
-            // (`ControlSessionTag.name(forToolUse:)`) keeps running as long as
-            // the app that started it, so Luna looks it up as well.
-            if let name = meta?[ControlSessionTag.nameKey]?.string
-                ?? (client.displayName == ControlClient.sharedName ? ControlSessionTag.calls.name(ofCall: params) : nil) {
-                client.sessionName = name
-            }
-            return await call(id: id, params: params)
+            return await namedCall(id: id, params: params)
         default:
             // A notification — `initialized`, `cancelled` — needs nothing back.
             return id.map { Self.reply(id: $0, error: (-32601, "Method not found: \(method)")) }
         }
+    }
+
+    /// A call, with its session's name taken from it first.
+    private func namedCall(id: JSONValue, params: JSONValue) async -> Data? {
+        let meta = params["_meta"]
+        if let name = meta?[ControlSessionTag.nameKey]?.string { client.sessionName = name }
+        guard client.displayName == ControlClient.sharedName, meta?[ControlSessionTag.nameKey] == nil else {
+            return await call(id: id, params: params)
+        }
+        // Luna Control serves every session of the Claude app and its helper
+        // names none of them, so Luna finds the session by the call
+        // (`ControlSessionTag.name(ofCall:)`). A call the session has not
+        // written down yet takes the last session found, and is looked up
+        // again once it is done, for the next one.
+        let tags = ControlSessionTag.calls
+        let found = tags.name(ofCall: params)
+        if let name = found ?? tags.lastTitle { client.sessionName = name }
+        let reply = await call(id: id, params: params)
+        let after = found == nil ? tags.name(ofCall: params) : found
+        if let after { client.sessionName = after }
+        Self.log.debug("shared call \(params["name"]?.string ?? "?", privacy: .public): before \(found != nil), after \(after != nil)")
+        return reply
     }
 
     private func initializeResult(_ params: JSONValue) -> JSONValue {
