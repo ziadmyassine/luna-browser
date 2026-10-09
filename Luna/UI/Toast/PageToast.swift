@@ -64,6 +64,25 @@ struct PageToast: Equatable {
     static let markdownCopied = PageToast(symbol: "doc.on.clipboard", text: String(localized: "Markdown link copied"))
     static let codeCopied = PageToast(symbol: "doc.on.doc", text: String(localized: "Code copied"))
     static let markdownTextCopied = PageToast(symbol: "doc.on.doc", text: String(localized: "Markdown copied"))
+    static func linksCopied(_ count: Int) -> PageToast {
+        PageToast(symbol: "link", text: String(localized: "\(count) links copied"))
+    }
+
+    static let noLinksToPaste = PageToast(symbol: "doc.on.clipboard", text: String(localized: "No links on the clipboard"))
+
+    /// A paste past `BrowserSession.pasteAsksAbove`. Letting it go opens nothing.
+    static func openLinks(_ count: Int, open: @escaping @MainActor () -> Void) -> PageToast {
+        PageToast(
+            symbol: "doc.on.clipboard",
+            text: String(localized: "\(count) links on the clipboard"),
+            actions: [Action(
+                title: String(localized: "Open All"),
+                label: String(localized: "Open all \(count) links as tabs"),
+                run: open
+            )]
+        )
+    }
+
     static let cachesEmptied = PageToast(symbol: "trash", text: String(localized: "Caches emptied"))
 
     static func websiteDataCleared(_ host: String) -> PageToast {

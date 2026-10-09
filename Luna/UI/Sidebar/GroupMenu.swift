@@ -6,7 +6,7 @@
 //  one item the column's empty plane carries.
 //
 //  Its own menu rather than a longer §3.4a: half of §3.4a's items mean nothing
-//  on a folder — no address to copy, nothing to duplicate, no sound to mute,
+//  on a folder — no one address to copy, nothing to duplicate, no sound to mute,
 //  and a folder is never a tile — and a menu that greyed out five of its eight
 //  items would teach the user to stop opening it. A plain `NSMenu` with the
 //  glyphs in `attributedTitle`, for the reasons §3.4a records.
@@ -37,6 +37,12 @@ enum GroupMenu {
         var setSaved: ((Bool) -> Void)?
         var ungroup: () -> Void
         var close: () -> Void
+        /// Nil for a folder with no page in it. `asMarkdown` is the ⌥ alternate.
+        var copyLinks: ((_ asMarkdown: Bool) -> Void)?
+        /// Always offered: building the menu must not read the clipboard to
+        /// decide, which would be macOS's paste prompt. An empty one answers
+        /// with a toast.
+        var pasteLinks: () -> Void
         /// A Luna Control client's folder: pause, resume or stop the client.
         var agent: AgentActions?
     }
@@ -91,6 +97,9 @@ enum GroupMenu {
         ))
         menu.addItem(.separator())
 
+        for item in linkItems(actions) { menu.addItem(item) }
+        menu.addItem(.separator())
+
         // §3.4b: a folder stands on one side of the rule or the other, and its
         // tabs stand with it. Above it is pinned — the tier under §3.3's tiles,
         // which holds folders and nothing else; below it is one more thing in
@@ -122,6 +131,26 @@ enum GroupMenu {
             action: actions.close
         ))
         return menu
+    }
+
+    /// Copy Links, with its Markdown form behind ⌥, and Paste Links.
+    private static func linkItems(_ actions: Actions) -> [NSMenuItem] {
+        var items: [NSMenuItem] = []
+        if let copyLinks = actions.copyLinks {
+            items.append(SidebarMenu.glyphItem(String(localized: "Copy Links"), symbol: "link") { copyLinks(false) })
+            let markdown = SidebarMenu.glyphItem(String(localized: "Copy Links as Markdown"), symbol: "link") {
+                copyLinks(true)
+            }
+            markdown.isAlternate = true
+            markdown.keyEquivalentModifierMask = .option
+            items.append(markdown)
+        }
+        items.append(SidebarMenu.glyphItem(
+            String(localized: "Paste Links"),
+            symbol: "doc.on.clipboard",
+            action: actions.pasteLinks
+        ))
+        return items
     }
 
     /// The one item the empty part of the column carries (§3.4b).

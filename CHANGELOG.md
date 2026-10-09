@@ -9,6 +9,11 @@ under Unreleased; a release will take the entries since the last one.
 
 - **The page stays still while Astro's panel slides** (§3.2b): the page slid sideways with the panel and jumped back when it stopped, and the page bar's pill and extensions jumped to their new places on the first frame. The page now keeps its left edge, and the bar's controls slide with the page's edge — when the sidebar comes and goes too.
 
+### 2026-10-08
+
+- **Copy a folder's links, and paste links to open them** (§3.4b): right-click a folder › Copy Links puts every page in it on the clipboard, one per line, the way Dia and Arc copy theirs; hold ⌥ for Copy Links as Markdown, one `[title](link)` per line. Press ⌘V in the sidebar, or choose a folder's Paste Links, and each link opens as a tab in the order it was copied; more than 15 asks first. Text with links in it can now be dragged onto the sidebar or into a folder too.
+- **Block annoyances leaves cookie pop-ups alone** (§17.2): the list's cookie-consent rules are no longer applied, so a site's cookie banner shows and you answer it yourself. Sites that wait for that answer now work — Planday's sign-in kept its fields switched off behind a banner Luna had hidden. The fix that cleared the cover a hidden pop-up left behind is gone with it.
+
 ### 2026-10-06
 
 - **A New Task button in Astro's panel**: beside ⋯ at the top, it clears the panel for the next task and puts the cursor in the field. A task still running carries on and is in History.

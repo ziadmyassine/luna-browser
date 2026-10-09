@@ -19,6 +19,16 @@ import BrowserKit
 
 extension TabListController {
 
+    /// ⌘V on the list: below the selected row, inside its folder if it is
+    /// in one, the way an editor pastes after the selection; with none, the
+    /// head of Today.
+    func pasteLinks() {
+        let row = table.selectedRow
+        onPasteLinks?(row >= 0
+            ? list.destination(forRow: row, isBelowMidpoint: true)
+            : SidebarDestination(kind: .today, groupID: nil, index: 0))
+    }
+
     /// Only tabs have a menu: `+ Add Tab` and the rule are commands, and a context menu on
     /// a command is a menu with nothing in it.
     ///

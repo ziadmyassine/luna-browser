@@ -51,6 +51,8 @@ final class TabListController: NSObject {
     var menuActions: ((UUID) -> TabMenu.Actions?)?
     /// The same menu for several marked tabs — `BrowserSession.tabMenuActions(for:)`.
     var manyMenuActions: (([UUID]) -> TabMenu.ManyActions?)?
+    /// ⌘V on the list, with where the links land.
+    var onPasteLinks: ((SidebarDestination) -> Void)?
 
     private(set) var list = SidebarList()
     /// What the list was last handed, so a drag can rebuild the rows with
@@ -195,6 +197,7 @@ final class TabListController: NSObject {
         table.onFocusChange = { [weak self] in self?.movePills() }
         table.onHover = { [weak self] row in self?.setHovered(row) }
         table.onContextMenu = { [weak self] row in self?.contextMenu(forRow: row) }
+        table.onPaste = { [weak self] in self?.pasteLinks() }
 
         for pill in [selectionPill, hoverPill, groupPlate] {
             pill.alphaValue = 0

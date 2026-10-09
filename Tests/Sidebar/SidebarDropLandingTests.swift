@@ -76,9 +76,48 @@ final class SidebarDropLandingTests: XCTestCase {
         XCTAssertEqual(loose.maxX, inside.maxX, accuracy: 0.01, "the pill grew instead of stepping in")
     }
 
+    // MARK: - ⌘V in the list
+
+    /// The editor's idiom: what is pasted goes in after the selection.
+    func testPasteLandsBelowTheSelectedRow() throws {
+        let controller = try list()
+        XCTAssertEqual(pasted(in: controller), SidebarDestination(kind: .today, groupID: nil, index: 1))
+    }
+
+    func testPasteInsideAFolderLandsInTheFolder() throws {
+        let group = TabGroup(spaceID: space, name: "Work")
+        let inside = (0 ..< 2).map { index in
+            Tab(
+                spaceID: space,
+                kind: .today,
+                url: URL(string: "https://example.com/in\(index)")!,
+                order: index,
+                groupID: group.id
+            )
+        }
+        let controller = TabListController()
+        controller.scrollView.frame = NSRect(x: 0, y: 0, width: 260, height: 400)
+        controller.show(saved: [], today: [.group(group, tabs: inside)], essentials: [], activeTabID: inside[0].id)
+        XCTAssertEqual(pasted(in: controller), SidebarDestination(kind: .today, groupID: group.id, index: 1))
+    }
+
+    /// With nothing selected, where a drop on the empty card goes.
+    func testPasteWithNothingSelectedLandsAtTheHeadOfToday() throws {
+        let controller = try list(activeTab: nil)
+        XCTAssertEqual(pasted(in: controller), SidebarDestination(kind: .today, groupID: nil, index: 0))
+    }
+
+    /// Edit ▸ Paste on the list, as the responder chain sends it.
+    private func pasted(in controller: TabListController) -> SidebarDestination? {
+        var landing: SidebarDestination?
+        controller.onPasteLinks = { landing = $0 }
+        controller.table.paste(nil)
+        return landing
+    }
+
     // MARK: - Fixtures
 
-    private func list() throws -> TabListController {
+    private func list(activeTab: Int? = 0) throws -> TabListController {
         let tabs = (0 ..< 4).map { index in
             Tab(
                 spaceID: space,
@@ -90,7 +129,7 @@ final class SidebarDropLandingTests: XCTestCase {
         }
         let controller = TabListController()
         controller.scrollView.frame = NSRect(x: 0, y: 0, width: 260, height: 400)
-        controller.show(saved: [], today: tabs.map(SidebarSlot.tab), essentials: [], activeTabID: tabs[0].id)
+        controller.show(saved: [], today: tabs.map(SidebarSlot.tab), essentials: [], activeTabID: activeTab.map { tabs[$0].id })
         controller.table.layoutSubtreeIfNeeded()
         XCTAssertGreaterThan(controller.table.numberOfRows, 4, "the fixture has no rows to land between")
         return controller

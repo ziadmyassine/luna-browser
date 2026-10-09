@@ -202,7 +202,7 @@ extension BrowserSession {
         )
     }
 
-    /// §3.4b's four, bound to one folder. Same shape and the same reasons: the menu is
+    /// §3.4b's folder verbs, bound to one folder. Same shape and the same reasons: the menu is
     /// modal and outlives nothing, but it is the menu holding these and a window can
     /// close under it.
     ///
@@ -215,6 +215,9 @@ extension BrowserSession {
             setSaved: allowsPinning ? { [weak self] saved in self?.setGroupSaved(saved, group: id) } : nil,
             ungroup: { [weak self] in self?.ungroup(id) },
             close: { [weak self] in self?.closeGroup(id) },
+            copyLinks: members(ofGroup: id).contains { $0.url != Self.blankPage }
+                ? { [weak self] markdown in self?.copyLinks(ofGroup: id, asMarkdown: markdown) } : nil,
+            pasteLinks: { [weak self] in self?.pasteLinks(intoGroup: id) },
             agent: ControlService.current?.menuActions(forFolder: id)
         )
     }
