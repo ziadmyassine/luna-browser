@@ -25,6 +25,7 @@ no server and no analytics.
 - **Chrome extensions** from the Chrome Web Store, with the permissions you grant
 - **Reader and Markdown**: a clean reading view for articles, and `.md` files rendered, outlined and editable in the tab
 - **Luna Control**: let an AI app (Claude, Codex, Cursor, VS Code) read and drive your tabs, with your approval
+- **Astro** (`⌘E`), Luna's own agent in a panel beside the page, on your Claude or ChatGPT plan — in early development, with a lot of work still to do
 - **Passwords** filled from the macOS Keychain behind Touch ID
 - **Content blocking**, HTTPS-Only and per-site settings; hide anything on a page for good
 - **Pinned tabs in Safari's Favorites**, so they follow you to Safari on the iPhone; iCloud sync of Spaces and tabs is on its way

@@ -288,6 +288,10 @@ all.
 
 ## The agent panel
 
+> **Early development.** Astro works, but it is young: expect rough edges in
+> how it plans, how it shows its work and how it recovers from a failed step.
+> It needs a lot of continued work, and what is described here will change.
+
 Luna's own agent, beside the page: `⌘E` (View ▸ Show Agent, and Astro's face
 at the end of the page bar's extensions cylinder, in the sidebar's pill or in
 the top bar's buttons) shows and hides a column on

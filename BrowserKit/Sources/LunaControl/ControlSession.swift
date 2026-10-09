@@ -42,6 +42,9 @@ public typealias ControlPerformer = @Sendable (ControlCall, ControlClient) async
 public actor ControlSession {
 
     static let log = Logger(subsystem: "dev.novapps.luna", category: "control")
+    /// How long a Luna Control call waits for its session to write it down,
+    /// so a session's first call is already named after it.
+    static let nameWait: TimeInterval = 1.5
 
     /// The versions this server speaks. A client asking for one of them gets
     /// it back; any other gets the newest, which is how MCP negotiates.
@@ -114,16 +117,20 @@ public actor ControlSession {
         }
         // Luna Control serves every session of the Claude app and its helper
         // names none of them, so Luna finds the session by the call
-        // (`ControlSessionTag.name(ofCall:)`). A call the session has not
-        // written down yet takes the last session found, and is looked up
-        // again once it is done, for the next one.
+        // (`ControlSessionTag.name(ofCall:)`). The call can arrive a moment
+        // before its session has written it down, so it is looked for again
+        // for up to `nameWait`; only then does it take the last session found.
         let tags = ControlSessionTag.calls
-        let found = tags.name(ofCall: params)
+        let started = Date()
+        var found = tags.name(ofCall: params)
+        while found == nil, Date().timeIntervalSince(started) < Self.nameWait {
+            try? await Task.sleep(for: .milliseconds(50))
+            found = tags.name(ofCall: params)
+        }
         if let name = found ?? tags.lastTitle { client.sessionName = name }
         let reply = await call(id: id, params: params)
-        let after = found == nil ? tags.name(ofCall: params) : found
-        if let after { client.sessionName = after }
-        Self.log.debug("shared call \(params["name"]?.string ?? "?", privacy: .public): before \(found != nil), after \(after != nil)")
+        if found == nil, let after = tags.name(ofCall: params) { client.sessionName = after }
+        Self.log.debug("Luna Control call \(params["name"]?.string ?? "?", privacy: .public) named: \(found != nil)")
         return reply
     }
 
