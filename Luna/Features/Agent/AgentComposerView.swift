@@ -16,6 +16,9 @@ import AppKit
 final class AgentComposerView: NSView, NSTextViewDelegate {
 
     var onSend: ((String) -> Void)?
+    /// How far the field stands above its one-line height, said inside the
+    /// animation that grows it, so the conversation can make room in step.
+    var onGrow: ((CGFloat) -> Void)?
     var onStop: (() -> Void)?
 
     var isRunning = false { didSet { if isRunning != oldValue { refresh() } } }
@@ -131,13 +134,19 @@ final class AgentComposerView: NSView, NSTextViewDelegate {
     private func fit(animated: Bool = true) {
         let target = fittingHeight
         guard let height, abs(height.constant - target) > 0.5 else { return }
+        let rise = target - Tokens.Metric.agentComposerHeight
         guard animated, window != nil, let container = superview else {
             height.constant = target
+            onGrow?(rise)
             return
         }
-        Tokens.Motion.animate(Tokens.Motion.commandBarMorph) { context in
+        // The field grows over the foot of the conversation rather than
+        // pushing it: re-laying out the conversation, its blurred edges and
+        // its fade on every new line was what made this stutter.
+        Tokens.Motion.animate(Tokens.Motion.composerGrow) { context in
             context.allowsImplicitAnimation = true
             height.constant = target
+            onGrow?(rise)
             container.layoutSubtreeIfNeeded()
         }
         field.scrollRangeToVisible(field.selectedRange())

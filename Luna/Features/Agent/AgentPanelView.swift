@@ -160,12 +160,16 @@ final class AgentPanelView: NSView {
             transcript.topAnchor.constraint(equalTo: titleCapsule.bottomAnchor, constant: Tokens.Metric.chromeGap),
             transcript.leadingAnchor.constraint(equalTo: leadingAnchor),
             transcript.trailingAnchor.constraint(equalTo: trailingAnchor),
-            transcript.bottomAnchor.constraint(equalTo: composer.topAnchor, constant: -Tokens.Metric.chromeGap),
+            // Where the field's top stands at one line. A field that grows
+            // grows over the conversation (`AgentTranscriptView.keepClear`).
+            transcript.bottomAnchor.constraint(
+                equalTo: bottomAnchor, constant: -(inset + Tokens.Metric.agentComposerHeight + Tokens.Metric.chromeGap)
+            ),
 
             empty.topAnchor.constraint(equalTo: topAnchor),
             empty.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
             empty.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
-            empty.bottomAnchor.constraint(equalTo: composer.topAnchor),
+            empty.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -(inset + Tokens.Metric.agentComposerHeight)),
 
             composer.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
             composer.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
@@ -178,6 +182,7 @@ final class AgentPanelView: NSView {
         more.onActivate = { [weak self] in self?.showMenu() }
         fresh.onActivate = { [weak self] in self?.startOver() }
         transcript.onOpenLink = { [weak self] url in self?.onOpenLink?(url) }
+        composer.onGrow = { [weak self] rise in self?.transcript.keepClear(of: rise) }
         composer.onSend = { [weak self] text in self?.center.send(text) }
         composer.onStop = { [weak self] in self?.center.stop() }
         empty.onAction = { [weak self] action in self?.perform(action) }

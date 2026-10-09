@@ -150,6 +150,11 @@ extension Tokens {
         /// a jump, so it takes longer on a curve that starts as gently as it
         /// lands.
         static let commandBarMorph = MotionSpec(0.26, .easeInOut)
+        /// The agent's field taking another line as the words wrap. Shorter
+        /// than `commandBarMorph` and off at speed: typed at six keys a second a
+        /// new line arrives every 0.17 s or so, and a 0.26 s ease-in-out was
+        /// still starting to move when the next one came, which read as lag.
+        static let composerGrow = MotionSpec(0.16, .easeOut)
         /// Downloads popover in: scale 0.94 → 1.0, from the tail anchor (§5).
         static let popoverIn = MotionSpec(response: 0.20, damping: 0.80, settling: 0.20)
         /// Hover-peek reveal — the slide. `hoverPeekDelay` is the intent delay

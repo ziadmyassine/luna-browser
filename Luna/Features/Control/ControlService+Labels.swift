@@ -121,6 +121,9 @@ extension ControlFace {
 
     /// The `appID` of a folder Astro is working in.
     static let astro = "astro"
+    /// The `appID` of a client that names itself after Luna rather than after
+    /// itself, shown as Luna Control (`ControlClient.displayName`): the moon.
+    static let lunaControl = "luna-control"
 
     var isAstro: Bool { appID == Self.astro }
 }

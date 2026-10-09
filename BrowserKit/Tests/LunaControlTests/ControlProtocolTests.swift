@@ -147,7 +147,8 @@ struct ControlProtocolTests {
         ("goose", "Goose"),
         ("", "Agent"),
         ("---", "Agent"),
-        ("mcp", "Mcp")
+        ("mcp", "Mcp"),
+        ("local-agent-mode-luna", "Luna Control")
     ])
     func prettifiesClientNames(raw: String, pretty: String) {
         #expect(ControlClient.displayName(for: raw) == pretty)

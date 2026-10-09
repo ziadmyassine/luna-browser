@@ -406,6 +406,10 @@ enum ControlAppIcon {
 
     /// Nil only for an app Luna ships no icon for.
     static func image(for appID: String) -> NSImage? {
-        assets[appID].flatMap { NSImage(named: $0) }
+        if appID == ControlFace.lunaControl {
+            let side = Tokens.Metric.faviconSize
+            return RowEmoji.image("🌙", pointSize: side, ink: side)
+        }
+        return assets[appID].flatMap { NSImage(named: $0) }
     }
 }

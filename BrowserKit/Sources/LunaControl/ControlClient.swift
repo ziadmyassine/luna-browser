@@ -40,8 +40,14 @@ public struct ControlClient: Sendable, Hashable {
     /// that only says what kind of program it is (`mcp`, `client`, `cli`) is
     /// dropped; a common initialism (`ai`, `gpt`) is capitalised whole; a word
     /// that is already mixed or upper case keeps its spelling.
+    ///
+    /// The one name read as a whole: Claude's desktop app connects in its
+    /// local agent mode as `local-agent-mode-luna`, after the server it talks
+    /// to rather than after itself, which read back as "Local Agent Mode Luna".
+    /// It is shown as the feature it is using.
     public static func displayName(for rawName: String) -> String {
         var words = split(rawName)
+        if words.prefix(3).map({ $0.lowercased() }) == ["local", "agent", "mode"] { return "Luna Control" }
         let noise: Set<String> = ["mcp", "client", "cli", "app", "server", "vscode", "desktop", "ide"]
         while words.count > 1, let last = words.last, noise.contains(last.lowercased()) {
             words.removeLast()

@@ -109,6 +109,13 @@ final class AgentLookTests: XCTestCase {
         XCTAssertEqual(opened?.absoluteString, "https://example.com/hotel")
     }
 
+    /// A client named after Luna is Luna Control, and wears the moon.
+    func testLunaControlWearsTheMoon() throws {
+        let moon = try XCTUnwrap(ControlAppIcon.image(for: ControlFace.lunaControl))
+        XCTAssertFalse(moon.isTemplate, "an emoji keeps its own colours")
+        XCTAssertEqual(ControlClient.displayName(for: "local-agent-mode-luna"), "Luna Control")
+    }
+
     func testAstroWavesWhileItAsksTheUser() {
         let task = AgentTask(id: UUID(), prompt: "x")
         task.beginTurn()

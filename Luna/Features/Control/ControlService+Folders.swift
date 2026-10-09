@@ -43,6 +43,7 @@ extension ControlService {
 
     func appID(of agent: String) -> String? {
         if Self.astroTasks[agent] != nil { return ControlFace.astro }
+        if agents[agent]?.displayName == "Luna Control" { return ControlFace.lunaControl }
         return agents[agent].flatMap { ControlApp.app(forClient: $0.rawName)?.id }
     }
 

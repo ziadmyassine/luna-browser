@@ -28,6 +28,11 @@ final class AgentTranscriptView: NSView {
     private let thinking = AgentThinkingLine()
     private let topBlur = AgentEdgeBlur(edge: .top)
     private let bottomBlur = AgentEdgeBlur(edge: .bottom)
+    /// The column's room under its last item, and the bottom fade's place:
+    /// both rise with a field grown over the conversation (`keepClear`).
+    private var foot: NSLayoutConstraint?
+    private var blurFoot: NSLayoutConstraint?
+    private var clearance: CGFloat = 0
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -50,6 +55,9 @@ final class AgentTranscriptView: NSView {
         column.addSubview(stack)
         column.translatesAutoresizingMaskIntoConstraints = false
         let inset = Tokens.Metric.agentPanelInset
+        let foot = stack.bottomAnchor.constraint(equalTo: column.bottomAnchor, constant: -AgentEdgeBlur.depth)
+        let blurFoot = bottomBlur.bottomAnchor.constraint(equalTo: bottomAnchor)
+        (self.foot, self.blurFoot) = (foot, blurFoot)
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -62,12 +70,12 @@ final class AgentTranscriptView: NSView {
             stack.topAnchor.constraint(equalTo: column.topAnchor, constant: AgentEdgeBlur.depth),
             stack.leadingAnchor.constraint(equalTo: column.leadingAnchor, constant: inset),
             stack.trailingAnchor.constraint(equalTo: column.trailingAnchor, constant: -inset),
-            stack.bottomAnchor.constraint(equalTo: column.bottomAnchor, constant: -AgentEdgeBlur.depth),
+            foot,
             topBlur.topAnchor.constraint(equalTo: topAnchor),
             topBlur.leadingAnchor.constraint(equalTo: leadingAnchor),
             topBlur.trailingAnchor.constraint(equalTo: trailingAnchor),
             topBlur.heightAnchor.constraint(equalToConstant: AgentEdgeBlur.depth),
-            bottomBlur.bottomAnchor.constraint(equalTo: bottomAnchor),
+            blurFoot,
             bottomBlur.leadingAnchor.constraint(equalTo: leadingAnchor),
             bottomBlur.trailingAnchor.constraint(equalTo: trailingAnchor),
             bottomBlur.heightAnchor.constraint(equalToConstant: AgentEdgeBlur.depth)
@@ -218,6 +226,37 @@ final class AgentTranscriptView: NSView {
     private func remember(_ view: NSView, _ id: String) -> NSView {
         views[id] = view
         return view
+    }
+
+    /// Room for the field grown `rise` over the conversation's foot, inside
+    /// the field's own animation. The bottom fade rises with the field's top
+    /// edge, and a conversation read to its end scrolls up in the same
+    /// movement — a scroll, not a layout, which is what keeps it smooth.
+    func keepClear(of rise: CGFloat) {
+        guard rise != clearance else { return }
+        let atEnd = isScrolledToEnd
+        let growing = rise > clearance
+        let change = rise - clearance
+        clearance = rise
+        blurFoot?.constant = -rise
+        layoutSubtreeIfNeeded()
+        let setFoot = { [self] in
+            Tokens.Motion.immediately {
+                foot?.constant = -(AgentEdgeBlur.depth + rise)
+                column.layoutSubtreeIfNeeded()
+            }
+        }
+        // Growing, the room is made first, so the scroll has somewhere to go;
+        // shrinking, it is taken away after, or the clip would snap the
+        // conversation down a line before the field had moved.
+        if growing { setFoot() }
+        if atEnd {
+            let origin = scrollView.contentView.bounds.origin
+            scrollView.contentView.animator().setBoundsOrigin(NSPoint(x: origin.x, y: max(origin.y + change, 0)))
+        }
+        if !growing {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Tokens.Motion.composerGrow.duration) { setFoot() }
+        }
     }
 
     /// Ticks "Working for" while a turn runs.
