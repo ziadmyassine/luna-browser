@@ -33,6 +33,9 @@ extension Tokens.Metric {
     /// The field the user writes in, and the gap between conversation items:
     /// at 10 a reply's paragraphs and the card beside them ran together.
     static let agentComposerHeight: CGFloat = 44
+    /// The most lines the field grows to before it scrolls: room for a task
+    /// written as a paragraph, while the conversation keeps most of the panel.
+    static let agentComposerLines = 6
     static let agentItemGap: CGFloat = 14
     /// Above each of the user's messages after the first, so a turn reads
     /// as a turn: about two lines of the conversation's type.

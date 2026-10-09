@@ -46,9 +46,9 @@ enum AgentMenus {
     }
 
     /// The model, then what can be done to the task on show, then the panel.
+    /// New Task is not here: it has a button of its own beside this one.
     static func more(
-        _ center: AgentCenter, newTask: @escaping () -> Void, revealFolder: @escaping (AgentTask) -> Void,
-        hide: @escaping () -> Void
+        _ center: AgentCenter, revealFolder: @escaping (AgentTask) -> Void, hide: @escaping () -> Void
     ) -> SiteSettingsContent {
         var content = SiteSettingsContent(heading: center.current?.title ?? String(localized: "Astro"))
         content.symbol = "sparkles"
@@ -57,7 +57,7 @@ enum AgentMenus {
         choice.selectedIndex = engines.firstIndex(of: AgentEngine.chosen) ?? 0
         choice.onSelect = { center.use(engines[$0]) }
         content.controls = [[.init(title: String(localized: "Runs on"), symbol: "cpu", view: choice)]]
-        var task: [SiteSettingsContent.Action] = [.init(title: String(localized: "New Task"), symbol: "plus.bubble", run: newTask)]
+        var task: [SiteSettingsContent.Action] = []
         if let current = center.current {
             if current.status.isRunning {
                 task.append(.init(title: String(localized: "Stop"), symbol: "stop.circle") { center.stop() })
@@ -70,7 +70,7 @@ enum AgentMenus {
             },
             .init(title: String(localized: "Hide Astro"), symbol: "sidebar.trailing", run: hide)
         ]
-        content.actions = [task, panel]
+        content.actions = [task, panel].filter { !$0.isEmpty }
         return content
     }
 

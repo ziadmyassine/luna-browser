@@ -7,6 +7,8 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-10
 
+- **Astro's field grows as you write**: it takes another line each time the words wrap, sliding up smoothly with the conversation giving way above it, up to six lines; past that it scrolls, its top and bottom edges fading. Shift-Return or Option-Return starts a new line; Return still sends.
+- **New Task is off the ⋯ pop-out**: it has its own button beside ⋯.
 - **Astro's New Task button is always there**, and History and ⋯ work on an empty panel: the empty panel's view lay over the three buttons at the top and took their clicks, and New Task hid itself until a task was on show.
 - **The page stays still while Astro's panel slides** (§3.2b): the page slid sideways with the panel and jumped back when it stopped, and the page bar's pill and extensions jumped to their new places on the first frame. The page now keeps its left edge, and the bar's controls slide with the page's edge — when the sidebar comes and goes too.
 

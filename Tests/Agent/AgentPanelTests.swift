@@ -91,6 +91,28 @@ final class AgentPanelTests: XCTestCase {
         }
     }
 
+    /// One line is the capsule; wrapped words grow it a line at a time; past
+    /// `agentComposerLines` it stops and scrolls.
+    func testTheFieldGrowsWithItsWordsUpToACap() {
+        let composer = AgentComposerView()
+        composer.frame = NSRect(x: 0, y: 0, width: Tokens.Metric.agentPanelWidth - 32, height: Tokens.Metric.agentComposerHeight)
+        composer.layoutSubtreeIfNeeded()
+        composer.layout()
+        let one = Tokens.Metric.agentComposerHeight
+        composer.text = "Find a hotel"
+        XCTAssertEqual(composer.fittingHeight, one, accuracy: 0.5)
+        composer.text = "Find me a quiet hotel in Lisbon near Alfama for two nights in May, under 150 a night"
+        let grown = composer.fittingHeight
+        XCTAssertGreaterThan(grown, one, "wrapped words should grow the field")
+        composer.text = String(repeating: "Find me a quiet hotel in Lisbon near Alfama. ", count: 30)
+        let capped = composer.fittingHeight
+        XCTAssertGreaterThan(capped, grown)
+        composer.text += String(repeating: "More words. ", count: 50)
+        XCTAssertEqual(composer.fittingHeight, capped, accuracy: 0.5, "past the cap it scrolls instead")
+        composer.text = ""
+        XCTAssertEqual(composer.fittingHeight, one, accuracy: 0.5, "and an empty field is one line again")
+    }
+
     func testThePanelDraws() throws {
         for name in [NSAppearance.Name.aqua, .darkAqua] {
             let panel = AgentPanelView()

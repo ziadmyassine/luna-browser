@@ -167,8 +167,7 @@ final class AgentPanelView: NSView {
 
             composer.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
             composer.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
-            composer.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -inset),
-            composer.heightAnchor.constraint(equalToConstant: Tokens.Metric.agentComposerHeight)
+            composer.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -inset)
         ])
     }
 
@@ -263,9 +262,7 @@ final class AgentPanelView: NSView {
     }
 
     private func showMenu() {
-        let content = AgentMenus.more(center) { [weak self] in
-            self?.startOver()
-        } revealFolder: { [weak self] task in
+        let content = AgentMenus.more(center) { [weak self] task in
             self?.onRevealFolder?(task.id.uuidString.lowercased())
         } hide: { [weak self] in
             self?.onClose?()
