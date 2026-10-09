@@ -10,6 +10,20 @@ import WebKit
 @MainActor
 struct CosmeticFilterTests {
 
+    // MARK: - What a hide is matched against
+
+    /// A hide is matched against the page's own load and nothing else: against
+    /// every image and script, 45,000 of them made each request cost 1.2 ms in
+    /// the web process, and a page firing tracking pixels as you typed lagged.
+    @Test func aHideIsMatchedOnlyAgainstThePage() {
+        let conversion = FilterListConverter.convert("""
+        ##.ad
+        one.example##.banner
+        """)
+        #expect(conversion.hides.count == 2)
+        #expect(conversion.hides.allSatisfy { $0.trigger.resourceType == ["document"] })
+    }
+
     // MARK: - Cookie sections
 
     /// The list's cookie sections are dropped whole: a consent screen is the page's
