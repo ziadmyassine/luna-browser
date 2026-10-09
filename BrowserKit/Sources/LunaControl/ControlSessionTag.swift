@@ -50,7 +50,7 @@ public final class ControlSessionTag: Sendable {
             meta[Self.sessionKey] = .string(session)
             if let name { meta[Self.nameKey] = .string(name) }
         case "tools/call":
-            guard let name = name ?? meta[Self.toolUseKey]?.string.flatMap(name(forToolUse:)) else { return message }
+            guard let name = name ?? name(ofCall: .object(params)) else { return message }
             meta[Self.nameKey] = .string(name)
         default:
             return message
@@ -69,6 +69,49 @@ public final class ControlSessionTag: Sendable {
     /// in the user's `~/.claude`, for calls that arrive without a name.
     public static let calls = ControlSessionTag(environment: [:])
 
+    /// The title of the session that made a call — `params` being the call's —
+    /// by its tool-use id if the client passed one, else by the call itself.
+    public func name(ofCall params: JSONValue) -> String? {
+        if let id = params["_meta"]?[Self.toolUseKey]?.string, let name = name(forToolUse: id) { return name }
+        guard let tool = params["name"]?.string else { return nil }
+        return name(forCall: tool, arguments: params["arguments"])
+    }
+
+    /// The session whose transcript has just written this very call: the
+    /// tool's name as the session knows it (`mcp__luna__tab_open`) and the
+    /// same arguments. The Claude app's agent mode does not pass the tool-use
+    /// id on (measured), so this is how its calls are told apart.
+    func name(forCall tool: String, arguments: JSONValue?) -> String? {
+        let qualified = "mcp__\(ControlApp.serverName)__\(tool)"
+        let needle = Data("\"name\":\"\(qualified)\"".utf8)
+        let wrote = { (file: URL) -> Bool in
+            let lines = Self.tail(of: file).split(separator: UInt8(ascii: "\n")).reversed().prefix(400)
+            return lines.contains { line in
+                guard line.range(of: needle) != nil, let record = JSONValue.parse(Data(line)),
+                      case let .array(items)? = record["message"]?["content"] else { return false }
+                return items.contains { item in
+                    item["type"]?.string == "tool_use" && item["name"]?.string == qualified
+                        && (item["input"] ?? .object([:])) == (arguments ?? .object([:]))
+                }
+            }
+        }
+        guard let file = Self.recentTranscripts(in: projects, within: Self.callWindow).first(where: wrote) else { return nil }
+        return title(ofSession: file.deletingPathExtension().lastPathComponent)
+    }
+
+    /// How fresh a transcript must be to have just made a call.
+    static let callWindow: TimeInterval = 30
+
+    private func title(ofSession session: String) -> String? {
+        found.withLock { state in
+            state.last = session
+            var transcript = state.sessions[session] ?? Transcript(root: projects.deletingLastPathComponent(), session: session)
+            let name = transcript.name()
+            state.sessions[session] = transcript
+            return name
+        }
+    }
+
     /// The title of the session a call comes from, found by the call's
     /// tool-use id in the transcripts written to in the last few minutes.
     ///
@@ -86,13 +129,7 @@ public final class ControlSessionTag: Sendable {
             ?? Self.recentTranscripts(in: projects).first(where: wrote)?
             .deletingPathExtension().lastPathComponent
         guard let session else { return nil }
-        return found.withLock { state in
-            state.last = session
-            var transcript = state.sessions[session] ?? Transcript(root: projects.deletingLastPathComponent(), session: session)
-            let name = transcript.name()
-            state.sessions[session] = transcript
-            return name
-        }
+        return title(ofSession: session)
     }
 
     /// How recently a transcript must have been written to, and how much of
@@ -105,7 +142,7 @@ public final class ControlSessionTag: Sendable {
     }
 
     /// The transcripts written to within `recentWindow`, newest first.
-    static func recentTranscripts(in projects: URL, now: Date = Date()) -> [URL] {
+    static func recentTranscripts(in projects: URL, within window: TimeInterval = recentWindow, now: Date = Date()) -> [URL] {
         let manager = FileManager.default
         let folders = (try? manager.contentsOfDirectory(at: projects, includingPropertiesForKeys: nil)) ?? []
         let files = folders.flatMap { folder in
@@ -114,7 +151,7 @@ public final class ControlSessionTag: Sendable {
         }
         let dated = files.compactMap { file -> (URL, Date)? in
             guard let date = try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
-                  now.timeIntervalSince(date) < recentWindow else { return nil }
+                  now.timeIntervalSince(date) < window else { return nil }
             return (file, date)
         }
         return dated.sorted { $0.1 > $1.1 }.map(\.0)

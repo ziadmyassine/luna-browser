@@ -100,7 +100,7 @@ public actor ControlSession {
             // (`ControlSessionTag.name(forToolUse:)`) keeps running as long as
             // the app that started it, so Luna looks it up as well.
             if let name = meta?[ControlSessionTag.nameKey]?.string
-                ?? meta?[ControlSessionTag.toolUseKey]?.string.flatMap(ControlSessionTag.calls.name(forToolUse:)) {
+                ?? (client.displayName == ControlClient.sharedName ? ControlSessionTag.calls.name(ofCall: params) : nil) {
                 client.sessionName = name
             }
             return await call(id: id, params: params)

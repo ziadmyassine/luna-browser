@@ -174,6 +174,20 @@ struct ControlRelayTests {
             "params": ["name": "tab_open", "_meta": ["claudecode/toolUseId": "toolu_01Luna"]]
         ]
         #expect(tag.stamp(call)?["params"]?["_meta"]?[ControlSessionTag.nameKey]?.string == "Main 2")
+        // The Claude app passes no tool-use id: the call itself is matched.
+        let bare: JSONValue = [
+            "jsonrpc": "2.0", "id": 4, "method": "tools/call",
+            "params": ["name": "tab_open", "arguments": ["url": "https://example.com"]]
+        ]
+        let made = #"{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_02","name":"mcp__luna__tab_open","#
+            + #""input":{"url":"https://example.com"}}]}}"#
+        try Data((lines.joined(separator: "\n") + "\n" + made).utf8).write(to: folder.appending(path: "abc.jsonl"))
+        #expect(tag.stamp(bare)?["params"]?["_meta"]?[ControlSessionTag.nameKey]?.string == "Main 2")
+        let other: JSONValue = [
+            "jsonrpc": "2.0", "id": 5, "method": "tools/call",
+            "params": ["name": "tab_open", "arguments": ["url": "https://elsewhere.example"]]
+        ]
+        #expect(tag.stamp(other)?["params"]?["_meta"]?[ControlSessionTag.nameKey] == nil, "a call no session made")
         let unknown: JSONValue = [
             "jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": ["_meta": ["claudecode/toolUseId": "toolu_none"]]
         ]
