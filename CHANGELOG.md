@@ -7,6 +7,10 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-10
 
+- **Links in Astro's replies look like links**: in Astro's lavender, a weight up from the words round them; under the pointer a rounded lavender glow fades in behind them and the pointer becomes a hand; a click opens the page in a new Luna tab instead of the system's browser. The same in tables and quotes.
+- **Astro shows on the tab it works in, not on its folder's line**: the folder keeps its lavender outline, and a raised hand when Astro needs you.
+- **Tabs without a favicon wear their kind** (§3.4a): a Markdown document, an HTML file, a PDF, a text file, an image, a video or a sound file has its own icon, and a page from a server on this Mac (localhost, 127.0.0.1, .test, .local) a server's — instead of the globe for all of them.
+- **The globe stands level with its tab's name** (§3.4): every symbol was lifted by the amount measured for the plus sign, whose drawing sits low in its box; the globe's is centred, so it stood half a point high. Each symbol is now lifted by where its own drawing sits.
 - **Astro's field grows as you write**: it takes another line each time the words wrap, sliding up smoothly with the conversation giving way above it, up to six lines; past that it scrolls, its top and bottom edges fading. Shift-Return or Option-Return starts a new line; Return still sends.
 - **New Task is off the ⋯ pop-out**: it has its own button beside ⋯.
 - **Astro's New Task button is always there**, and History and ⋯ work on an empty panel: the empty panel's view lay over the three buttons at the top and took their clicks, and New Task hid itself until a task was on show.

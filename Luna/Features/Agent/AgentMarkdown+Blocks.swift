@@ -156,8 +156,10 @@ extension AgentMarkdown {
 final class AgentTableView: NSView {
 
     private let rows = NSStackView()
+    private let onOpenLink: (URL) -> Void
 
-    init(_ table: AgentMarkdown.Table) {
+    init(_ table: AgentMarkdown.Table, onOpenLink: @escaping (URL) -> Void) {
+        self.onOpenLink = onOpenLink
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
@@ -194,12 +196,11 @@ final class AgentTableView: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    private func cell(_ text: NSAttributedString?) -> NSTextField {
-        let label = NSTextField(wrappingLabelWithString: "")
-        label.attributedStringValue = text ?? NSAttributedString()
-        label.isSelectable = true
-        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        return label
+    private func cell(_ text: NSAttributedString?) -> AgentTextView {
+        let cell = AgentTextView()
+        cell.text = text ?? NSAttributedString()
+        cell.onOpenLink = onOpenLink
+        return cell
     }
 
     private func addRule() {
@@ -211,16 +212,6 @@ final class AgentTableView: NSView {
             line.heightAnchor.constraint(equalToConstant: Tokens.Metric.hairline),
             line.widthAnchor.constraint(equalTo: rows.widthAnchor)
         ])
-    }
-
-    override func layout() {
-        super.layout()
-        // Each cell wraps at its column's width.
-        for case let row as NSStackView in rows.arrangedSubviews {
-            let width = row.arrangedSubviews.isEmpty ? 0
-                : (row.bounds.width - CGFloat(row.arrangedSubviews.count - 1) * row.spacing) / CGFloat(row.arrangedSubviews.count)
-            for case let label as NSTextField in row.arrangedSubviews { label.preferredMaxLayoutWidth = max(width, 20) }
-        }
     }
 
     override var wantsUpdateLayer: Bool { true }
@@ -237,16 +228,15 @@ final class AgentTableView: NSView {
 final class AgentQuoteView: NSView {
 
     private let rule = NSView()
-    private let label = NSTextField(wrappingLabelWithString: "")
+    private let label = AgentTextView()
 
-    init(_ text: NSAttributedString) {
+    init(_ text: NSAttributedString, onOpenLink: @escaping (URL) -> Void) {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         rule.wantsLayer = true
         rule.layer?.cornerRadius = 1
-        label.attributedStringValue = text
-        label.isSelectable = true
-        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        label.text = text
+        label.onOpenLink = onOpenLink
         for view in [rule, label] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
@@ -266,11 +256,6 @@ final class AgentQuoteView: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
-    }
-
-    override func layout() {
-        super.layout()
-        label.preferredMaxLayoutWidth = max(bounds.width - AgentMarkdown.listIndent / 2 - 4, 40)
     }
 
     override var wantsUpdateLayer: Bool { true }

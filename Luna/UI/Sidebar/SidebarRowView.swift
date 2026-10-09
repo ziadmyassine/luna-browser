@@ -38,7 +38,7 @@ struct SidebarRowContent: Equatable {
     }
 
     /// What a tab row draws when the site has no favicon and the user has chosen no icon
-    /// of their own (§3.4a).
+    /// of their own (§3.4a), unless the page is a kind with its own (`fallbackSymbol(for:)`).
     static let siteFallbackSymbol = "globe"
 
     var title: String = ""
@@ -97,8 +97,8 @@ final class SidebarRowView: NSView {
     var isSelected = false { didSet { refreshInk() } }
     var isHovered = false { didSet { refreshInk() } }
     private let icon = NSImageView()
-    /// Whether the icon is an SF Symbol, whose ink sits lower in its box than
-    /// a favicon's (`Tokens.Metric.rowSymbolLift`).
+    /// Whether the icon is an SF Symbol, whose ink need not be centred in its
+    /// box as a favicon's is (`SymbolInk`).
     private var iconIsSymbol = false
     // Internal rather than private because `SidebarRowView+Group.swift` is the
     // other half of this class; nothing outside that pair touches it.
@@ -393,7 +393,8 @@ final class SidebarRowView: NSView {
         let glyph = Self.iconSlot(for: content)
         icon.frame = NSRect(
             x: Tokens.Metric.rowFaviconInset + indent - (glyph - Tokens.Metric.faviconSize) / 2,
-            y: contentMidY - glyph / 2 - (iconIsSymbol ? Tokens.Metric.rowSymbolLift : Tokens.Metric.rowIconLift),
+            y: contentMidY - glyph / 2 - Tokens.Metric.rowIconLift
+                - (iconIsSymbol ? SymbolInk.drop(content.symbolName, pointSize: glyph) : 0),
             width: glyph,
             height: glyph
         ).pixelAligned

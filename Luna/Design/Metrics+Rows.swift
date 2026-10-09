@@ -15,9 +15,7 @@ extension Tokens.Metric {
     /// keeps room under the letters for descenders. Measured from the pixels
     /// of a row at 2×: the capitals of "New Tab" centred 1.25 pt above the
     /// row's middle and a favicon on it, so a favicon or an emoji rises 1.
+    /// An SF Symbol rises by this and by however far its ink sits below its
+    /// box's middle (`SymbolInk`).
     static let rowIconLift: CGFloat = 1
-    /// An SF Symbol rises half a point more: an image view draws a symbol's
-    /// ink lower in its box than a favicon's — `plus` measured 1.75 pt under
-    /// the capitals beside it, against a favicon's 1.25.
-    static let rowSymbolLift: CGFloat = 1.5
 }

@@ -87,6 +87,9 @@ final class AgentParagraph: NSView {
 
     private let blocks = NSStackView()
 
+    /// Where a link in the words opens (`AgentTextView`).
+    var onOpenLink: ((URL) -> Void)?
+
     var markdown = "" {
         didSet { if markdown != oldValue { render() } }
     }
@@ -112,11 +115,6 @@ final class AgentParagraph: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    override func layout() {
-        super.layout()
-        for case let label as NSTextField in blocks.arrangedSubviews { label.preferredMaxLayoutWidth = max(bounds.width, 40) }
-    }
-
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         render()
@@ -132,13 +130,14 @@ final class AgentParagraph: NSView {
             let existing = blocks.arrangedSubviews[safe: index]
             switch segment {
             case let .text(text):
-                let label = existing as? NSTextField ?? Self.label()
-                label.attributedStringValue = text
-                views.append(label)
+                let words = existing as? AgentTextView ?? AgentTextView()
+                words.text = text
+                words.onOpenLink = { [weak self] url in self?.onOpenLink?(url) }
+                views.append(words)
             case let .quote(text):
-                views.append(AgentQuoteView(text))
+                views.append(AgentQuoteView(text) { [weak self] url in self?.onOpenLink?(url) })
             case let .table(table):
-                views.append(AgentTableView(table))
+                views.append(AgentTableView(table) { [weak self] url in self?.onOpenLink?(url) })
             case let .code(code):
                 views.append(AgentCodeView(code))
             }
@@ -154,13 +153,6 @@ final class AgentParagraph: NSView {
         needsLayout = true
     }
 
-    private static func label() -> NSTextField {
-        let label = NSTextField(wrappingLabelWithString: "")
-        label.isSelectable = true
-        label.allowsEditingTextAttributes = true
-        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        return label
-    }
 }
 
 private extension Array {

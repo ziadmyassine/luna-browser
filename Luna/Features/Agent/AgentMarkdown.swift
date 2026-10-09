@@ -87,7 +87,10 @@ enum AgentMarkdown {
         inline(run.inlinePresentationIntent ?? [], into: &attributes)
         if let link = run.link {
             attributes[.link] = link
-            attributes[.foregroundColor] = Tokens.Accent.tint
+            attributes[.foregroundColor] = Tokens.Astro.link
+            let font = attributes[.font] as? NSFont ?? Tokens.TypeScale.agentBody
+            let medium = font.fontDescriptor.addingAttributes([.traits: [NSFontDescriptor.TraitKey.weight: NSFont.Weight.medium]])
+            attributes[.font] = NSFont(descriptor: medium, size: font.pointSize) ?? font
         }
         return attributes
     }

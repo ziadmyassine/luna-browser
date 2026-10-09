@@ -89,6 +89,26 @@ final class AgentLookTests: XCTestCase {
         XCTAssertFalse(docked.contains(CGPoint(x: 8, y: 300)), "and the strip between stays dark")
     }
 
+    /// A link knows where it is under the pointer, and a click on it goes to
+    /// Luna's own tab rather than the system's browser.
+    func testALinkAnswersThePointerAndOpensInLuna() throws {
+        let words = AgentTextView()
+        words.frame = NSRect(x: 0, y: 0, width: 300, height: 40)
+        words.text = AgentMarkdown.render("See [the hotel](https://example.com/hotel) for rooms.")
+        let storage = try XCTUnwrap(words.textStorage)
+        let start = (storage.string as NSString).range(of: "the hotel")
+        let layout = try XCTUnwrap(words.layoutManager)
+        let rect = layout.boundingRect(forGlyphRange: layout.glyphRange(forCharacterRange: start, actualCharacterRange: nil),
+                                       in: try XCTUnwrap(words.textContainer))
+        XCTAssertEqual(words.link(at: NSPoint(x: rect.midX, y: rect.midY)), start)
+        XCTAssertNil(words.link(at: NSPoint(x: 2, y: rect.midY)), "the words before it are not the link")
+        XCTAssertGreaterThan(words.intrinsicContentSize.height, 10, "it sizes itself to its words")
+        var opened: URL?
+        words.onOpenLink = { opened = $0 }
+        words.clicked(onLink: URL(string: "https://example.com/hotel") as Any, at: start.location)
+        XCTAssertEqual(opened?.absoluteString, "https://example.com/hotel")
+    }
+
     func testAstroWavesWhileItAsksTheUser() {
         let task = AgentTask(id: UUID(), prompt: "x")
         task.beginTurn()

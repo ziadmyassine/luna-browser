@@ -375,7 +375,7 @@ final class EssentialsGridView: NSView {
         guard let tab = tabs.first(where: { $0.id == id }) else { return nil }
         return SidebarRowContent(
             title: Self.siteName(for: tab),
-            symbolName: tab.customSymbolName ?? SidebarRowContent.siteFallbackSymbol,
+            symbolName: tab.customSymbolName ?? SidebarRowContent.fallbackSymbol(for: tab.url),
             favicon: tab.customSymbolName == nil ? SidebarIcons.favicon(for: tab) : nil
         )
     }

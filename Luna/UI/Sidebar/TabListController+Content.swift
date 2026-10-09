@@ -54,15 +54,16 @@ extension TabListController {
         let badge = needsYou ? nil : controlBadges[group.id]
         let face = controlFaces[group.id]
         // Astro's folder is a folder like the user's own — no app's icon —
-        // ringed in Astro's lavender (the plate, `placeControlPlates`), with
-        // Astro, or the hand, at its end.
+        // ringed in Astro's lavender (the plate, `placeControlPlates`). Astro
+        // itself is on the tab it is working in, not on the folder's line as
+        // well; the folder keeps only the hand, when it needs the user.
         if face?.isAstro == true {
             var content = SidebarRowContent(
                 title: group.name,
                 symbolName: badge ?? (group.symbolName == BrowserSession.controlFolderSymbol ? "folder" : group.symbolName),
                 disclosure: group.isCollapsed ? .collapsed : .expanded
             )
-            if needsYou || controlledGroupIDs.contains(group.id) { content.trailing = .agent(needsYou: needsYou) }
+            if needsYou { content.trailing = .agent(needsYou: true) }
             return content
         }
         var content = SidebarRowContent(
@@ -112,7 +113,7 @@ extension TabListController {
             title: title.isEmpty ? URLPillView.domain(of: url) : title,
             // §3.4a: a chosen symbol replaces the favicon, so the row draws its symbol
             // slot instead — the path the New Tab row takes.
-            symbolName: tab.customSymbolName ?? SidebarRowContent.siteFallbackSymbol,
+            symbolName: tab.customSymbolName ?? SidebarRowContent.fallbackSymbol(for: url),
             favicon: tab.customSymbolName == nil ? icons.favicon(for: url) : nil,
             hasUnread: tab.hasUnread,
             isLoading: state?.isLoading ?? false,

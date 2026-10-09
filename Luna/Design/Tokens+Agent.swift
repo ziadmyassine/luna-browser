@@ -21,6 +21,15 @@ extension Tokens {
         static func auraAlpha(dark: Bool) -> CGFloat { dark ? 0.26 : 0.16 }
         static func bubbleAlpha(dark: Bool) -> CGFloat { dark ? 0.30 : 0.20 }
         static func ringAlpha(dark: Bool) -> CGFloat { dark ? 0.85 : 0.7 }
+        /// A link in Astro's words. The lavender itself on dark, 5.3:1 over the
+        /// panel's 17 % plane; on light it was 2.3:1 over the 92 % plane, so it
+        /// is taken 40 % toward black there, for 5.4:1.
+        static var link: NSColor {
+            NSColor(name: nil) { appearance in
+                appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                    ? Tile.controlFrom : Tile.controlFrom.blended(withFraction: 0.4, of: .black) ?? Tile.controlFrom
+            }
+        }
     }
 
     enum Agent {

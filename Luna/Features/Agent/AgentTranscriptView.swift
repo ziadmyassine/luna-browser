@@ -16,6 +16,8 @@ import AppKit
 final class AgentTranscriptView: NSView {
 
     let scrollView = NSScrollView()
+    /// Where a link in the agent's words opens.
+    var onOpenLink: ((URL) -> Void)?
     private let column = AgentFlippedView()
     private let stack = NSStackView()
     private var views: [String: NSView] = [:]
@@ -181,6 +183,7 @@ final class AgentTranscriptView: NSView {
             return remember(bubble, id)
         case let .text(id, text):
             let paragraph = existing as? AgentParagraph ?? AgentParagraph()
+            paragraph.onOpenLink = { [weak self] url in self?.onOpenLink?(url) }
             paragraph.markdown = text
             return remember(paragraph, id)
         case let .steps(id, steps):

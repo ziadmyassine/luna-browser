@@ -20,6 +20,8 @@ final class AgentPanelView: NSView {
 
     /// The panel's own close, from its menu.
     var onClose: (() -> Void)?
+    /// Opens a link from the conversation in a tab.
+    var onOpenLink: ((URL) -> Void)?
     /// Shows the task's folder in the sidebar.
     var onRevealFolder: ((String) -> Void)?
 
@@ -175,6 +177,7 @@ final class AgentPanelView: NSView {
         history.onActivate = { [weak self] in self?.showHistory() }
         more.onActivate = { [weak self] in self?.showMenu() }
         fresh.onActivate = { [weak self] in self?.startOver() }
+        transcript.onOpenLink = { [weak self] url in self?.onOpenLink?(url) }
         composer.onSend = { [weak self] text in self?.center.send(text) }
         composer.onStop = { [weak self] in self?.center.stop() }
         empty.onAction = { [weak self] action in self?.perform(action) }

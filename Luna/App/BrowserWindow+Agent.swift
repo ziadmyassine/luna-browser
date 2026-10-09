@@ -37,6 +37,7 @@ extension BrowserWindow {
         let panel = AgentPanelView()
         panel.onClose = { [weak self] in self?.setAgentShown(false) }
         panel.onRevealFolder = { [weak self] session in self?.revealAgentFolder(session) }
+        panel.onOpenLink = { [weak self] url in _ = self?.session.newTab(url: url) }
         agentPanel = panel
         return panel
     }
