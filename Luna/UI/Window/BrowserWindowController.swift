@@ -560,9 +560,13 @@ extension BrowserWindowController {
         // every frame of a 0.20 s slide is the "resizing is very obvious" this
         // fixes.
         if animated, let root = window?.contentView {
+            // Only the trailing edge moving is the agent panel coming or going.
+            let leftMoves = abs(card.frame.minX - insets.left) > 0.5
+            let rightMoves = abs(root.bounds.width - card.frame.maxX - insets.right) > 0.5
             card.beginGeometryTransition(
                 toWidth: root.bounds.width - insets.left - insets.right,
-                over: spec.duration
+                over: spec.duration,
+                holding: rightMoves && !leftMoves ? .leading : .trailing
             )
         }
         let body = { [self] in

@@ -20,7 +20,14 @@ extension PageChromeBar {
 
     override func layout() {
         super.layout()
-        Tokens.Motion.immediately { placeControls() }
+        // Through a chrome transition the bar's frame slides, and its controls
+        // slide with it in the same animation. Placed at their end at once,
+        // the pill and the extensions jumped there on the first frame while
+        // the page's edge was still on its way. Anything else, the bar's
+        // first layout above all, lands at once.
+        let sliding = NSAnimationContext.current.allowsImplicitAnimation && placedWidth > 0 && placedWidth != bounds.width
+        placedWidth = bounds.width
+        if sliding { placeControls() } else { Tokens.Motion.immediately { placeControls() } }
     }
 
     /// The room the bar takes, for the page below it.

@@ -5,6 +5,10 @@ under Unreleased; a release will take the entries since the last one.
 
 ## Unreleased
 
+### 2026-10-10
+
+- **The page stays still while Astro's panel slides** (§3.2b): the page slid sideways with the panel and jumped back when it stopped, and the page bar's pill and extensions jumped to their new places on the first frame. The page now keeps its left edge, and the bar's controls slide with the page's edge — when the sidebar comes and goes too.
+
 ### 2026-10-06
 
 - **A New Task button in Astro's panel**: beside ⋯ at the top, it clears the panel for the next task and puts the cursor in the field. A task still running carries on and is in History.

@@ -79,6 +79,19 @@ final class ChromeTransitionTests: XCTestCase {
         )
     }
 
+    /// The agent panel moves the pane's trailing edge, so the page is held by
+    /// its leading one. Held by the trailing edge, as for the sidebar, it slid
+    /// 340 pt sideways with the panel and jumped back when the slide ended.
+    func testThePageKeepsItsLeadingEdgeWhileTheAgentPanelSlides() throws {
+        let (window, page) = try shown()
+        let start = page.frame.minX
+        window.setAgentPanel(AgentPanelView(), shown: true)
+        XCTAssertEqual(page.frame.minX, start, accuracy: 0.5, "showing the panel should not move the page sideways")
+        window.setAgentPanel(AgentPanelView(), shown: false)
+        XCTAssertEqual(page.frame.minX, start, accuracy: 0.5, "nor should hiding it")
+        XCTAssertEqual(page.resizes.filter(\.animating).count, 0)
+    }
+
     /// And it does end up the width of the pane, both ways round. The hold is a
     /// hold, not a new resting state — `endGeometryTransition` hands the width
     /// back to Auto Layout, and a watchdog does it even if the completion

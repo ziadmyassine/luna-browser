@@ -73,6 +73,9 @@ final class PageChromeBar: NSView, TrafficLightNeighbour {
             needsLayout = true
         }
     }
+    /// The width the controls were last placed for: none yet is a first
+    /// layout, which never animates (`PageChromeBarLayout`).
+    var placedWidth: CGFloat = 0
     private var isLoading = false
     /// The document's own background, the strip under the bar, and whichever of
     /// the two is on the plane right now.

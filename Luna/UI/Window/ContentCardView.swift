@@ -115,11 +115,6 @@ final class ContentCardView: NSView {
     /// panel's light reaching under the card would show (`AgentPanelHost`).
     var onSubviewsChange: (() -> Void)?
 
-    /// Where a docked Web Inspector stands, in the card's coordinates.
-    var dockedInspectorFrame: NSRect? {
-        subviews.first(where: Self.isDockedInspector)?.frame
-    }
-
     /// Files and web links dropped on the page bar, or on a card with no page
     /// (`WindowDrop`). A web view registers for drops itself, so over the page
     /// it is the one asked.
@@ -226,8 +221,8 @@ final class ContentCardView: NSView {
         } else {
             addSubview(view)
         }
-        // Four edges at rest; trailing-pinned and width-driven only while a
-        // chrome transition is running (`beginGeometryTransition`).
+        // Four edges at rest; one edge and a width only while a chrome
+        // transition is running (`beginGeometryTransition`).
         //
         // The width must not be the resting state. A constant carries no
         // relationship, so it would be re-derived from `bounds` every layout
@@ -362,22 +357,29 @@ final class ContentCardView: NSView {
     /// `resize` events re-flowed 13 times hiding and 10 showing, and the slide
     /// stuttered while the web process kept up.
     ///
-    /// The page is held at the wider of the two widths, anchored to the
-    /// trailing edge, which does not move, and the card's edge does all the
-    /// moving. Hiding, that is the final width: the page re-flows once, up
-    /// front. Showing, it is the width the page already has, and
+    /// The page is held at the wider of the two widths, anchored to the edge
+    /// that does not move, and the card's other edge does all the moving.
+    /// Hiding, that is the final width: the page re-flows once, up front.
+    /// Showing, it is the width the page already has, and
     /// `endGeometryTransition` narrows it once everything is still.
     ///
-    /// - Parameter duration: how long the caller's animation runs. A watchdog
-    ///   hands the width back after it, so a dropped completion handler cannot
-    ///   strand the page at a width the pane has since grown past.
-    func beginGeometryTransition(toWidth width: CGFloat, over duration: TimeInterval) {
+    /// - Parameters:
+    ///   - duration: how long the caller's animation runs. A watchdog hands the
+    ///     width back after it, so a dropped completion handler cannot strand
+    ///     the page at a width the pane has since grown past.
+    ///   - edge: the edge that stays put — the trailing one while the sidebar
+    ///     comes and goes, the leading one for the agent panel. Held by the
+    ///     edge that moves, the page slid sideways with it and jumped back at
+    ///     the end.
+    func beginGeometryTransition(toWidth width: CGFloat, over duration: TimeInterval, holding edge: CardEdge = .trailing) {
         guard !contentFollowsFrames else { return }
+        let trailing = contentEdges.first { $0.firstAttribute == .trailing }
         // Deactivate before activating: the two contradict each other, and an
         // over-constrained instant is a console full of broken-constraint logs.
-        contentLeading?.isActive = false
+        (edge == .leading ? trailing : contentLeading)?.isActive = false
         contentWidth?.constant = max(width, bounds.width, 0)
         contentWidth?.isActive = true
+        (edge == .leading ? contentLeading : trailing)?.isActive = true
         // Here, and not with the caller's animation: a constraint activated and
         // left for the transaction that follows is laid out inside it, which
         // animates the page's width and is the per-frame re-flow this exists to
@@ -399,10 +401,10 @@ final class ContentCardView: NSView {
     func endGeometryTransition() {
         transitionWatchdog?.cancel()
         transitionWatchdog = nil
-        guard !contentFollowsFrames, contentLeading?.isActive == false else { return }
+        guard !contentFollowsFrames, contentWidth?.isActive == true else { return }
         Tokens.Motion.immediately {
             contentWidth?.isActive = false
-            contentLeading?.isActive = true
+            NSLayoutConstraint.activate(contentEdges)
             layoutSubtreeIfNeeded()
         }
     }
@@ -547,6 +549,11 @@ extension ContentCardView {
         followFrames(false)
         NotificationCenter.default.removeObserver(self, name: NSView.frameDidChangeNotification, object: subview)
         dockedInspector = nil
+    }
+
+    /// Where a docked Web Inspector stands, in the card's coordinates.
+    var dockedInspectorFrame: NSRect? {
+        subviews.first(where: Self.isDockedInspector)?.frame
     }
 
     @objc private func inspectorMoved() { coverInspector() }
