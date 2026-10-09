@@ -7,6 +7,7 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-10
 
+- **Open tabs take up new block lists straight away** (§17.1): a tab only picked up the lists when it was opened or went to a new page, so a site that updates itself in place — a streaming site's search — kept running on lists an update had replaced, and tabs restored at launch could start on old ones. Every open tab now changes to the new lists the moment they are ready.
 - **Pages no longer lag under Block ads** (§17.2): every image and script a page loaded was checked against all 45,000 of the lists' element-hiding rules, about 1.2 ms each, so a page sending tracking pixels as you typed fell behind your keys — 1,500 of them took 1.8 s. Those rules are now checked only when a page itself loads, which hides the same things; the same 1,500 take 0.37 s. The lists recompile half a minute after the next launch — a change to how Luna converts the lists now applies then, instead of waiting for the next day's update.
 - **Links in Astro's replies look like links**: in Astro's lavender, a weight up from the words round them; under the pointer a rounded lavender glow fades in behind them and the pointer becomes a hand; a click opens the page in a new Luna tab instead of the system's browser. The same in tables and quotes.
 - **Astro shows on the tab it works in, not on its folder's line**: the folder keeps its lavender outline, and a raised hand when Astro needs you.

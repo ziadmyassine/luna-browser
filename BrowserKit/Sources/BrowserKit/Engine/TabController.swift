@@ -31,6 +31,9 @@ public final class TabController: NSObject {
     var fallbackURL: URL?
 
     private var observations: [NSKeyValueObservation] = []
+    /// `ContentBlocker.listsDidChange`, while the tab has a web view
+    /// (`TabController+Blocking`).
+    var blockingListsObserver: (any NSObjectProtocol)?
 
     // Not `private`: the delegate conformances live in TabController+Delegates.swift.
     /// Frames currently making sound, keyed by frame URL. A tab is audible if any of
@@ -350,6 +353,7 @@ public final class TabController: NSObject {
         attachClipboard(to: controller, relay: messageRelay)
         attachPictureInPicture(to: controller, relay: messageRelay)
         installUserScripts(into: controller, host: state.url?.host(), isFile: (state.url ?? fallbackURL)?.isFileURL ?? false)
+        followBlockingLists()
 
         // WebKit posts these on the main thread; `assumeIsolated` states that instead of
         // hiding it behind an unchecked conformance.

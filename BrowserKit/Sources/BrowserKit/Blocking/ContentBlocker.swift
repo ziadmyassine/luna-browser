@@ -52,6 +52,14 @@ public final class ContentBlocker {
 
     public var onStatusChange: (@MainActor (Status) -> Void)?
 
+    /// Posted when the lists a web view should carry change: loaded at launch,
+    /// recompiled by a refresh, or a category turned on or off. A list is only
+    /// attached when a tab is made or navigates, so without this a page that
+    /// never navigates — a web app that updates itself in place — kept the
+    /// lists it was opened with, and every tab restored at launch could start
+    /// with none, or with lists an update had since replaced.
+    public static let listsDidChange = Notification.Name("ContentBlocker.listsDidChange")
+
     /// How often the lists are re-fetched (§17.1 "refresh on a schedule").
     public var refreshInterval: TimeInterval = 24 * 60 * 60
 
@@ -146,6 +154,7 @@ public final class ContentBlocker {
             }
         }
         publishStatus()
+        NotificationCenter.default.post(name: Self.listsDidChange, object: self)
     }
 
     /// How long after launch a refresh that is due waits before starting.
@@ -249,6 +258,10 @@ public final class ContentBlocker {
             defaults.set(Date(), forKey: Key.lastRefresh)
             defaults.set(FilterListConverter.revision, forKey: Key.revision)
         }
+        // Every time, not only after a compile: a category turned off drops its
+        // lists here too, and handing a tab the lists it already has is a
+        // pointer swap.
+        NotificationCenter.default.post(name: Self.listsDidChange, object: self)
         await removeStaleIdentifiers()
         publishStatus(failures: failures)
     }
@@ -375,6 +388,7 @@ public final class ContentBlocker {
     /// Recompiles nothing: the lists stay in the store, they just stop being attached.
     public func setEnabled(_ enabled: Bool, for category: Category) {
         defaults.set(enabled, forKey: Key.enabled(category))
+        NotificationCenter.default.post(name: Self.listsDidChange, object: self)
         if enabled, compiled[category] == nil {
             Task { await refresh() }
         }
