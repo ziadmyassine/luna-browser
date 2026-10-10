@@ -88,8 +88,8 @@ final class ControlActivityTests: XCTestCase {
     }
 }
 
-/// The agent's pointer: an outlined arrowhead in its colour, a pill saying it
-/// is working, and a ring where it clicks.
+/// The agent's pointer: Astro's face, a ring in the agent's colour where it
+/// clicks, and a pill beside it saying it is working.
 @MainActor
 final class ControlAgentPointerTests: XCTestCase {
 
@@ -97,15 +97,17 @@ final class ControlAgentPointerTests: XCTestCase {
         let pointer = ControlAgentPointer()
         let tint = Tokens.Agent.tint(forApp: "claude-code")
         pointer.configure(agent: "Claude Code", tint: tint)
-        let arrow = try XCTUnwrap(pointer.layer?.sublayers?.compactMap { $0 as? CAShapeLayer }.first { $0.fillColor != nil })
-        XCTAssertEqual(arrow.fillColor, tint.cgColor, "the arrow is not the agent's colour")
-        XCTAssertEqual(arrow.strokeColor, NSColor.white.cgColor, "the arrow has no outline to stand out on a page")
+        let sublayers = pointer.layer?.sublayers ?? []
+        let ring = try XCTUnwrap(sublayers.compactMap { $0 as? CAShapeLayer }.first)
+        XCTAssertEqual(ring.strokeColor, tint.cgColor, "the click's ring is not the agent's colour")
+        XCTAssertTrue(sublayers.contains { $0.sublayers?.contains { $0.contents != nil } == true }, "the pointer does not show Astro")
         let badge = try XCTUnwrap(pointer.subviews.first, "the name has no tag")
         XCTAssertEqual(badge.layer?.cornerRadius ?? 0, badge.frame.height / 2, accuracy: 0.5, "the name tag is not a pill")
         XCTAssertLessThanOrEqual(badge.frame.maxX, pointer.frame.width, "the name tag runs out of the pointer")
         let label = try XCTUnwrap(badge.subviews.first as? NSTextField)
         XCTAssertEqual(label.stringValue, "Claude Code is working…")
-        XCTAssertGreaterThan(badge.frame.minY, ControlAgentPointer.tip.y, "the pill is not under the arrow")
+        XCTAssertGreaterThan(badge.frame.minX, ControlAgentPointer.tip.x, "the pill is not beside Astro")
+        XCTAssertEqual(badge.frame.midY, ControlAgentPointer.tip.y, accuracy: 0.5, "the pill is not centred on Astro")
     }
 
     func testTheTipStandsOnThePointAndAClickRipples() throws {

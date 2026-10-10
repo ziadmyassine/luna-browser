@@ -124,7 +124,7 @@ final class SettingsSectionRegistryTests: XCTestCase {
 
     func testEverySectionIsRegisteredInSpecOrder() {
         XCTAssertEqual(SettingsSectionRegistry.ids, [
-            "general", "appearance", "privacy", "spaces", "extensions", "shortcuts", "control", "about"
+            "general", "appearance", "privacy", "spaces", "extensions", "shortcuts", "astro", "control", "about"
         ])
     }
 

@@ -7,6 +7,7 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-10
 
+- **Opening Astro in a window with no tab open no longer crashes Luna**: the window kept the closed page's layout rules, and moving the panel or the sidebar put them back on a page that was gone. ⌘E is Show Agent in the shortcuts list now too; Use Selection for Find keeps its menu item without a key.
 - **Astro is in early development**: it works, but it is young and needs a lot of continued work — expect rough edges in how it plans, shows its work and recovers from a failed step. The README and `docs/LUNA-CONTROL.md` say so.
 - **A Luna Control session's first call is named after it too**: a call can reach Luna a moment before its session has written it down, so Luna waits up to 1.5 s for it rather than naming the first tab's folder "Luna Control".
 - **Luna Control is called after the session at work**: the Claude app's agent mode connects once for every conversation and says nothing about which one is calling, so its folder, capsule, pointer, requests and activity all read "Luna Control". Luna now finds the conversation by the call itself — the conversation whose transcript has just written that very call, the same tool with the same arguments — and uses its title ("Main 2"); the folder follows a rename.

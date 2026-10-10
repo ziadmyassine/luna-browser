@@ -92,6 +92,22 @@ final class ChromeTransitionTests: XCTestCase {
         XCTAssertEqual(page.resizes.filter(\.animating).count, 0)
     }
 
+    /// A window whose last tab has closed. The page's constraints hold it
+    /// unretained, and kept past it they were activated on a freed view the
+    /// next time the chrome moved: Luna crashed opening the agent panel.
+    /// Freed memory need not crash at once, so the test asks for the cause:
+    /// nothing is kept that names the page after it has left.
+    func testTheChromeMovesOverAPaneWhosePageHasGone() throws {
+        let card = ContentCardView()
+        let page = PageStub()
+        card.setContent(page)
+        XCTAssertFalse(card.contentEdges.isEmpty)
+        card.setContent(nil)
+        XCTAssertTrue(card.contentEdges.isEmpty, "edges kept past their page outlive it once its tab closes")
+        card.beginGeometryTransition(toWidth: 600, over: 0.2, holding: .leading)
+        card.endGeometryTransition()
+    }
+
     /// And it does end up the width of the pane, both ways round. The hold is a
     /// hold, not a new resting state — `endGeometryTransition` hands the width
     /// back to Auto Layout, and a watchdog does it even if the completion

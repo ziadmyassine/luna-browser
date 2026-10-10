@@ -39,8 +39,8 @@ From `BrowserCommand.all`, plus the app menu and the numbered families.
 | --- | --- |
 | App | ⌘, Settings · ⌘H Hide · ⌥⌘H Hide Others · ⌘Q Quit · ⌘? Luna Help |
 | File | ⌘T New Tab · ⌘N New Window · ⇧⌘N Private Window · ⌘L Open Location · ⌘O Open File · ⌘W Close Tab · ⇧⌘K Close All Tabs · ⌥⌘K Clean Up Tabs · ⇧⌘T Reopen Last Archived Tab · ⇧⌘W Close Window |
-| Edit | ⌘Z ⇧⌘Z ⌘X ⌘C ⌘V ⌘A · ⌘F Find · ⌘G / ⇧⌘G Find Next / Previous · ⌘E Use Selection for Find · ⇧⌘C Copy URL · ⌥⇧⌘C Copy URL as Markdown |
-| View | ⌘S Hide Sidebar · ⌘D Add to Favorites · ⌘R Reload · ⌥⌘R Force Refresh · ⌘. Stop · ⌘+ / ⌘= / ⌘- / ⌘0 Zoom · ⇧⌘P Picture in Picture · ⇧⌘R Reader · ⇧⌘H Hide Something · ⌥⌘L Downloads · ⌘1…⌘9 Sidebar items |
+| Edit | ⌘Z ⇧⌘Z ⌘X ⌘C ⌘V ⌘A · ⌘F Find · ⌘G / ⇧⌘G Find Next / Previous · Use Selection for Find (no key) · ⇧⌘C Copy URL · ⌥⇧⌘C Copy URL as Markdown |
+| View | ⌘S Hide Sidebar · ⌘E Show Agent · ⌘D Add to Favorites · ⌘R Reload · ⌥⌘R Force Refresh · ⌘. Stop · ⌘+ / ⌘= / ⌘- / ⌘0 Zoom · ⇧⌘P Picture in Picture · ⇧⌘R Reader · ⇧⌘H Hide Something · ⌥⌘L Downloads · ⌘1…⌘9 Sidebar items |
 | History | ⌘[ Back · ⌘] Forward · ⌘Y Show History |
 | Develop | ⌥⌘I Web Inspector · ⌥⌘C JavaScript Console · ⌥⌘U Page Source · ⌥⌘E Empty Caches |
 | Window | ⌘M Minimize · ⌥⌘← / ⌥⌘→ (and ⇧⌘[ / ⇧⌘]) Previous / Next Tab · ⌃⌥← / ⌃⌥→ Previous / Next Space |
@@ -64,7 +64,7 @@ change is proposed.
 | ⇧⌘R | Reader | Gmail and Docs (align right) | Keep. Safari's key. |
 | ⌘G / ⇧⌘G | Find Next / Previous | Figma (group / ungroup), Slack (search / find previous) | Keep. Fixed by macOS. |
 | ⌘F | Find | Docs, Notion, Slack (their own search) | Keep. Same meaning; the app's search is the better one there. |
-| ⌘E | Use Selection for Find | Notion (inline code), Figma (flatten) | Keep. Fixed by macOS. |
+| ⌘E | Show Agent | Notion (inline code), Figma (flatten) | Keep. Use Selection for Find gave it up and keeps its menu item; the agent is opened far more often. |
 | ⌘R | Reload | Figma (rename), Notion (fill right, in a table) | Keep. Only while that app has the keyboard. |
 | ⌘S | Hide Sidebar | Docs (save) | Keep. Docs saves on its own. |
 | ⌘, | Settings | Docs (subscript) | Keep. Fixed by macOS. |

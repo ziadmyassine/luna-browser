@@ -150,7 +150,7 @@ final class ContentCardView: NSView {
     private var contentTop: NSLayoutConstraint?
     /// The content's four resting edges, handed to WebKit while its inspector
     /// is docked in the card (`followFrames`).
-    private var contentEdges: [NSLayoutConstraint] = []
+    private(set) var contentEdges: [NSLayoutConstraint] = []
     private var contentFollowsFrames = false
     /// WebKit's docked inspector, told how much of it §3.2b's bar covers.
     private weak var dockedInspector: WKWebView? { didSet { needsDisplay = true } }
@@ -211,6 +211,7 @@ final class ContentCardView: NSView {
         // (§6.6's tear-off) is that window's now, and removing it would take
         // it off the card it moved to.
         if content?.superview === self { content?.removeFromSuperview() }
+        letGoOfContentEdges()
         content = view
         guard let view else { return }
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -513,6 +514,25 @@ final class ContentCardView: NSView {
     /// The page is not a window drag handle. Without this, dragging any
     /// non-interactive part of a web page would move the window.
     override var mouseDownCanMoveWindow: Bool { false }
+}
+
+// MARK: - Letting go of a page
+
+extension ContentCardView {
+
+    /// Drops the constraints that pinned the page leaving. A constraint holds
+    /// its views unretained: kept past the page, they outlive it once its tab
+    /// closes, and the next transition over an empty pane activated them on a
+    /// freed view and crashed.
+    fileprivate func letGoOfContentEdges() {
+        transitionWatchdog?.cancel()
+        transitionWatchdog = nil
+        NSLayoutConstraint.deactivate(contentEdges + [contentWidth].compactMap { $0 })
+        contentEdges = []
+        contentLeading = nil
+        contentWidth = nil
+        contentTop = nil
+    }
 }
 
 // MARK: - A docked Web Inspector

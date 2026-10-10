@@ -36,8 +36,9 @@ final class FindCommandTests: XCTestCase {
         let find = try XCTUnwrap(edit.items.first { $0.title == "Find" }?.submenu, "Edit has no Find submenu")
         let items = find.items.filter { !$0.isSeparatorItem }
         XCTAssertEqual(items.map(\.title), ["Find…", "Find Next", "Find Previous", "Use Selection for Find"])
-        XCTAssertEqual(items.map(\.keyEquivalent), ["f", "g", "g", "e"])
-        XCTAssertEqual(items.map(\.keyEquivalentModifierMask), [.command, .command, [.command, .shift], .command])
+        // ⌘E is Show Agent's; Use Selection for Find keeps its item, with no key.
+        XCTAssertEqual(items.map(\.keyEquivalent), ["f", "g", "g", ""])
+        XCTAssertEqual(items.prefix(3).map(\.keyEquivalentModifierMask), [.command, .command, [.command, .shift]])
         XCTAssertEqual(items.map(\.action), [
             #selector(AppDelegate.findInPage(_:)), #selector(AppDelegate.findNextInPage(_:)),
             #selector(AppDelegate.findPreviousInPage(_:)), #selector(AppDelegate.useSelectionForFind(_:))
