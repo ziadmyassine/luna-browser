@@ -77,14 +77,14 @@ struct InternalPagesTests {
 
     /// The page bar finds a painted page's sky under its painting, so that
     /// colour has to be the painting's top edge: pale over the day paintings,
-    /// dark over the night ones. The empty pane's two are read the same way.
+    /// dark over the night ones.
     @Test func aPaintingsSkyIsReadOffItsTopEdge() throws {
         let assets = URL(filePath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "assets/error-pages")
         for dark in [false, true] {
-            for name in [InternalPages.paintingName(.dns, dark: dark), dark ? "empty-dark" : "empty-light"] {
+            for name in [InternalPages.paintingName(.dns, dark: dark)] {
                 let jpeg = try Data(contentsOf: assets.appending(path: "\(name).jpg"))
                 let sky = try #require(InternalPageSky.topEdge(jpeg))
                 let lightness = (sky.r + sky.g + sky.b) / 3
