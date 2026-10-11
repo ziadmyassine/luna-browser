@@ -7,6 +7,7 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-11
 
+- **Custom Colour… is in the Space dot's right-click menu too** (§8.2a): under No Colour, it opens the same colour panel as the colour grids and recolours that Space, and it carries the checkmark while the Space wears a colour of your own.
 - **Imported bookmarks keep their folders on the way back out** (§23.2): an import still puts a browser's bookmarks in one sidebar folder, but Luna now remembers which folder each page sat in, and a bookmarks HTML export writes that tree back, nested folders, bookmarks bar and a page filed in two folders included. Importing again adds nothing.
 - **Import and export bookmarks from the File menu** (§11.4): Import Bookmarks… reads the bookmarks HTML file any browser exports into a Space named after the file, and importing it again adds only what is new; Export Bookmarks… saves every Space, each as a folder, in the same format for another browser. Both are in the Command Bar and can be given a key in Settings ▸ Shortcuts.
 - **Settings › About lists what Luna is built with** (§24.7): an Acknowledgements row opens the third-party notices — GRDB, swift-markdown, cmark-gfm and the extension shim adapted from Search — with their licences, from a copy inside the app. `docs/SYNC.md` now says exactly what iCloud sync carries and what never leaves the Mac (§31.5), and `docs/PRIVACY.md` that Luna does not check addresses against a malware or phishing list.
