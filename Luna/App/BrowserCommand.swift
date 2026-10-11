@@ -312,7 +312,8 @@ struct BrowserCommand: Identifiable {
     /// families are absent on purpose — see `KeyBindings.reserved`.
     static let all: [BrowserCommand] = [
         settings,
-        newTab, newWindow, newPrivateWindow, openLocation, openFile, duplicateTab, resetPinnedTab,
+        newTab, newWindow, newPrivateWindow, openLocation, openFile, importBookmarks, exportBookmarks,
+        duplicateTab, resetPinnedTab,
         renameTab, muteSite, moveToFolder, newFolder, closeTab, closeAllTabs, cleanUpTabs,
         reopenArchivedTab, closeWindow, downloadPDF, printPage,
         undo, redo, cut, copy, paste, selectAll, find, findNext, findPrevious, useSelectionForFind,

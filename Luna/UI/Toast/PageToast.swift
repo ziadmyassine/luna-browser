@@ -134,6 +134,29 @@ struct PageToast: Equatable {
         PageToast(symbol: "square.and.arrow.down", text: String(localized: "Saved to Downloads"), detail: name)
     }
 
+    /// §11.4. The detail is the Space they landed in. Nothing added means the
+    /// file had been imported before: the importer skips what is there by URL.
+    static func bookmarksImported(_ count: Int, into space: String) -> PageToast {
+        let text = switch count {
+        case 0: String(localized: "Bookmarks already imported")
+        case 1: String(localized: "1 bookmark imported")
+        default: String(localized: "\(count) bookmarks imported")
+        }
+        return PageToast(symbol: "book", text: text, detail: space)
+    }
+
+    static func bookmarksNotImported(_ file: String) -> PageToast {
+        PageToast(symbol: "exclamationmark.triangle", text: String(localized: "Couldn’t import bookmarks"), detail: file)
+    }
+
+    static func bookmarksExported(_ file: String) -> PageToast {
+        PageToast(symbol: "square.and.arrow.up", text: String(localized: "Bookmarks exported"), detail: file)
+    }
+
+    static func bookmarksNotExported(_ file: String) -> PageToast {
+        PageToast(symbol: "exclamationmark.triangle", text: String(localized: "Couldn’t save bookmarks"), detail: file)
+    }
+
     /// The host says whose zoom it now is: Luna keeps it for the site (§18.2).
     static func zoom(_ level: CGFloat, host: String? = nil) -> PageToast {
         PageToast(symbol: "magnifyingglass", text: String(localized: "Zoom \(Int((level * 100).rounded())) %"), detail: host)

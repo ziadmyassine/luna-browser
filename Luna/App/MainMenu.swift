@@ -185,6 +185,8 @@ enum MainMenu {
         menu("File", flatten([
             [item(.newTab)], items(.newWindow), items(.newPrivateWindow), items(.openLocation), items(.openFile),
             [.separator()],
+            items(.importBookmarks), items(.exportBookmarks),
+            [.separator()],
             items(.duplicateTab), items(.resetPinnedTab),
             // §20.2: the rest of §3.4a's tab menu, for the tab in front.
             items(.renameTab), items(.muteSite), items(.moveToFolder), items(.newFolder),
