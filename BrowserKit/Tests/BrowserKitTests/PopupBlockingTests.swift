@@ -142,15 +142,17 @@ struct PopupBlockingTests {
     }
 
     /// `createWebViewWith` returning nil is what makes `window.open` return null,
-    /// so the page script reports the same pop-up the engine just recorded.
-    @Test func theSameReportTwiceInASecondIsOnePopup() {
+    /// so the page script reports the same pop-up the engine just recorded —
+    /// however long the main thread takes to read that report.
+    @Test func thePageEchoingARefusalIsOnePopup() {
         let guardState = PopupGuard()
         let url = URL(string: "https://ads.example.net/")!
-        let now = Date()
-        #expect(guardState.record(url, at: now))
-        #expect(!guardState.record(url, at: now.addingTimeInterval(0.2)))
-        #expect(guardState.record(url, at: now.addingTimeInterval(3)))
-        #expect(guardState.blocked.count == 2)
+        guardState.record(url, echoed: true)
+        #expect(!guardState.recordReport(url))
+        #expect(guardState.recordReport(url), "a second report is a second pop-up")
+        guardState.record(url)
+        #expect(guardState.recordReport(url), "a refusal the page does not echo leaves nothing to match")
+        #expect(guardState.blocked.count == 4)
     }
 
     @Test func theTabUnderGuardRefusesOnlyScriptedCrossSiteMovesInsideItsWindow() {

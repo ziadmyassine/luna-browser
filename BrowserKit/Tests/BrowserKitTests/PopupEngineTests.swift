@@ -19,6 +19,9 @@ struct PopupEngineTests {
         var children: [TabController] = []
         var closed: [UUID] = []
         var settings = UserDefaults.standard
+        /// Main-thread work done inside the refusal, before WebKit hears back:
+        /// a busy app, held still.
+        var stallOnBlock: TimeInterval = 0
 
         func tabController(_ controller: TabController, didChange state: TabState) {}
         func tabController(
@@ -36,7 +39,10 @@ struct PopupEngineTests {
         func tabControllerWantsToClose(_ controller: TabController) { closed.append(controller.id) }
         func tabController(_ controller: TabController, didStartDownload download: WKDownload) {}
         func tabController(_ controller: TabController, didFailWith error: Error) {}
-        func tabController(_ controller: TabController, didBlockPopup url: URL) { blocked.append(url) }
+        func tabController(_ controller: TabController, didBlockPopup url: URL) {
+            blocked.append(url)
+            Thread.sleep(forTimeInterval: stallOnBlock)
+        }
     }
 
     private static let page = URL(string: "https://news.example.com/story")!
@@ -109,6 +115,20 @@ struct PopupEngineTests {
         await settle { !controller.popups.blocked.isEmpty }
         #expect(controller.popups.blocked.map(\.url.absoluteString) == ["https://ads.example.net/"])
         #expect(recorder.opened.count == 1)
+    }
+
+    /// The page script's echo of a refused `window.open` is a message of its
+    /// own, and on a busy main thread it lands well after the refusal — once
+    /// 16 s into a loaded test run. It is still the same pop-up.
+    @Test func theEchoOfARefusalIsOnePopupHoweverLateItLands() async {
+        let (controller, recorder) = await tab(.smart)
+        recorder.stallOnBlock = 1.5
+        await run("window.open('https://ads.example.net/')", in: controller)
+        // Messages from the page arrive in order, so a second round trip
+        // lands after the echo.
+        await run("0", in: controller)
+        #expect(controller.popups.blocked.map(\.url.absoluteString) == ["https://ads.example.net/"])
+        #expect(recorder.blocked.map(\.absoluteString) == ["https://ads.example.net/"])
     }
 
     /// The classic tab-under: open the pop-up on the click, and move the page
