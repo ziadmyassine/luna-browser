@@ -293,6 +293,17 @@ final class AppDelegateDatabaseTests: XCTestCase {
         XCTAssertFalse(delegate.handOffToRunningLuna())
     }
 
+    /// `LunaUITests`' copy of the app has no XCTest in it, only this key, and
+    /// the key alone has to keep it off the user's data.
+    func testTheUITestFolderIsReadFromTheLaunchEnvironment() {
+        XCTAssertEqual(
+            AppDelegate.testDataDirectory(in: [AppDelegate.testDataKey: "/private/tmp/luna-uitests-x"])?.path,
+            "/private/tmp/luna-uitests-x"
+        )
+        XCTAssertNil(AppDelegate.testDataDirectory(in: [:]))
+        XCTAssertNil(AppDelegate.testDataDirectory(in: [AppDelegate.testDataKey: ""]))
+    }
+
     /// The shipping app is unchanged: without the environment key the path is
     /// Application Support, exactly as before.
     func testTheShippingPathIsStillApplicationSupport() throws {

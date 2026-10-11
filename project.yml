@@ -128,6 +128,23 @@ targets:
     dependencies:
       - target: Luna
 
+  # §24.1: Luna driven through the window server. It takes the pointer and the
+  # keyboard, so it has its own scheme and `make test` never runs it.
+  LunaUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: "YES"
+    sources:
+      - path: UITests
+        excludes:
+          - Fixtures
+      - path: UITests/Fixtures
+        buildPhase: resources
+    dependencies:
+      - target: Luna
+
 schemes:
   Luna:
     build:
@@ -145,3 +162,12 @@ schemes:
       config: Debug
     archive:
       config: Release
+  LunaUITests:
+    build:
+      targets:
+        Luna: all
+        LunaUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - LunaUITests

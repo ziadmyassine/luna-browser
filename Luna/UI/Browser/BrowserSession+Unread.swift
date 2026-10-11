@@ -90,7 +90,7 @@ extension BrowserSession {
     /// and would spend the once on a throwaway database.
     func clearUnreadFromBeforeTheRule() {
         let key = "unread.clearedLoadRule"
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
+        guard !AppDelegate.isRunningTests,
               !UserDefaults.standard.bool(forKey: key) else { return }
         UserDefaults.standard.set(true, forKey: key)
         for var tab in list.bySpace.values.joined() where tab.hasUnread {
