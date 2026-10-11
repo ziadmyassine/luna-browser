@@ -47,6 +47,48 @@ struct CosmeticFilterTests {
         #expect(conversion.skipped == 0, "a dropped cookie rule is not a rule we failed to express")
     }
 
+    /// Planday's sign-in shape (#223), through the converter and WebKit: the page
+    /// disables its fields until its banner is answered, and the list's cookie
+    /// section hides that banner by id. The banner has to stay on screen, or
+    /// nothing the user can reach ever gives the fields back.
+    @Test func aBannerThePageWaitsOnStaysAnswerable() async throws {
+        let conversion = FilterListConverter.convert("""
+        ! *** easylist:easylist_cookie/easylist_cookie_general_hide.txt ***
+        ###cookie-banner
+        ! *** easylist:fanboy-addon/fanboy_annoyance_general_hide.txt ***
+        ##.newsletter-popup
+        """)
+        let json = try #require(String(bytes: try JSONEncoder().encode(conversion.rules), encoding: .utf8))
+        let list = try #require(try await Self.ruleStore().compileContentRuleList(
+            forIdentifier: "consent", encodedContentRuleList: json
+        ))
+        let page = """
+        <style>.hidden { display: none; }</style>
+        <div id="cookie-banner" class="cookie-banner hidden"><button id="cookie-consent-button">OK</button></div>
+        <form id="login"><input id="Username"><input id="Password" type="password"><button id="MainLoginButton">Log in</button></form>
+        <script>
+        var fields = ['Username', 'Password', 'MainLoginButton'].map(function (id) { return document.getElementById(id); });
+        var banner = document.getElementById('cookie-banner');
+        fields.forEach(function (field) { field.disabled = true; });
+        banner.classList.remove('hidden');
+        document.getElementById('cookie-consent-button').addEventListener('click', function () {
+          banner.remove();
+          fields.forEach(function (field) { field.disabled = false; });
+        });
+        </script>
+        """
+        // The click only if the banner is there to be clicked.
+        let state = """
+        (function () {
+          var shown = document.getElementById('cookie-banner').getClientRects().length > 0;
+          if (shown) { document.getElementById('cookie-consent-button').click(); }
+          return shown + '|' + document.getElementById('Username').disabled;
+        })()
+        """
+        let result = try await Self.evaluate(state, on: page, at: "https://id.planday.com/Login", list: list)
+        #expect(result as? String == "true|false", "the banner shows, and answering it gives the fields back")
+    }
+
     // MARK: - `#@#` exceptions
 
     @Test func aSiteExceptionKeepsAGenericHideOffThatSite() {
