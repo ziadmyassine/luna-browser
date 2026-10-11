@@ -93,6 +93,16 @@ final class PageEdgeFillTests: XCTestCase {
         card.endGeometryTransition()
     }
 
+    /// The fill changes in the turn the page's colour does. A display pass can
+    /// land after the widening, and a slow runner was measured asserting inside
+    /// that gap: the page reported white, the strip was still `#1e1e1e`. No
+    /// run loop turn passes between the change and the assertion here.
+    func testTheFillChangesWithThePageColourBeforeAnyDisplayPass() async throws {
+        let (_, web) = try await lightPageInCard()
+        web.underPageBackgroundColor = NSColor(srgbRed: 0, green: 0.5, blue: 0, alpha: 1)
+        assertFill(web, is: [0, 0.5, 0], "the fill should change with the page's colour, not on the next display")
+    }
+
     /// A page that repaints itself changes the fill with it, so the band cannot
     /// come back as yesterday's colour.
     func testTheFillFollowsThePageWhenItRepaints() async throws {

@@ -51,13 +51,18 @@ final class LunaWebView: WKWebView {
     // band down the trailing edge while the sidebar hid. The page's colour fills
     // it instead. `underPageBackgroundColor` alone does not reach it — that
     // paints a web-process layer, which is as stale as the rest.
+    //
+    // Set where the colour changes, not on the next display pass: the page can
+    // report its colour and be widened before that pass runs, and a slow CI
+    // runner did exactly that. `updateLayer` sets it again because WebKit's own
+    // `updateLayer` writes the appearance fill back.
 
     private var pageColourObservation: NSKeyValueObservation?
 
     override init(frame: CGRect, configuration: WKWebViewConfiguration) {
         super.init(frame: frame, configuration: configuration)
         pageColourObservation = observe(\.underPageBackgroundColor) { view, _ in
-            MainActor.assumeIsolated { view.needsDisplay = true }
+            MainActor.assumeIsolated { view.fillWithPageColour() }
         }
     }
 
@@ -68,6 +73,15 @@ final class LunaWebView: WKWebView {
 
     override func updateLayer() {
         super.updateLayer()
+        fillWithPageColour()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        fillWithPageColour()
+    }
+
+    private func fillWithPageColour() {
         effectiveAppearance.performAsCurrentDrawingAppearance {
             layer?.backgroundColor = underPageBackgroundColor.cgColor
         }
