@@ -108,7 +108,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         LaunchTrace.mark("appkit")
         // Both must be in place before the app finishes launching, or the first
         // frame shows up without a menu bar.
-        NSApp.setActivationPolicy(.regular)
+        NSApp.setActivationPolicy(Self.isUnitTestHost ? .accessory : .regular)
+        if Self.isUnitTestHost { Self.keepTestHostOffScreen() }
         // Before anything reads a setting: the registration domain is what a
         // key's declared default is (SETTINGS-SPEC §6), and it is not
         // persisted, so it is re-published on every launch.
@@ -181,7 +182,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             openFirstWindow(opening: opening)
         }
-        NSApp.activate()
+        Self.bringToFront()
     }
 
     private func openFirstWindow(opening: Task<BrowserStore, any Error>) {

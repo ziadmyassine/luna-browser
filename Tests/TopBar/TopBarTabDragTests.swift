@@ -242,6 +242,10 @@ final class TopBarTabDragTests: XCTestCase {
             defer: false
         )
         window.contentView = bar
+        // On screen but unseen and unclickable: the drag reads its events from
+        // the window's queue, and off every screen AppKit returns them displaced.
+        window.alphaValue = 0
+        window.ignoresMouseEvents = true
         window.orderFrontRegardless()
         bar.layoutSubtreeIfNeeded()
         return (session, bar, try XCTUnwrap(session.spaces.first).id)
