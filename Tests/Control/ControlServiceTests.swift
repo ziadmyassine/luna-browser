@@ -9,6 +9,7 @@
 
 import BrowserKit
 import LunaControl
+import WebKit
 import XCTest
 @testable import Luna
 
@@ -164,5 +165,65 @@ final class ControlServiceTests: XCTestCase {
         XCTAssertEqual(session.group(folder)?.spaceID, home, "the folder is not in the tab's Space")
         XCTAssertEqual(session.tab(users)?.spaceID, home, "folding the tab moved it to another Space")
         XCTAssertEqual(session.activeSpaceID, work, "the agent changed the user's Space")
+    }
+
+    /// `pdf_text` sends the user's cookies for the PDF's site from the jar of
+    /// the tab's Space. After a relaunch, a Space no page has loaded in has a
+    /// jar WebKit has not read in, and its bare `allCookies()` is empty.
+    func testAPDFReadCarriesTheCookiesOfAJarNoPageHasOpened() async throws {
+        let jar = UUID()
+        var thrown: (any Error)?
+        do {
+            try await readPDFCookies(fromColdJar: jar)
+        } catch {
+            thrown = error
+        }
+        // The test host is Luna, so the jar sits beside the user's own: it must not stay.
+        do {
+            try await WKWebsiteDataStore.remove(forIdentifier: jar)
+        } catch {
+            XCTFail("the throwaway jar \(jar) is still on disk: \(error)")
+        }
+        if let thrown { throw thrown }
+    }
+
+    private func readPDFCookies(fromColdJar jar: UUID) async throws {
+        try await writeToDisk(signedInAs: "alice", at: "pdf.example", in: jar)
+        let store = try BrowserStore(path: directory.appending(path: "luna.sqlite"))
+        try await store.seedIfEmpty()
+        let work = Space(name: "Work", symbolName: "briefcase", gradient: .defaultSpace, dataStoreIdentifier: jar, order: 9)
+        try await store.upsert(work)
+        let tab = Tab(spaceID: work.id, url: try XCTUnwrap(URL(string: "https://pdf.example/report.pdf")))
+        try await store.upsert(tab)
+        let session = try await BrowserSession.restored(store: store)
+        defer { session.tearDown() }
+        XCTAssertNotEqual(session.activeSpaceID, work.id, "the test is about a Space the user is not in")
+
+        let cookies = await makeService(session).pdfCookies(for: tab.url, tab: tab.id, in: session)
+        XCTAssertEqual(cookies.map(\.value), ["alice"])
+    }
+
+    /// Signs `jar` in to `site` and returns once WebKit has written the cookie
+    /// file, with the store released so the next one for `jar` opens cold.
+    private func writeToDisk(signedInAs user: String, at site: String, in jar: UUID) async throws {
+        let store = WKWebsiteDataStore(forIdentifier: jar)
+        let cookie = try XCTUnwrap(HTTPCookie(properties: [
+            .domain: site, .path: "/", .name: "session", .value: user, .secure: "TRUE",
+            .expires: Date().addingTimeInterval(3600)
+        ]))
+        await store.httpCookieStore.setCookie(cookie)
+        // Nothing public says when a jar is flushed; the file under this
+        // process's WebKit directory does.
+        let root = URL.libraryDirectory.appending(path: "WebKit")
+        let file = "WebsiteDataStore/\(jar.uuidString.lowercased())/Cookies/Cookies.binarycookies"
+        func written() -> Bool {
+            let owners = (try? FileManager.default.contentsOfDirectory(atPath: root.path)) ?? []
+            return owners.contains { FileManager.default.fileExists(atPath: root.appending(path: $0).appending(path: file).path) }
+        }
+        let deadline = Date().addingTimeInterval(10)
+        while !written() {
+            guard Date() < deadline else { return XCTFail("WebKit never wrote the cookie to disk") }
+            try await Task.sleep(for: .milliseconds(50))
+        }
     }
 }

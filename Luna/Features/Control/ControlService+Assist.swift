@@ -31,7 +31,7 @@ extension ControlService {
             return .text(foldersText(in: session))
         case let .readPDF(url):
             let page = id.flatMap { session.controller(for: $0)?.webView?.url ?? session.tab($0)?.url }
-            return try await pdfText(url ?? page, in: session)
+            return try await pdfText(url ?? page, tab: id, in: session)
         case let .addToCalendar(title, start, end, allDay, notes):
             return try Self.addToCalendar(title: title, start: start, end: end, allDay: allDay, notes: notes)
         default:
@@ -80,7 +80,7 @@ extension ControlService {
     /// A PDF's text. Fetched with the user's cookies for its site, so one
     /// behind a sign-in reads as it does in their tab; a file only from
     /// Downloads, so an agent cannot read the rest of the disk this way.
-    private func pdfText(_ url: URL?, in session: BrowserSession) async throws -> ControlResult {
+    private func pdfText(_ url: URL?, tab id: UUID?, in session: BrowserSession) async throws -> ControlResult {
         guard let url else { return .error("Give the PDF's url, or open it in a tab first.") }
         let data: Data
         if url.isFileURL {
@@ -91,11 +91,7 @@ extension ControlService {
             data = try Data(contentsOf: url)
         } else {
             var request = URLRequest(url: url)
-            let store = session.activeController?.webView?.configuration.websiteDataStore ?? .default()
-            let host = url.host() ?? ""
-            let cookies = await store.httpCookieStore.allCookies().filter { cookie in
-                host.hasSuffix(cookie.domain.trimmingCharacters(in: CharacterSet(charactersIn: ".")))
-            }
+            let cookies = await pdfCookies(for: url, tab: id, in: session)
             for (field, value) in HTTPCookie.requestHeaderFields(with: cookies) { request.setValue(value, forHTTPHeaderField: field) }
             (data, _) = try await URLSession.shared.data(for: request)
         }
@@ -105,6 +101,17 @@ extension ControlService {
         let limit = 60_000
         let clipped = text.count > limit ? String(text.prefix(limit)) + "\n[… the rest is cut]" : text
         return .text("\(document.pageCount) pages.\n\n\(clipped)")
+    }
+
+    /// The cookies a PDF fetch for `url` carries: the jar of the tab's Space,
+    /// else of the Space the user is in. Not the frontmost web view's — an
+    /// agent's tab is seldom the one on screen, and may be in another Space.
+    func pdfCookies(for url: URL, tab id: UUID?, in session: BrowserSession) async -> [HTTPCookie] {
+        let store = session.dataStore(forSpace: id.flatMap { session.tab($0)?.spaceID } ?? session.activeSpaceID)
+        let host = url.host() ?? ""
+        return await store.loadedCookies().filter { cookie in
+            host.hasSuffix(cookie.domain.trimmingCharacters(in: CharacterSet(charactersIn: ".")))
+        }
     }
 
     // MARK: - The calendar
