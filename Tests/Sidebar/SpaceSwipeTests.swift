@@ -354,7 +354,7 @@ final class SpaceSwipeTests: XCTestCase {
             last = now
         }
         let widest = Tokens.Metric.sidebarWidth.max * Tokens.Metric.spaceCreateReach
-        XCTAssertGreaterThan(offset, widest, "a 0.2 s stroke cannot push a \(widest) pt page out")
+        XCTAssertGreaterThan(offset, widest, "a \(stroke) s stroke cannot push a \(widest) pt page out")
     }
 
     // MARK: - Helpers
