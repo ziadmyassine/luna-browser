@@ -210,9 +210,10 @@ extension BrowserSession {
         // Never from a test, unless the test has routed the sweep away from
         // the disk: a test's database holds two rows, so the sweep would delete
         // the user's real cookie jars. XCTest is loaded in a test run and in
-        // nothing else, so it is the one safe thing to key on.
+        // nothing else, so it is the one safe thing to key on — except for
+        // `LunaUITests`, whose copy of the app XCTest is not loaded into.
         let sink = orphanSweepSink
-        guard sink != nil || NSClassFromString("XCTestCase") == nil else { return }
+        guard sink != nil || (NSClassFromString("XCTestCase") == nil && !AppDelegate.isRunningTests) else { return }
         // Once per process — but only for the disk. Two windows racing each
         // other's removals is what that rule exists to prevent, and a redirected
         // sweep removes nothing, so it is not what the rule is about.

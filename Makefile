@@ -1,6 +1,6 @@
 XCODEBUILD := xcodebuild -project Luna.xcodeproj -scheme Luna -derivedDataPath DerivedData
 
-.PHONY: gen build run test lint check dmg signed
+.PHONY: gen build run test uitest lint check dmg signed
 
 gen:
 	xcodegen generate
@@ -38,6 +38,11 @@ signed:
 test:
 	swift test --package-path BrowserKit
 	xcodebuild -scheme Luna -configuration Debug -derivedDataPath ./DerivedData test
+
+# §24.1. Takes the pointer and the keyboard and brings Luna to the front, so it
+# is not part of `test`: run it on CI, or on a Mac nobody is using.
+uitest:
+	xcodebuild -project Luna.xcodeproj -scheme LunaUITests -derivedDataPath DerivedData -configuration Debug -destination 'platform=macOS' test
 
 lint:
 	swiftlint lint --quiet --strict

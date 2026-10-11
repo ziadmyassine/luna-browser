@@ -426,6 +426,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// throwaway directory is chosen here and not in the tests. Internal, not
     /// private, so `AppDelegateDatabaseTests` can assert the branch fires.
     static var databaseURL: URL {
+        if let folder = testDataDirectory() { return folder.appending(path: "luna.sqlite") }
         guard !isRunningTests else {
             return URL.temporaryDirectory
                 .appending(path: "luna-tests-\(UUID().uuidString)")
@@ -441,7 +442,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// XCTest publishes this for every bundle it loads, host app included. Not
     /// `NSClassFromString("XCTestCase")` — that links only after the bundle is
     /// injected, which is after the database has already been opened.
+    ///
+    /// `LunaUITests` drives a separate copy of the app that XCTest is not loaded
+    /// into, so it says so with `testDataKey` instead.
     static var isRunningTests: Bool {
-        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil || testDataDirectory() != nil
+    }
+
+    /// The folder a UI test hands the app in its launch environment. It has to
+    /// outlive one launch, because the test quits and relaunches to read the
+    /// session back — which the per-run folder above cannot do.
+    static let testDataKey = "LUNA_TEST_DATA"
+
+    static func testDataDirectory(in environment: [String: String] = ProcessInfo.processInfo.environment) -> URL? {
+        guard let path = environment[testDataKey], !path.isEmpty else { return nil }
+        return URL(filePath: path, directoryHint: .isDirectory)
     }
 }

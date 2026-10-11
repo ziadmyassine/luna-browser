@@ -4,6 +4,7 @@ included:
   - BrowserKit/Sources
   - BrowserKit/Tests
   - Tests
+  - UITests
 
 excluded:
   - Luna.xcodeproj

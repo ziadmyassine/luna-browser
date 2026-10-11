@@ -124,6 +124,13 @@ jobs:
             -destination 'platform=macOS' \
             test
 
+      # §24.1: launch, the Command Bar, a local page, ⌘Q, relaunch, restored.
+      # Its own scheme, because it drives the window server; `make test` leaves
+      # it out so a developer Mac keeps its pointer.
+      - name: Luna UI tests
+        if: ${{ !cancelled() }}
+        run: Tools/run-sampling-hangs.sh 240 make uitest
+
   lint:
     name: SwiftLint
     # Gating, and it took a wave to get here. It started at 67 violations: the

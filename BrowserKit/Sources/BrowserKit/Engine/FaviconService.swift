@@ -78,8 +78,13 @@ public final class FaviconService {
     /// Luna's tests run inside a copy of the app with the same bundle
     /// identifier, so the real folder is the user's: on 2026-10-01 it was
     /// found emptied right after a test run, and every tab's favicon with it.
+    /// `LUNA_TEST_DATA` is `LunaUITests`' folder (`AppDelegate.testDataKey`).
     public static var appCachesDirectory: URL {
-        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+        let environment = ProcessInfo.processInfo.environment
+        if let folder = environment["LUNA_TEST_DATA"], !folder.isEmpty {
+            return URL(filePath: folder, directoryHint: .isDirectory).appending(path: "Caches")
+        }
+        if environment["XCTestConfigurationFilePath"] != nil {
             return URL.temporaryDirectory.appending(path: "luna-tests-caches-\(ProcessInfo.processInfo.processIdentifier)")
         }
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first

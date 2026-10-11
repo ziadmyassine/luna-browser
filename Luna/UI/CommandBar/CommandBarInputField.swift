@@ -57,6 +57,7 @@ final class CommandBarInputField: NSTextField, NSTextFieldDelegate {
         cell?.wraps = false
         cell?.isScrollable = true
         delegate = self
+        setAccessibilityIdentifier("commandBar.field")
         applyTokens()
 
         // §21.2 / contract rule 4: Increase Contrast is not an `NSAppearance` on
