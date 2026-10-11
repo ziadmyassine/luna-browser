@@ -39,12 +39,26 @@ final class SpacePanelTests: XCTestCase {
         let panel = SpacePanel(frame: NSRect(x: 0, y: 0, width: 1000, height: 900), edge: .above, content: SpacePanelContent(
             spaces: spaces, activeID: spaces[1].id, switchTo: { _ in }, setGradient: { _, gradient in set = gradient }, edit: {}, new: {}
         ))
-        XCTAssertEqual(panel.swatches.count, Tokens.Gradient.spacePalette.count + 1)
+        XCTAssertEqual(panel.swatches.count, Tokens.Gradient.spacePalette.count + 2)
         XCTAssertEqual(panel.swatches.filter(\.isChosen).count, 1)
         panel.swatches[3].onActivate?()
         XCTAssertEqual(set, Tokens.Gradient.spacePalette[3])
         XCTAssertTrue(panel.swatches[3].isChosen)
         XCTAssertEqual(panel.swatches.filter(\.isChosen).count, 1, "two swatches ringed at once")
+    }
+
+    /// §8.2a: the last swatch is Custom, and it is the one ringed while the
+    /// Space wears a pair of its own.
+    func testACustomPairRingsTheCustomSwatchAlone() {
+        var custom = spaces
+        custom[0].gradient = Tokens.Gradient.custom(from: NSColor(srgbRed: 1, green: 0, blue: 0, alpha: 1))
+        let panel = SpacePanel(frame: NSRect(x: 0, y: 0, width: 1000, height: 900), edge: .above, content: SpacePanelContent(
+            spaces: custom, activeID: custom[0].id, switchTo: { _ in }, setGradient: { _, _ in }, edit: {}, new: {}
+        ))
+        XCTAssertEqual(panel.swatches.filter(\.isChosen), [panel.swatches.last])
+        XCTAssertEqual(panel.swatches.last?.isCustom, true)
+        panel.swatches[3].onActivate?()
+        XCTAssertEqual(panel.swatches.filter(\.isChosen), [panel.swatches[3]], "Custom kept its ring")
     }
 
     /// In the sidebar the pop-out lines its leading edge up with the control

@@ -66,6 +66,17 @@ final class SpacesSectionTests: XCTestCase {
         XCTAssertEqual(symbols.filter(\.isChosen).map(\.symbolName), [space.symbolName])
     }
 
+    /// §8.2a: a Space on a pair of its own opens on Custom, ringed alone, and
+    /// Custom shows that pair.
+    func testTheAppearanceGridRingsCustomForAPairOfItsOwn() {
+        let pair = Tokens.Gradient.custom(from: NSColor(srgbRed: 0.2, green: 0.3, blue: 0.9, alpha: 1))
+        let space = Space(name: "Work", symbolName: "flask", gradient: pair)
+        let view = SpaceAppearanceView(space: space, onGradient: { _ in }, onIcon: { _ in })
+        let swatches = Self.descendants(of: view).compactMap { $0 as? SpaceSwatchChip }
+        XCTAssertEqual(swatches.filter(\.isChosen).map(\.isCustom), [true])
+        XCTAssertEqual(swatches.first(where: \.isCustom)?.gradient, pair)
+    }
+
     /// §9's fan-out moved off the profile row and onto the card's head, where
     /// it describes the Space rather than captioning a popup. It has to still
     /// be somewhere — this is the assertion that it is.

@@ -5,6 +5,10 @@ under Unreleased; a release will take the entries since the last one.
 
 ## Unreleased
 
+### 2026-10-11
+
+- **A Space can wear a colour of your own** (§8.2a): the last swatch in every colour grid — Settings ▸ Spaces, the Space pop-out and the new-Space form — is Custom Colour…, which opens the colour panel. The colour you pick is the gradient's first stop; the second sits a little further round the colour wheel at the same lightness, the way the twelve curated pairs are built, so text on it stays readable. It shows on the badge, the dots and the sidebar's wash like any other colour, and it is saved and synced with the Space.
+
 ### 2026-10-10
 
 - **Opening Astro in a window with no tab open no longer crashes Luna**: the window kept the closed page's layout rules, and moving the panel or the sidebar put them back on a page that was gone. ⌘E is Show Agent in the shortcuts list now too; Use Selection for Find keeps its menu item without a key.

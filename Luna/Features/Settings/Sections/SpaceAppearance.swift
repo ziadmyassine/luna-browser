@@ -27,8 +27,8 @@ final class SpaceAppearanceView: NSView {
     static var gradients: [GradientPair] { [Tokens.Gradient.neutral] + Tokens.Gradient.spacePalette }
     static var gradientNames: [String] { [String(localized: "No Colour")] + Tokens.Gradient.spacePaletteNames }
 
-    /// How many chips fit a row before it wraps. Seven takes neutral plus
-    /// §8.2's twelve in two rows, and the thirteen symbols in two more — so the
+    /// How many chips fit a row before it wraps. Seven takes neutral, §8.2's
+    /// twelve and §8.2a's Custom in two full rows, and the thirteen symbols in two more — so the
     /// popover is four rows of chips on one column grid, whichever half of it
     /// you are looking at.
     private static let columns = 7
@@ -40,13 +40,16 @@ final class SpaceAppearanceView: NSView {
         super.init(frame: .zero)
         swatches = zip(Self.gradients, Self.gradientNames).map { gradient, label in
             let chip = SpaceSwatchChip(gradient: gradient, label: label)
-            chip.isChosen = gradient == space.gradient
             chip.onActivate = { [weak self] in
                 self?.choose(gradient: gradient)
                 onGradient(gradient)
             }
             return chip
-        }
+        } + [SpaceSwatchChip.custom(current: space.gradient) { [weak self] pair in
+            self?.choose(gradient: pair)
+            onGradient(pair)
+        }]
+        for chip in swatches { chip.isChosen = chip.offers(space.gradient) }
         symbols = SpacesSection.symbols.map { symbol in
             let chip = SpaceSymbolChip(symbolName: symbol.name, label: symbol.label)
             chip.isChosen = symbol.name == space.symbolName
@@ -86,7 +89,7 @@ final class SpaceAppearanceView: NSView {
     /// throws this view away; until it lands, a grid that still shows the old
     /// ring reads as a click that did not register.
     private func choose(gradient: GradientPair) {
-        for chip in swatches { chip.isChosen = chip.gradient == gradient }
+        for chip in swatches { chip.isChosen = chip.offers(gradient) }
     }
 
     private func choose(symbol: String) {
@@ -122,10 +125,15 @@ final class SpaceAppearanceView: NSView {
 /// one that is chosen. The press is the swell every other button in the app
 /// performs (`Motion.controlPress`), which costs the swatch nothing: a disc
 /// 5 % larger is the same colour.
+///
+/// §8.2a's Custom is one of these too, last in every grid: it stands for every
+/// pair outside the palette, wears the Space's own once it has one, and until
+/// then shows the palette's first stops round a wheel.
 @MainActor
 final class SpaceSwatchChip: NSView {
 
-    let gradient: GradientPair
+    private(set) var gradient: GradientPair { didSet { needsDisplay = true } }
+    let isCustom: Bool
     var onActivate: (() -> Void)?
     var isChosen = false { didSet { needsDisplay = true } }
 
@@ -138,8 +146,9 @@ final class SpaceSwatchChip: NSView {
         }
     }
 
-    init(gradient: GradientPair, label: String) {
+    init(gradient: GradientPair, label: String, isCustom: Bool = false) {
         self.gradient = gradient
+        self.isCustom = isCustom
         super.init(frame: .zero)
         wantsLayer = true
         layer?.addSublayer(disc)
@@ -152,12 +161,52 @@ final class SpaceSwatchChip: NSView {
         setAccessibilityLabel(label)
     }
 
+    /// §8.2a's Custom swatch for a Space wearing `current`. A release opens
+    /// the shared colour panel on its first stop; each colour the user
+    /// settles on comes back through `onPick` as a derived pair, and the chip
+    /// takes it on first so a host's ring loop finds it there.
+    static func custom(current: GradientPair, onPick: @escaping (GradientPair) -> Void) -> SpaceSwatchChip {
+        let chip = SpaceSwatchChip(gradient: current, label: String(localized: "Custom Colour…"), isCustom: true)
+        chip.onActivate = { [weak chip] in
+            guard let chip else { return }
+            SpaceColourPanel.shared.present(from: chip.gradient) { [weak chip] pair in
+                chip?.gradient = pair
+                onPick(pair)
+            }
+        }
+        return chip
+    }
+
+    /// Whether this chip is the one to ring for `pair`.
+    func offers(_ pair: GradientPair) -> Bool {
+        isCustom ? Tokens.Gradient.isCustom(pair) : pair == gradient
+    }
+
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
     override var wantsUpdateLayer: Bool { true }
+
+    /// The disc's fill: the pair, corner to corner, or — on Custom before
+    /// there is a pair of its own — the palette's first stops in hue order
+    /// round a cone, the wheel the colour panel opens on.
+    private func paintDisc() {
+        guard isCustom, !Tokens.Gradient.isCustom(gradient) else {
+            let stops = Tokens.Gradient.planes(gradient, at: .full, in: effectiveAppearance)
+            disc.type = .axial
+            disc.startPoint = CGPoint(x: 0, y: 1)
+            disc.endPoint = CGPoint(x: 1, y: 0)
+            disc.colors = [stops.start.cgColor, stops.end.cgColor]
+            return
+        }
+        let hues = Tokens.Gradient.spacePalette.map { NSColor($0.start) }.sorted { $0.hueComponent < $1.hueComponent }
+        disc.type = .conic
+        disc.startPoint = CGPoint(x: 0.5, y: 0.5)
+        disc.endPoint = CGPoint(x: 0.5, y: 1)
+        disc.colors = (hues + hues.prefix(1)).map(\.cgColor)
+    }
 
     override func updateLayer() {
         setAccessibilityValue(isChosen)
@@ -169,10 +218,7 @@ final class SpaceSwatchChip: NSView {
             // it away, and that tenth is the darkest part of the ramp.
             disc.frame = bounds.insetBy(dx: ring * 2, dy: ring * 2)
             disc.cornerRadius = disc.frame.width / 2
-            let stops = Tokens.Gradient.planes(gradient, at: .full, in: effectiveAppearance)
-            disc.startPoint = CGPoint(x: 0, y: 1)
-            disc.endPoint = CGPoint(x: 1, y: 0)
-            disc.colors = [stops.start.cgColor, stops.end.cgColor]
+            paintDisc()
             // §21.2 Differentiate Without Colour: the chosen swatch is the only
             // one wearing a ring, and a light gradient on a light popover needs
             // the hairline regardless to have a shape at all.
@@ -226,6 +272,38 @@ final class SpaceSwatchChip: NSView {
     override func accessibilityPerformPress() -> Bool {
         onActivate?()
         return true
+    }
+}
+
+/// §8.2a: the system colour panel, aimed at one Space at a time.
+///
+/// One colour rather than two wells: a second stop picked by eye can land in
+/// another luminance band from the first and then no ink clears both, which
+/// is the failure §13.6 measures the twelve against. `Gradient.custom` derives
+/// it instead. Not continuous, so a drag across the wheel writes the Space
+/// once when it settles rather than on every frame.
+@MainActor
+final class SpaceColourPanel: NSObject {
+    static let shared = SpaceColourPanel()
+
+    private var onPick: ((GradientPair) -> Void)?
+
+    func present(from current: GradientPair, onPick: @escaping (GradientPair) -> Void) {
+        let panel = NSColorPanel.shared
+        // Disarmed while the colour is set, so opening on the Space's own
+        // colour is not mistaken for a pick and written back as Custom.
+        panel.setTarget(nil)
+        panel.showsAlpha = false
+        panel.isContinuous = false
+        panel.color = NSColor(current.start)
+        self.onPick = onPick
+        panel.setTarget(self)
+        panel.setAction(#selector(colourChanged(_:)))
+        panel.orderFront(nil)
+    }
+
+    @objc private func colourChanged(_ sender: NSColorPanel) {
+        onPick?(Tokens.Gradient.custom(from: sender.color))
     }
 }
 

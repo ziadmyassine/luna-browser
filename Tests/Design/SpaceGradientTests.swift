@@ -255,4 +255,49 @@ final class SpaceGradientTests: XCTestCase {
             }
         }
     }
+
+    // MARK: - §8.2a custom colour
+
+    /// One colour in, a palette-shaped pair out: the first stop is what the
+    /// user picked, the second sweeps `customSweep` round the wheel at the
+    /// first stop's own luminance, so one ink clears both as it does on the
+    /// twelve.
+    func testACustomColourSweepsItsSecondStopAtItsOwnLuminance() throws {
+        let aqua = try XCTUnwrap(NSAppearance(named: .aqua))
+        let luminance = { (colour: NSColor) in colour.srgbComponents(for: aqua).relativeLuminance }
+        let picks = Tokens.Gradient.spacePalette.map { NSColor($0.start) } + [
+            NSColor(srgbRed: 1, green: 0, blue: 0, alpha: 1),
+            NSColor(srgbRed: 0.2, green: 0.3, blue: 0.9, alpha: 1),
+            NSColor(srgbRed: 0.95, green: 0.9, blue: 0.3, alpha: 1)
+        ]
+        for pick in picks {
+            let pair = Tokens.Gradient.custom(from: pick)
+            let start = NSColor(pair.start), end = NSColor(pair.end)
+            XCTAssertEqual(luminance(start), luminance(pick), accuracy: 0.0001, "the first stop is not the pick")
+            let sweep = (end.hueComponent - start.hueComponent + 1).truncatingRemainder(dividingBy: 1)
+            XCTAssertEqual(sweep, Tokens.Gradient.customSweep, accuracy: 0.01, "\(pick)")
+            // Frost's sky swept to blue cannot reach its luminance; there the
+            // second stop stops at full brightness instead.
+            if abs(luminance(end) - luminance(start)) > 0.01 {
+                XCTAssertLessThan(luminance(end), luminance(start), "\(pick)")
+                XCTAssertEqual(end.brightnessComponent, 1, accuracy: 0.001, "\(pick)")
+            }
+            XCTAssertEqual(pair.end.a, 1)
+        }
+    }
+
+    /// A grey has no hue to sweep, so it comes back flat rather than tinted.
+    func testACustomGreyStaysGrey() {
+        let pair = Tokens.Gradient.custom(from: NSColor(srgbRed: 0.4, green: 0.4, blue: 0.4, alpha: 1))
+        XCTAssertEqual(pair.end.r, pair.end.g, accuracy: 0.002)
+        XCTAssertEqual(pair.end.g, pair.end.b, accuracy: 0.002)
+    }
+
+    /// Custom is every pair the palette and No Colour do not hand out.
+    func testCustomMeansOutsideThePaletteAndNeutral() {
+        XCTAssertFalse(Tokens.Gradient.spacePalette.contains(where: Tokens.Gradient.isCustom))
+        XCTAssertFalse(Tokens.Gradient.isCustom(Tokens.Gradient.neutral))
+        let red = NSColor(srgbRed: 1, green: 0, blue: 0, alpha: 1)
+        XCTAssertTrue(Tokens.Gradient.isCustom(Tokens.Gradient.custom(from: red)))
+    }
 }

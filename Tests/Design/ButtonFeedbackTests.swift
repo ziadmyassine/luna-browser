@@ -76,6 +76,9 @@ final class ButtonFeedbackTests: XCTestCase {
             ("SpaceEditorButton", SpaceEditorButton(title: "Cancel")),
             ("SpaceEditorButton preferred", SpaceEditorButton(title: "Create Space", isPreferred: true)),
             ("SpaceSwatchChip", SpaceSwatchChip(gradient: .defaultSpace, label: "Blue")),
+            // §8.2a's Custom swatch. Built bare rather than through `custom`,
+            // whose release opens the shared colour panel.
+            ("SpaceSwatchChip custom", SpaceSwatchChip(gradient: .defaultSpace, label: "Custom Colour…", isCustom: true)),
             ("SpaceSymbolChip", SpaceSymbolChip(symbolName: "moon.stars", label: "Moon")),
             // §3.4's close/mute chip. §3.4b's fold mark is not here and must
             // not be: it is a plain image view, because the header it sits on

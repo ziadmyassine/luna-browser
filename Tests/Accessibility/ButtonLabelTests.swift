@@ -52,6 +52,7 @@ final class ButtonLabelTests: XCTestCase {
             ("SpaceEditorButton", SpaceEditorButton(title: "Cancel")),
             ("SpaceEditorButton preferred", SpaceEditorButton(title: "Create Space", isPreferred: true)),
             ("SpaceSwatchChip", SpaceSwatchChip(gradient: .defaultSpace, label: "Blue")),
+            ("SpaceSwatchChip custom", SpaceSwatchChip.custom(current: .defaultSpace) { _ in }),
             ("SpaceSymbolChip", SpaceSymbolChip(symbolName: "moon.stars", label: "Moon")),
             ("RowGlyphView", glyph),
             ("RowGlyphView (extension)", pin),
