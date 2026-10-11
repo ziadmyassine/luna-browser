@@ -67,15 +67,12 @@ case "seed":
         let store = try BrowserStore(path: path)
         var spaces: [Space] = []
         for index in 0..<spaceCount {
-            let profile = Profile(name: "Perf \(index)")
             let space = Space(
                 name: "Perf \(index)",
                 symbolName: "moon.stars.fill",
                 gradient: .defaultSpace,
-                profileID: profile.id,
                 order: index
             )
-            try await store.upsert(profile)
             try await store.upsert(space)
             spaces.append(space)
         }
@@ -519,4 +516,13 @@ case "blocking":
 default:
     print("usage: luna-perf seed <db> <spaces> <tabs> | launch <binary> <runs> "
           + "| tabs <total> <spaces> <live> | page <repeats> | blocking | leak")
+}
+
+// Leaks takes its memory graph from a live process, and one taken as the process
+// exits fails, so `Tools/perf/instruments.sh` keeps the harness alive after the
+// scenario and attaches to it.
+if let linger = ProcessInfo.processInfo.environment["LUNA_PERF_LINGER"].flatMap(Double.init) {
+    print("LINGER \(getpid())")
+    fflush(stdout)
+    pump(seconds: linger)
 }

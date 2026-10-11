@@ -14,6 +14,7 @@ Tools/perf/run.sh page       # what Luna's own stack adds to a page load
 Tools/perf/run.sh blocking   # §17.1's fetch-convert-compile, against a heartbeat
 Tools/perf/run.sh ui         # command bar, a keystroke in it, sidebar frame cost (the opt-in XCTests)
 Tools/ranking-check.sh       # §9.3's 30-page ranking check, against this Mac's history, read-only
+make instruments             # §19.5: Time Profiler, Allocations, Leaks over `page`, appends a dated block
 ```
 
 ## Scoreboard
@@ -36,6 +37,7 @@ from rather than pretending to a trend.
 | **40 tabs / 3 Spaces / 6 live < 3.5 GB RSS** | 09-17, M4: **165–310 MB RSS, 785–842 MB footprint** | **PASS, ~4× headroom** |
 | Sidebar frame ≤ 8.33 ms (120 fps) | 09-17, M4: **0.05 ms** median, **0.97 ms** p95 | **PASS, 8× headroom** |
 | §19.4: no web view for an unselected tab | both days: **0 WebKit processes** with 40 tabs restored | **PASS, on the real app** |
+| §19.5 Instruments: leaks, hangs, web views left behind | 10-11, M4: **0** leak stacks through Luna's code, **0** hangs, **0** `WKWebView` alive after the scenario | stated; see *§19.5 Instruments pass* |
 | §19.2: a cold tab holds no `WKWebView` | 09-17, M4: **0 of 5 alive**, 5 WebContent processes gone | **PASS, verified under load** |
 
 **Every budget passes, comfortably, and §19.2's mechanism does what it claims.** Hibernating
@@ -618,6 +620,82 @@ Return to loaded, in ms:
 to 8 and its idle threshold from 5 to 30 minutes, measured from when the tab was left. At
 the 808 MB measured for 6 live tabs, eight is about 1.1 GB, inside §19.1's 3.5 GB.
 
+## §19.5 Instruments pass
+
+`make instruments` (`Tools/perf/instruments.sh`) records **Time Profiler**, **Allocations** and
+**Leaks** with `xcrun xctrace` over the harness's `page` scenario, five rounds by default:
+three local documents (1, 11 and 31 frames) loaded through a bare `WKWebView`, Luna's
+configuration, and the full `TabController`, plus building a web view with nothing in it.
+The traces stay in `Tools/perf/.build/instruments/<date>/` (ignored; Allocations alone is
+~370 MB) for Instruments.app, and the headline lines go to the run log below.
+
+What it profiles is the harness process: BrowserKit, linked in and built `-O`, driving real
+web views. WebContent, GPU and Networking processes are not in these numbers, and neither is
+Luna's chrome.
+
+### 2026-10-11 — Mac mini (Mac16,10), Apple M4, 10 cores, 16 GB, macOS 26.5.2 (25F84), xctrace 16.0 (17F113)
+
+Three passes in one hour, the last of them logged. The range is all three.
+
+| | logged pass | range over 3 | regression if |
+|---|---|---|---|
+| on-CPU samples (1 ms) | 2,508 | 2,508–3,937 | — (load-dependent) |
+| hangs over 250 ms | **0** | 0 | any |
+| `TabController.load(_:into:)`, inclusive | **16.9 %** | 13.5–16.9 % | it climbs well past the range |
+| `WebViewFactory.makeWebView`, inclusive | 3.8 % | 3.2–3.8 % | |
+| `TabController.ensureWebView`, inclusive | 3.2 % | 2.8–3.2 % | |
+| live heap after the scenario | **44,524 nodes, 5,949 KB** | 40,237–44,524 nodes, 5.5–5.8 MB | it grows with rounds |
+| phys_footprint after / peak | 39.1 MB / 39.9 MB | 34.9–39.1 / 38.1–39.9 MB | |
+| `WKWebView` / `WKNavigation` / `WKWebViewConfiguration` alive | **0 / 0 / 0** | 0 (configuration: last 2 passes) | any |
+| leaks | 288, 18,816 bytes | 208–288, 14.7–18.8 KB | a new root type |
+| leak stacks with a frame of Luna's code | **0** | 0 | any |
+
+Reading it:
+
+- **The hottest Luna frame is WebKit's work.** `TabController.load(_:into:)` is a two-branch
+  function, and 424 of its 425 samples are in `-[WKWebView loadFileURL:allowingReadAccessToURL:]`,
+  whose leaf frames are CFURL and `WTF::URLParser` parsing and CFString accessors.
+  Nothing of ours to trim there, and the same goes for `WKWebView.init` under
+  `makeWebView`.
+- **No leaks are Luna's.** Every leak is one of three `NSXPCConnection` root cycles that
+  AppIntents' `LNProcessInstanceRegistryClient` creates; no
+  leak stack has a frame in BrowserKit. Each pass had three; how many nodes hang off each
+  varies, and that is the 208–288 spread.
+- **§19.2 holds under Allocations.** With the scenario finished and every tab hibernated, no
+  `WKWebView`, navigation or configuration is alive. A snapshot taken as the process exits
+  instead finds three to six still there — WebKit lets them go asynchronously, and the
+  process was already on its way out. That is why Leaks attaches to a harness that lingers.
+- **Not extracted:** total (cumulative) allocations. `xctrace export` has no table for the
+  Allocations or Leaks instruments, so the live-heap and leak numbers come from `leaks` and
+  `heap` run against the same lingering process. The cumulative figures are in
+  `Allocations.trace`, in Instruments.app.
+
+### Animation Hitches: not recorded
+
+Hitches are frames that missed their display deadline, so the instrument needs Luna's window
+on a display, animating. The harness has no window, and `Luna.app` cannot be profiled out of
+sight today: it sets `.regular`, calls `NSApp.activate()` and shows its window
+(`AppDelegate.applicationDidFinishLaunching`), hands a second copy off to a running Luna with
+`activates = true`, and `CFFIXED_USER_HOME` does not move `UserDefaults` — measured: a write
+under it lands in `~/Library/Preferences`.
+
+It needs a foreground session the owner schedules (unverified, not run):
+`xcrun xctrace record --template 'Animation Hitches' --launch -- DerivedData/Build/Products/Debug/Luna.app/Contents/MacOS/Luna`
+with no other Luna running, then a fixed sequence by hand: open and close the sidebar,
+swipe between Spaces, open the command bar, raise a toast. A separate macOS user account
+keeps the session and preferences out of it.
+
+### Running it
+
+- The harness binary is copied to a temporary directory first. Run from under `~/Desktop`, a
+  process launched by xctrace blocked in dyld opening its own executable and never started;
+  the likeliest reason is the Desktop folder's privacy protection, not confirmed.
+- The copy is ad-hoc signed with `get-task-allow`, as Xcode signs a Debug build. Without it,
+  Allocations left the target suspended until the time limit.
+- If xctrace says *could not lock kperf*, or sits after *Target app exited* with nothing
+  moving, a `DTServiceHub` from an earlier recording is holding on: `pkill -9 DTServiceHub`
+  and run it again. A `spindump` in progress holds kperf too.
+
 ## Corrections to §19
 
 - **§19.1 states its memory budget in RSS.** RSS is the wrong unit for a multi-process
@@ -675,4 +753,27 @@ PERF sidebar frame median 0.02 ms, p95 0.52 ms (budget 8.33 ms)
 
 ```
 PAGE bare 66.3 ms, -0.2 ms configuration, +6.8 ms scripts and observers, Luna 73.0 ms (+6.6 ms)
+```
+
+### 2026-10-11 14:58 — Instruments, Apple M4, 16 GB, macOS 26.5.2, Xcode 16.0 (17F113)
+
+```
+TIME page x5: 2508 1 ms samples of the harness process on CPU, 0 hangs over 250 ms
+TIME   ours   16.9 %  static TabController.load(_:into:)
+TIME   ours    3.8 %  static WebViewFactory.makeWebView(configuration:)
+TIME   ours    3.2 %  TabController.ensureWebView(restoringSession:loadingFallback:)
+TIME   ours    2.9 %  @nonobjc WKWebView.init(frame:configuration:)
+TIME   ours    0.8 %  TabController.decidePolicy(for:in:decisionHandler:)
+TIME   ours    0.7 %  TabController.activate()
+TIME   self    7.3 %  start_wqthread
+TIME   self    6.4 %  mach_msg2_trap
+TIME   self    5.3 %  __CF_IS_OBJC
+TIME   self    2.8 %  CFStringGetLength
+TIME   self    2.5 %  _CFStringGetCStringPtrInternal
+ALLOC page x5, after the scenario: 44524 nodes, 5949 KB live; footprint 39.1M, peak 39.9M
+ALLOC   WKWebView: none live
+ALLOC   WKNavigation: none live
+ALLOC   WKWebViewConfiguration: none live
+LEAKS page x5: 288 leaks, 18816 bytes; roots: 3x ROOT CYCLE: <NSXPCConnection>; frames of Luna's code in leak stacks: 0
+HITCHES not recorded: Animation Hitches needs Luna's window on a display (docs/PERF.md, §19.5)
 ```

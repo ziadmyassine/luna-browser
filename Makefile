@@ -1,6 +1,6 @@
 XCODEBUILD := xcodebuild -project Luna.xcodeproj -scheme Luna -derivedDataPath DerivedData
 
-.PHONY: gen build run test lint check dmg signed
+.PHONY: gen build run test lint check dmg signed instruments
 
 gen:
 	xcodegen generate
@@ -41,6 +41,11 @@ test:
 
 lint:
 	swiftlint lint --quiet --strict
+
+# §19.5: Time Profiler, Allocations and Leaks over Tools/perf's `page` scenario,
+# appended to docs/PERF.md. No window and no activation — see the script.
+instruments:
+	Tools/perf/instruments.sh
 
 check: lint
 	Tools/check-no-appkit.sh
