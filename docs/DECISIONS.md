@@ -152,6 +152,22 @@ These four come before everything else, in this order. Two of them reverse earli
 
 > **Decided 2026-09-17 (§32):** general extension support is **out of v1**. The only extension-adjacent thing we build now is the **native-messaging bridge in §14.7**, so 1Password and Bitwarden work. Everything below waits for M5/v2 — do not start §16.2–§16.6 without explicit go-ahead.
 > **Confirmed 2026-09-21:** this section is the *only* route to Chrome extensions, and it is a good one. Embedding Chromium is not an alternative — CEF supports extensions only in Chrome-style windows showing Chrome's own toolbar, so a browser hosted in our own `NSView` (Alloy style) has `chrome://extensions` blocked and `LoadExtension` deleted at M128. `WKWebExtension` loads Chrome-format MV2/MV3 from a directory or ZIP, and a `.crx` is a ZIP with a 16-byte header — no Apple gatekeeping, it is our own controller. Benchmark for §16.5: Kagi's Orion spent six years on its own WebKit shim and publishes *"about 70%"* API coverage; Apple's implementation starts there and improves each OS release. See `docs/research/ENGINES.md` §5.
+### §23 — 23. Import & export
+
+> **The imported bookmark tree (#146, 2026-10-11).** An import still writes
+> `Tab` rows into §3.4b's one level of sidebar folders (Arc's `IA ▸ Physics` is
+> the folder `IA / Physics`); a nested sidebar is not what this is. Beside them,
+> `v18`'s `bookmarks` table keeps each page's place in the source, one row per
+> `(spaceID, url, folderPath)`, the path as a JSON array, so a page filed in
+> two folders is two rows and a re-import adds none. The bookmarks HTML export
+> asks the sidebar what to write and the tree where to put it: a saved tab
+> whose page the tree knows goes under each of its source folders (an empty
+> path is the bookmarks bar), any other saved tab exports as before, and an
+> imported tab the user deleted does not come back. A parent-pointer tree was
+> not built: nothing edits the tree, and the export rebuilds folders from
+> paths already (`NetscapeBookmarks.write`). An empty source folder is not
+> kept. The table goes with its Space and does not sync, since a new CloudKit
+> record type is a Production deploy.
 ### §31 — 31. iCloud sync (CloudKit)
 
 Everything the user *structures* follows them between Macs — and later, iPhone — through **their own iCloud account**. No Luna account, no Luna server, no password to forget. Local-first: the app is fully usable with iCloud off or unavailable, and sync is an accelerator, never a dependency.

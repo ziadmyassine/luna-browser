@@ -5,6 +5,10 @@ under Unreleased; a release will take the entries since the last one.
 
 ## Unreleased
 
+### 2026-10-11
+
+- **Imported bookmarks keep their folders on the way back out** (§23.2): an import still puts a browser's bookmarks in one sidebar folder, but Luna now remembers which folder each page sat in, and a bookmarks HTML export writes that tree back, nested folders, bookmarks bar and a page filed in two folders included. Importing again adds nothing.
+
 ### 2026-10-10
 
 - **Opening Astro in a window with no tab open no longer crashes Luna**: the window kept the closed page's layout rules, and moving the panel or the sidebar put them back on a page that was gone. ⌘E is Show Agent in the shortcuts list now too; Use Selection for Find keeps its menu item without a key.

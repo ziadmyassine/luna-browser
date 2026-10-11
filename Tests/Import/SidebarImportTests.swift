@@ -214,6 +214,16 @@ final class SidebarImportTests: XCTestCase {
         XCTAssertEqual(folders.count, 2, "no second set of folders")
     }
 
+    /// Arc's nested folder is one sidebar folder, `IA / Physics`, and still two
+    /// levels in the tree the export writes.
+    func testAnArcImportKeepsItsNestedFolderInTheTree() async throws {
+        let (store, _) = try await importArc()
+        let spaces = try await store.spaces()
+        let school = try XCTUnwrap(spaces.first { $0.name == "Arc — School" })
+        let paths = try await store.bookmarks(inSpace: school.id).map(\.folderPath)
+        XCTAssertTrue(paths.contains(["IA", "Physics"]), "got \(paths)")
+    }
+
     /// A caller that named a Space has already said where everything goes, so
     /// the sidebar's own Spaces are not made — it flattens like any other
     /// source. That is what §30.17's "import into this Space" means.

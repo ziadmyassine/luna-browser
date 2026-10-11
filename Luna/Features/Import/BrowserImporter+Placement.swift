@@ -5,9 +5,10 @@
 //  Where an imported bookmark lands, split out of `BrowserImporter` so the
 //  reading half and the writing half can each be read in one sitting.
 //
-//  It is the half with the decisions in it. Luna has no bookmarks table
-//  (§11.1), so a bookmark becomes a `Tab` — a saved one, in a §3.4b folder
-//  named after the browser it came from.
+//  It is the half with the decisions in it. A bookmark becomes a `Tab` — a
+//  saved one, in a §3.4b folder named after the browser it came from — and
+//  its place in the source's tree is recorded in `bookmarks` beside it, for
+//  the export (docs/DECISIONS.md, "The imported bookmark tree").
 //
 //  The folder is this file's answer to "where did my bookmarks go": loose in
 //  the Space's two tiers they mix with what the user saved themselves. A
@@ -27,10 +28,10 @@ extension BrowserImporter {
     /// purpose: a user who deleted the ledger, or who imports the same sites
     /// from two browsers, still gets no duplicates.
     ///
-    /// One key, the URL alone, not §23.2's folder path plus URL: Luna has no
-    /// bookmark folders (§11.1's `bookmarks` table is not created), so a site
-    /// bookmarked in two folders would land as two identical rows in one
-    /// Space, which is a duplicate by any reading.
+    /// One key, the URL alone, not §23.2's folder path plus URL: the sidebar
+    /// has one folder per import, so a site bookmarked in two folders would
+    /// land as two identical rows in one Space. Both folders are kept in the
+    /// recorded tree, which is keyed on the path too.
     /// - Parameter folder: what the §3.4b folder is called — the browser the
     ///   bookmarks came from, not the profile inside it. Two profiles of the
     ///   same browser share one folder, which is what "my Chrome bookmarks"
@@ -86,6 +87,7 @@ extension BrowserImporter {
             ))
             order += 1
         }
+        if !dryRun { try await store.recordBookmarks(bookmarks.map { $0.leaf(in: spaceID) }) }
         return (added, skipped)
     }
 

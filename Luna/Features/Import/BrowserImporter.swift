@@ -264,6 +264,11 @@ actor BrowserImporter {
     /// `spaceID == nil` exports every Space, each as a folder. One Space
     /// exports its Essentials as Favorites and its Pinned tabs as bookmarks.
     /// Today's tabs are working state rather than bookmarks, so they stay out.
+    ///
+    /// The sidebar decides what goes out and the recorded tree where: a tab an
+    /// import brought goes under each folder its page sat in at the source,
+    /// an empty path being the bar (docs/DECISIONS.md, "The imported bookmark
+    /// tree").
     func exportBookmarksHTML(spaceID: UUID? = nil) async throws -> String {
         let spaces = try await store.spaces()
         var bookmarks: [ImportedBookmark] = []
@@ -271,14 +276,34 @@ actor BrowserImporter {
 
         for space in spaces where spaceID == nil || space.id == spaceID {
             let tabs = try await store.tabs(inSpace: space.id, includeArchived: false)
+            let tree = Dictionary(grouping: try await store.bookmarks(inSpace: space.id)) { Self.dedupKey($0.url) }
+            let prefix = isSingleSpace ? [] : [space.name]
+            var written: Set<String> = []
             for tab in tabs where tab.kind != .today {
-                bookmarks.append(ImportedBookmark(
-                    url: tab.url,
-                    title: tab.title.isEmpty ? (tab.url.host() ?? tab.url.absoluteString) : tab.title,
-                    dateAdded: tab.createdAt,
-                    folderPath: isSingleSpace ? [] : [space.name],
-                    placement: isSingleSpace && tab.kind == .essential ? .favorite : .folder
-                ))
+                let title = tab.title.isEmpty ? (tab.url.host() ?? tab.url.absoluteString) : tab.title
+                let key = Self.dedupKey(tab.url)
+                guard let leaves = tree[key] else {
+                    bookmarks.append(ImportedBookmark(
+                        url: tab.url,
+                        title: title,
+                        dateAdded: tab.createdAt,
+                        folderPath: prefix,
+                        placement: isSingleSpace && tab.kind == .essential ? .favorite : .folder
+                    ))
+                    continue
+                }
+                // A second tab on the same page would write every branch again.
+                guard written.insert(key).inserted else { continue }
+                for leaf in leaves {
+                    let path = prefix + leaf.folderPath
+                    bookmarks.append(ImportedBookmark(
+                        url: tab.url,
+                        title: title,
+                        dateAdded: leaf.dateAdded ?? tab.createdAt,
+                        folderPath: path,
+                        placement: path.isEmpty ? .favorite : .folder
+                    ))
+                }
             }
         }
         return NetscapeBookmarks.write(bookmarks, title: "Luna Bookmarks")

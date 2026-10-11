@@ -81,6 +81,7 @@ enum Schema {
         registerSiteMigrations(in: &migrator)
         // `v17` — `SyncSQL`'s triggers again, for `sync_visits_delete` (§11.3).
         migrator.registerMigration("v17", migrate: addTheTriggersSinceV12)
+        migrator.registerMigration("v18", migrate: rememberTheBookmarksTree)
         return migrator
     }
 
