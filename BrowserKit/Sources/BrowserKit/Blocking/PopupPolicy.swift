@@ -163,21 +163,34 @@ public final class PopupGuard {
     var probation: PopupProbation?
 
     static let historyLimit = 10
-    /// `createWebViewWith` returning nil makes `window.open` return null, and the
-    /// page script reports that too; the second report of one pop-up lands within
-    /// the same run-loop turn or two.
-    static let duplicateWindow: TimeInterval = 1
+    /// Refusals the page script will report again. `createWebViewWith`
+    /// returning nil makes `window.open` return null, and the script reports
+    /// that as a separate message, which lands after however much main-thread
+    /// work comes first. A one-second window once let a loaded run record one
+    /// pop-up twice, so the report is matched to its refusal, not to a clock.
+    private var awaitingEcho: [URL] = []
 
     public init() {}
 
-    /// - Returns: false for a duplicate, which is not recorded.
-    @discardableResult
-    func record(_ url: URL, at date: Date = Date()) -> Bool {
-        if let last = blocked.first, last.url == url, date.timeIntervalSince(last.date) < Self.duplicateWindow {
-            return false
+    /// - Parameter echoed: the page script will report this pop-up too.
+    func record(_ url: URL, at date: Date = Date(), echoed: Bool = false) {
+        if echoed {
+            awaitingEcho.append(url)
+            if awaitingEcho.count > Self.historyLimit { awaitingEcho.removeFirst() }
         }
         blocked.insert(BlockedPopup(url: url, date: date), at: 0)
         if blocked.count > Self.historyLimit { blocked.removeLast(blocked.count - Self.historyLimit) }
+    }
+
+    /// The page script's report of a `window.open` that came back null.
+    /// - Returns: false for the echo of a refusal already recorded.
+    @discardableResult
+    func recordReport(_ url: URL) -> Bool {
+        if let echo = awaitingEcho.firstIndex(of: url) {
+            awaitingEcho.remove(at: echo)
+            return false
+        }
+        record(url)
         return true
     }
 

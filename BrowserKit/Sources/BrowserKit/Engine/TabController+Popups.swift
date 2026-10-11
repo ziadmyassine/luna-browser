@@ -37,7 +37,9 @@ extension TabController {
         // A pop-up with no web address has nothing to open later, so there is
         // nothing to offer back.
         if !allowed, let url, PopupPolicy.reportedURL(url.absoluteString, relativeTo: nil) != nil {
-            noteBlockedPopup(url)
+            // A `window.open` arrives as `.other`, and it is the one the page
+            // script sees come back null.
+            noteBlockedPopup(url, echoed: navigationAction.navigationType == .other)
         }
         return allowed
     }
@@ -86,8 +88,12 @@ extension TabController {
         }
     }
 
-    func noteBlockedPopup(_ url: URL) {
-        guard popups.record(url) else { return }
+    func noteBlockedPopup(_ url: URL, echoed: Bool = false, fromPage: Bool = false) {
+        if fromPage {
+            guard popups.recordReport(url) else { return }
+        } else {
+            popups.record(url, echoed: echoed)
+        }
         delegate?.tabController(self, didBlockPopup: url)
     }
 
@@ -101,7 +107,7 @@ extension TabController {
         if body.keys.contains("pressed") {
             popups.pressedLink = PopupPolicy.reportedURL(body["pressed"], relativeTo: frameURL)
         } else if popupMode != .off, let url = PopupPolicy.reportedURL(body["blocked"], relativeTo: frameURL) {
-            noteBlockedPopup(url)
+            noteBlockedPopup(url, fromPage: true)
         }
     }
 
