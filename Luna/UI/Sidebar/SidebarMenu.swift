@@ -80,11 +80,18 @@ enum SidebarMenu {
     /// The way out is always present, never conditional on the Space already
     /// carrying a colour: Arc needed a help article for getting out of a theme,
     /// and a way out that only appears once you are lost is not a way out.
+    ///
+    /// - Parameter pickCustom: opens §8.2a's colour panel on a pair and hands
+    ///   each pick back. Settings' and the pop-out's Custom swatch use the same
+    ///   panel; tests pass a stub so no panel is shown.
     static func colours(
         for space: Space,
         in appearance: NSAppearance,
         setGradient: @escaping (GradientPair) -> Void,
-        edit: @escaping () -> Void
+        edit: @escaping () -> Void,
+        pickCustom: @escaping (GradientPair, @escaping (GradientPair) -> Void) -> Void = {
+            SpaceColourPanel.shared.present(from: $0, onPick: $1)
+        }
     ) -> NSMenu {
         let menu = NSMenu()
         menu.addItem(header("Colour for \(space.name)"))
@@ -99,6 +106,11 @@ enum SidebarMenu {
         reset.image = swatch(Tokens.Gradient.neutral, in: appearance)
         reset.state = Tokens.Gradient.isNeutral(space.gradient) ? .on : .off
         menu.addItem(reset)
+        let gradient = space.gradient
+        let custom = item(title: String(localized: "Custom Colour…")) { pickCustom(gradient, setGradient) }
+        custom.state = Tokens.Gradient.isCustom(gradient) ? .on : .off
+        if custom.state == .on { custom.image = swatch(gradient, in: appearance) }
+        menu.addItem(custom)
         menu.addItem(.separator())
         menu.addItem(item(title: String(localized: "Edit “\(space.name)”…"), action: edit))
         menu.addItem(.separator())
