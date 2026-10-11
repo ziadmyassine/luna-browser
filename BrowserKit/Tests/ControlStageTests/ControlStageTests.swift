@@ -235,6 +235,18 @@ final class ControlStageTests: XCTestCase {
         XCTAssertEqual(untrusted, "[]")
     }
 
+    /// A page on the stage is visible to itself and gets animation frames,
+    /// though no screen shows the window: content that waits on a frame
+    /// (React's streamed Suspense) appears.
+    func testStagedPageIsVisibleAndAnimates() async throws {
+        _ = try await js("(window.ticks = 0, (function f() { ticks++; requestAnimationFrame(f) })(), 0)")
+        _ = try stage()
+        let state = try await poll("document.visibilityState") { $0 == "\"visible\"" }
+        XCTAssertEqual(state, "\"visible\"")
+        let ticks = try await poll("ticks") { (Int($0) ?? 0) > 1 }
+        XCTAssertGreaterThan(Int(ticks) ?? 0, 1)
+    }
+
     /// A tab the user has on screen is theirs: the stage never takes it, so
     /// it never takes first responder from the user's window.
     func testUserViewingTabRefusesInput() throws {

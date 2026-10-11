@@ -210,6 +210,8 @@ final class ControlStageTests: XCTestCase {
         // Cmd+W reaches the page, never the menu that would close the user's tab.
         let keyed = await service.perform(ControlCall(.key("cmd+a cmd+w")), client)
         XCTAssertFalse(keyed.isError, text(keyed))
+        let read = await service.perform(ControlCall(.pageText), client)
+        XCTAssertFalse(read.isError, text(read))
 
         XCTAssertEqual(NSApp.keyWindow, keyWindow)
         XCTAssertTrue(NSApp.keyWindow?.firstResponder === firstResponder)
@@ -218,6 +220,26 @@ final class ControlStageTests: XCTestCase {
         for window in NSApp.windows where frames[window.windowNumber] != nil {
             XCTAssertEqual(window.frame, frames[window.windowNumber], "a window of the user's moved")
         }
+        XCTAssertFalse(NSApp.windows.contains { $0 is ControlStageWindow && $0.isVisible }, "a stage was left up")
+    }
+
+    /// A tab the agent opened is in no window, so the page is hidden to
+    /// itself and gets no animation frames; React's streamed Suspense
+    /// content waits on one. Reading the page catches it up first.
+    func testPageTextSeesWhatAnAnimationFrameReveals() async throws {
+        let (service, session) = try await makeService()
+        let revealing = URL(string: "data:text/html," + """
+        <main>waiting</main><script>requestAnimationFrame(() => {
+        document.querySelector('main').textContent = 'revealed ' + document.visibilityState })</script>
+        """.addingPercentEncoding(withAllowedCharacters: .alphanumerics)!)!
+        _ = await service.perform(ControlCall(.openTab(revealing)), client)
+        let id = try XCTUnwrap(session.allTabs(includeArchived: false).first { $0.url.scheme == "data" }?.id)
+        let webView = try XCTUnwrap(session.controller(for: id)?.webView)
+
+        let read = await service.perform(ControlCall(.pageText), client)
+        XCTAssertFalse(read.isError, text(read))
+        XCTAssertTrue(text(read).contains("revealed visible"), text(read))
+        XCTAssertNil(webView.window, "the stage kept the tab")
         XCTAssertFalse(NSApp.windows.contains { $0 is ControlStageWindow && $0.isVisible }, "a stage was left up")
     }
 

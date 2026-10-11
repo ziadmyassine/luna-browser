@@ -5,6 +5,10 @@ under Unreleased; a release will take the entries since the last one.
 
 ## Unreleased
 
+### 2026-10-12
+
+- **Pages an agent opens finish drawing before it reads them** (Luna Control's `page_text`, `read_page`): a tab an agent opened was never on screen, so its page counted itself hidden and stopped its animation frames, and sites built on React or Next.js that reveal streamed content on a frame read back an empty page. Luna now lets the page draw for a moment before each page tool, out of sight and without taking focus, and the page sees itself as visible. If a page still cannot draw, the answer says so.
+
 ### 2026-10-11
 
 - **A fullscreen video no longer turns black when the sidebar is toggled** (§3.6): WebKit moves a fullscreen page into a window of its own, and hiding or showing the sidebar meanwhile (⌘S, including while switching Spaces) tried to hold the page in Luna's window, which left it with no height there — the sound played on over black. The sidebar and the agent panel now leave a fullscreen page alone, and it follows the window again once it is back.
