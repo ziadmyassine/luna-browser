@@ -69,15 +69,25 @@ struct SpaceLoginTests {
         #expect(personalID == personal.dataStoreIdentifier)
         #expect(workID == work.dataStoreIdentifier)
 
-        // On CI's runner the reopened jars read back no cookies although the
-        // files were written (2026-10-01): its WebKit does not reopen a jar
-        // from disk inside one test process. Known there, a failure anywhere else.
-        await withKnownIssue("CI's runner does not reopen a jar's cookies", isIntermittent: true) {
-            #expect(await sessions(in: WKWebsiteDataStore(forIdentifier: personalID)) == ["alice"])
-            #expect(await sessions(in: WKWebsiteDataStore(forIdentifier: workID)) == ["bob"])
-        } when: {
-            ProcessInfo.processInfo.environment["CI"] != nil
-        }
+        let personalJar = try await opened(personalID)
+        let workJar = try await opened(workID)
+        #expect(await sessions(in: personalJar) == ["alice"])
+        #expect(await sessions(in: workJar) == ["bob"])
+    }
+
+    /// A jar as the app finds it at launch: its cookie file loaded.
+    ///
+    /// A store opened cold answers `allCookies()` with nothing until something reads its
+    /// cookie file in — at launch the first page does, here asking for its data records
+    /// does. Measured 2026-10-11, in this process and in a second one alike: `[]` without
+    /// the `dataRecords` call, the login with it. That empty read was once put down to
+    /// WebKit not reopening a jar inside one process. It does reopen it: a jar released
+    /// before its cookie was written comes back empty even with the call.
+    private func opened(_ identifier: UUID) async throws -> WKWebsiteDataStore {
+        let jar = WKWebsiteDataStore(forIdentifier: identifier)
+        let records = await jar.dataRecords(ofTypes: [WKWebsiteDataTypeCookies])
+        try #require(!records.isEmpty, "the jar's cookie file was not read back")
+        return jar
     }
 
     /// A login cookie with an expiry. A cookie without one ends with the session, so it
