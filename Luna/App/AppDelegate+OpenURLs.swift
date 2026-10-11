@@ -99,6 +99,6 @@ extension AppDelegate {
         let tabs = window.session.openTabs(pages, at: landing)
         if let last = tabs.last { window.session.activateTab(last) }
         window.controller.window?.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        Self.bringToFront()
     }
 }

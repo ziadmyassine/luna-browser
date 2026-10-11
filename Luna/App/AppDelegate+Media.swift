@@ -54,6 +54,6 @@ extension AppDelegate {
         }
         session.activateTab(id, inWindow: window.id)
         window.controller.window?.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        Self.bringToFront()
     }
 }

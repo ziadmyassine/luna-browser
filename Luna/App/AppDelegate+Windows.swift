@@ -108,7 +108,7 @@ extension AppDelegate {
             let restored = window.controller.window.map { WindowFrameMemory.shared.restore($0) } ?? false
             if !restored { cascade(window.controller, after: previous) }
         }
-        NSApp.activate()
+        Self.bringToFront()
     }
 
     /// A window has closed. Its pages stay — they belong to the session, and

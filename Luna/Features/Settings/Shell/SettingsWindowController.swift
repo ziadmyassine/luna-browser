@@ -158,7 +158,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         // screen through its controller is put where AppKit's cascade wants it,
         // measured at the middle of the screen, over the frame set a line ago.
         if let placed { window?.setFrame(placed, display: false) }
-        NSApp.activate()
+        AppDelegate.bringToFront()
         // Opening animates; focusing a window that is already up does not —
         // re-playing an entrance on a `⌘,` that only meant "come forward" is a
         // flinch, not a transition.
