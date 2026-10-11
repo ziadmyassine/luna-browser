@@ -21,9 +21,8 @@ import Foundation
 /// Arc's `StorableSidebar.json`.
 ///
 /// Arc has Spaces, each with a pinned tier holding folders — §3.4b's own
-/// shape, so it is kept rather than flattened. Measured on this Mac: two
-/// Spaces, `School` and `Personal`, holding 118 saved tabs in seven folders,
-/// two of them nested.
+/// shape, so it is kept rather than flattened. `SidebarImportTests`' fixture
+/// is a trimmed copy of a real sidebar: two Spaces, `School` and `Personal`.
 ///
 /// Left behind: the unpinned tier, which is the tabs Arc has open; and nesting
 /// past one level, since a Luna folder holds only tabs (§3.4b) — `IA ▸ Physics`
