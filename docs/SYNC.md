@@ -1,6 +1,78 @@
-# iCloud sync — §31.1 spike
+# iCloud sync
 
-## The question
+Sync is opt-in and goes through the user's own iCloud account, CloudKit's
+private database (D11 in [DECISIONS.md](DECISIONS.md)). How it is built:
+[plans/SYNC-PLAN.md](plans/SYNC-PLAN.md). This page is the contract for what
+it carries (§31.5).
+
+## What syncs (§31.5)
+
+The first release carries every type below at once rather than a few at a
+time (SYNC-PLAN "Fixed decisions", recorded 2026-09-27). Each zone is one
+switch on the account page; the Meta zone is on whenever sync is.
+
+| What | Zone, record | What travels |
+|---|---|---|
+| Spaces | `Spaces`, `Space` | name, icon, colour (`gradient`) and order |
+| Pinned tabs, the Today-tab list, Favorites, folders | `Spaces`, `Tab` and `TabGroup` | which Space and folder, kind (`essential` is a Favorite, `pinned`, `today`), order, archived date, address, title, custom title and icon, a pinned tab's home address |
+| Per-site settings | `Sites`, `SiteSetting` | zoom level, automatic Picture in Picture, the password offer, the blocking exemption, the HTTPS exception |
+| Keyboard remaps | `Settings`, `Setting` | each `luna.shortcut.<command>` key |
+| General settings | `Settings`, `Setting` | an allowlist of `UserDefaults` keys, `SyncedDefaults.keys`: appearance and layout, search settings, auto-archive, confirm-to-quit, downloads auto-open, content-blocking lists and HTTPS-Only, user agent, password and pop-up settings, the Markdown reader's preferences |
+| Typed and bookmarked history | `History`, `HistoryEntry` | a place's address and title with its typed and bookmarked visits from that Mac. Needs the Spaces zone, because a visit belongs to a Space |
+| Open tabs on each Mac | `Devices`, `Device` | the Mac's name and its open tabs, for History ▸ Tabs on Other Macs |
+| The key that names site records | `Meta`, `SyncSecret` | 32 random bytes; a site record is named by an HMAC of its host under it, so the name does not show the host |
+
+**History is typed and bookmarked visits only** (decided 2026-09-17, option b;
+the §32 decision log in DECISIONS.md: "Link visits never leave the Mac"). A
+visit is sent when its type is `typed` or `bookmarked`; turning History on
+seeds the last 90 days of them. The page-by-page trail of clicked links,
+`inputHistory` (what was typed to reach a page) and visit counts stay on the
+Mac.
+
+**Settings sync through their own path.** They live in `UserDefaults`, not in
+the database, so `SyncedDefaults` mirrors the allowlisted keys into the
+`syncedDefaults` table and they sync from there like any row. Only values this
+Mac has set are sent, never the registered defaults, and a key outside the
+allowlist that arrives from another Mac is dropped.
+
+**Bookmarks and boosts** do not exist yet. Each joins as a zone and record
+type of its own (`Bookmarks`, `Boosts`) when it is built, which needs a
+Production schema deploy.
+
+What travels in the clear is structure: ids, kind, order and dates. Names,
+addresses, titles and settings values are CloudKit encrypted fields
+(`Config/CloudKit/Schema.ckdb`).
+
+## What never syncs
+
+- **Cookies, logins and website storage.** Each Space's `WKWebsiteDataStore` is
+  local to the Mac, and so is the identifier that names it
+  (`spaces.dataStoreIdentifier`). A site signed in on one Mac is signed out on
+  the next. Saved passwords are in the macOS Keychain, which iCloud Keychain
+  syncs if the user has it on; Luna sends none itself, only whether a site
+  should be offered to save one.
+- **The per-Space site answers**: camera, microphone, location, local network,
+  pop-ups and clipboard reads (`spaceSitePermissions`). Decided 2026-10-01
+  (#25), recorded in DECISIONS.md §5, "The per-Space answers do not sync":
+  carrying them would need a new record type in the Spaces zone, a Production
+  schema change that cannot be taken back. Pop-ups and the local network synced
+  before that, as `SiteSetting` fields; an older Luna still writes them and
+  this one neither reads nor writes them.
+- **A site's own user agent** (`siteSettings.userAgent`). It is not among the
+  columns the `SiteSetting` trigger sends (`Schema+Sync.swift`); the global
+  user-agent setting does sync.
+- **Two security settings**: allowing Luna Control (`advanced.allowControl`)
+  and requiring Touch ID for passwords (`passwords.requireAuthentication`).
+  Turning either off on one Mac must not weaken another.
+- **What only matters on this Mac**: a tab's back-forward list and scroll
+  position, when it was last active, unread dots, favicons, theme colour,
+  dormancy and opener; a folder being collapsed.
+- **Private windows**, which keep their tabs in a store of their own.
+- **Downloads, extensions and Luna Control's history.** Nothing syncs them.
+
+## §31.1 spike
+
+### The question
 
 Can one Developer ID–signed, non-sandboxed Luna carry the iCloud (CloudKit)
 entitlements with an embedded provisioning profile, reach `cloudd`, and still
@@ -8,7 +80,7 @@ become the default browser? §22.1 rules out the App Sandbox, and Apple
 documents CloudKit against sandboxed apps, so everything in §31.2+ rests on
 this answer.
 
-## Verdict: yes
+### Verdict: yes
 
 Run on 2026-09-27. The Developer ID build with no sandbox entitlement launches,
 talks to `cloudd`, reads the iCloud account and user record, and saves, lists
@@ -20,7 +92,7 @@ One step is left to a person: clicking Make Luna Default on the signed build
 (below). Setting the default shows macOS's confirmation sheet, so the spike
 does not do it.
 
-## What was built
+### What was built
 
 - Bundle ID `dev.novapps.luna` (was `dk.novapps.luna`), matching the App ID
   `FUUYR6KRSH.dev.novapps.luna` and container `iCloud.dev.novapps.luna`.
@@ -49,7 +121,7 @@ does not do it.
   only after the schema is deployed to Production; it exits 1 unless it
   prints `records 8/8 ok`.
 
-## Commands and results
+### Commands and results
 
 ```
 make signed
@@ -88,7 +160,7 @@ Probe, exit 0:
 `accountStatus` 1 is `.available`. No `CKError`, no amfid rejection, no
 `cloudd` error mentioning the container.
 
-## The profile must name the signing certificate
+### The profile must name the signing certificate
 
 The first run was killed at launch (SIGKILL) with amfid
 `-413 No matching profile found`, and taskgated-helper listing every
@@ -104,7 +176,7 @@ plutil -extract DeveloperCertificates.0 raw p.plist | base64 -d | shasum
 security find-identity -v -p codesigning
 ```
 
-## Default browser
+### Default browser
 
 The signed app has no sandbox entitlement, `NSWorkspace.urlForApplication(toOpen:)`
 and `urlsForApplications(toOpen:)` answer from it, Launch Services lists Luna
@@ -113,7 +185,7 @@ as an `https` handler, and `CFBundleURLTypes` still declares `http` and
 `DerivedData/Build/Products/Release/Luna.app` and clicking Make Luna Default
 in Settings ▸ General.
 
-## What §31.2 needs to know
+### What §31.2 needs to know
 
 - Container `iCloud.dev.novapps.luna`, team `FUUYR6KRSH`, private database.
 - A Developer ID profile allows only the Production environment. Production
