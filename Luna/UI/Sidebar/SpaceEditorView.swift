@@ -103,18 +103,22 @@ final class SpaceEditorView: NSView {
         applyTokens()
     }
 
-    /// §6.2's twelve gradients as chips, with the Space's own pair already
-    /// ticked. Its own method for `makeSymbols`' reason.
+    /// §6.2's twelve gradients and §8.2a's Custom as chips, with the Space's
+    /// own pair already ringed. Its own method for `makeSymbols`' reason.
     private func makeSwatches(chosen: GradientPair) -> [SpaceSwatchChip] {
-        zip(SpaceAppearanceView.gradients, SpaceAppearanceView.gradientNames).map { gradient, label in
+        let chips = zip(SpaceAppearanceView.gradients, SpaceAppearanceView.gradientNames).map { gradient, label in
             let chip = SpaceSwatchChip(gradient: gradient, label: label)
-            chip.isChosen = gradient == chosen
             chip.onActivate = { [weak self] in
                 self?.choose(gradient: gradient)
                 self?.onGradient?(gradient)
             }
             return chip
-        }
+        } + [SpaceSwatchChip.custom(current: chosen) { [weak self] pair in
+            self?.choose(gradient: pair)
+            self?.onGradient?(pair)
+        }]
+        for chip in chips { chip.isChosen = chip.offers(chosen) }
+        return chips
     }
 
     /// The icon grid, same shape as `makeSwatches`. Both are out of `init`
@@ -144,7 +148,7 @@ final class SpaceEditorView: NSView {
     }
 
     private func choose(gradient: GradientPair) {
-        for chip in swatches { chip.isChosen = chip.gradient == gradient }
+        for chip in swatches { chip.isChosen = chip.offers(gradient) }
     }
 
     private func choose(symbol: String) {

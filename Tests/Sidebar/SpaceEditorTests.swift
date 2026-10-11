@@ -131,7 +131,8 @@ final class SpaceEditorGridTests: XCTestCase {
     func testTheGridSpreadsItsChipsRatherThanLeavingAnOrphan() {
         for width in [280, 250, 220] as [CGFloat] {
             let chips = swatches(laidOutEditor(width: width))
-            XCTAssertEqual(chips.count, SpaceAppearanceView.gradients.count)
+            // The palette, No Colour, and §8.2a's Custom.
+            XCTAssertEqual(chips.count, SpaceAppearanceView.gradients.count + 1)
             let rows = Dictionary(grouping: chips) { $0.frame.minY.rounded() }
             let counts = rows.values.map(\.count).sorted()
             guard let fullest = counts.last, let shortest = counts.first else { return XCTFail("no rows") }

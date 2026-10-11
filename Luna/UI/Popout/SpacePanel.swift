@@ -35,7 +35,7 @@ enum SpacePanelMetrics {
     static var rowHeight: CGFloat { Tokens.Metric.rowHeight }
     static var swatch: CGFloat { Tokens.Metric.settingsControl }
     static var swatchGap: CGFloat { Tokens.Metric.chromeGap }
-    /// Twelve colours and No Colour, seven to a line: seven 28 pt swatches
+    /// Twelve colours, No Colour and Custom, seven to a line: seven 28 pt swatches
     /// and six gaps are 244 pt, inside the panel's 280 less its insets.
     static let swatchesPerLine = 7
 
@@ -77,7 +77,7 @@ final class SpacePanel: PopoutPanelView {
 
     init(frame frameRect: NSRect, edge: PopoutEdge, content: SpacePanelContent) {
         self.content = content
-        let palette = Tokens.Gradient.spacePalette.count + 1
+        let palette = Tokens.Gradient.spacePalette.count + 2
         super.init(
             frame: frameRect,
             size: CGSize(
@@ -138,34 +138,43 @@ final class SpacePanel: PopoutPanelView {
     }
 
     /// The colours, as the swatches §3.7's appearance settings use: the
-    /// palette, then No Colour, the chosen one ringed. The way back out of a
-    /// colour is always there, never only once one has been chosen.
+    /// palette, then No Colour, then §8.2a's Custom, the chosen one ringed.
+    /// The way back out of a colour is always there, never only once one has
+    /// been chosen.
     private func buildColours(at top: inout CGFloat) {
         guard let active = content.active else { return }
         let options = Array(zip(Tokens.Gradient.spacePalette, Tokens.Gradient.spacePaletteNames))
             + [(Tokens.Gradient.neutral, String(localized: "No Colour"))]
+        let chips = options.map { gradient, label in
+            let chip = SpaceSwatchChip(gradient: gradient, label: label)
+            chip.onActivate = { [weak self] in
+                self?.content.setGradient(active.id, gradient)
+                self?.ring(gradient)
+            }
+            return chip
+        } + [SpaceSwatchChip.custom(current: active.gradient) { [weak self] pair in
+            self?.content.setGradient(active.id, pair)
+            self?.ring(pair)
+        }]
         let perLine = SpacePanelMetrics.swatchesPerLine
         let side = SpacePanelMetrics.swatch
         let gap = SpacePanelMetrics.swatchGap
         let lineWidth = CGFloat(perLine) * side + CGFloat(perLine - 1) * gap
         let inset = (SpacePanelMetrics.width - lineWidth) / 2
-        for (index, option) in options.enumerated() {
-            let chip = SpaceSwatchChip(gradient: option.0, label: option.1)
+        for (index, chip) in chips.enumerated() {
             chip.translatesAutoresizingMaskIntoConstraints = true
-            chip.isChosen = option.0 == active.gradient
-                || (Tokens.Gradient.isNeutral(option.0) && Tokens.Gradient.isNeutral(active.gradient))
-            chip.onActivate = { [weak self] in
-                guard let self else { return }
-                content.setGradient(active.id, option.0)
-                for other in swatches { other.isChosen = other === chip }
-            }
+            chip.isChosen = chip.offers(active.gradient)
             swatches.append(chip)
             let line = CGFloat(index / perLine)
             let column = CGFloat(index % perLine)
             body.addSubview(chip)
             placements.append(Placement(view: chip, top: top + line * (side + gap), height: side, inset: inset + column * (side + gap)))
         }
-        top += SpacePanelMetrics.colourHeight(options.count)
+        top += SpacePanelMetrics.colourHeight(chips.count)
+    }
+
+    private func ring(_ gradient: GradientPair) {
+        for chip in swatches { chip.isChosen = chip.offers(gradient) }
     }
 
     /// A hairline, a band's padding, whatever `rows` adds, and the padding

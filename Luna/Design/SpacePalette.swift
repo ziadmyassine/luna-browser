@@ -97,6 +97,58 @@ extension Tokens {
             gradient == neutral
         }
 
+        /// True for a pair the user made (§8.2a's Custom) — anything neither
+        /// the palette nor `neutral` hands out.
+        static func isCustom(_ gradient: GradientPair) -> Bool {
+            !isNeutral(gradient) && !spacePalette.contains(gradient)
+        }
+
+        /// How far round the hue wheel a custom pair's second stop sits from
+        /// its first, as a fraction of a turn.
+        ///
+        /// Measured: the twelve sweep 22–42°, mean 30.8°, half of them each way.
+        /// One direction is enough; the user picked the colour and the second
+        /// stop only has to read as its neighbour.
+        static let customSweep = 30.0 / 360
+
+        /// §8.2a's Custom: the user's colour as the first stop, and a second
+        /// built the way the twelve are — `customSweep` round the wheel at the
+        /// first stop's own luminance, so a single ink fits the whole pair.
+        ///
+        /// Luminance is held by searching brightness at the swept hue and
+        /// saturation. When even full brightness is too dark for it (Frost's
+        /// sky swept to blue), the second stop stops at full; `foreground`
+        /// still measures both stops, so the ink stays honest.
+        static func custom(from colour: NSColor) -> GradientPair {
+            // Nil only for a pattern colour, which the colour panel's image
+            // picker can hand back and which has no hue to start from.
+            guard let start = colour.usingColorSpace(.sRGB)?.withAlphaComponent(1) else { return neutral }
+            var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
+            start.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+            let swept = (hue + customSweep).truncatingRemainder(dividingBy: 1)
+            let swatch = { (value: CGFloat) in
+                NSColor(colorSpace: .sRGB, hue: swept, saturation: saturation, brightness: value, alpha: 1)
+            }
+            let target = luminance(start)
+            var low: CGFloat = 0, high: CGFloat = 1
+            for _ in 0..<24 {
+                let mid = (low + high) / 2
+                if luminance(swatch(mid)) < target { low = mid } else { high = mid }
+            }
+            let end = swatch((low + high) / 2)
+            return GradientPair(start: start.rgba(for: staticAppearance), end: end.rgba(for: staticAppearance))
+        }
+
+        /// A static sRGB colour reads the same in any appearance; aqua is just
+        /// the one handed to the helpers that take one.
+        private static var staticAppearance: NSAppearance {
+            NSAppearance(named: .aqua) ?? NSAppearance.currentDrawing()
+        }
+
+        private static func luminance(_ colour: NSColor) -> Double {
+            colour.srgbComponents(for: staticAppearance).relativeLuminance
+        }
+
         /// The next pair for a new Space, wrapping when all twelve are taken.
         ///
         /// Least-used wins, palette order breaks the tie, so deleting a Space

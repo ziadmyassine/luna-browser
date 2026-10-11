@@ -2479,9 +2479,15 @@ site settings pop-out: the same width, header, hairline bands and one pill slidi
   already names and ticks.
 - **The Spaces:** one row each, its own symbol and name, a tick on the one the window is in.
   Choosing one closes the pop-out and switches.
-- **Colours** for the Space the window is in: the palette and No Colour, as §3.7's
+- **Colours** for the Space the window is in: the palette, No Colour and Custom Colour…, as §3.7's
   `SpaceSwatchChip`s, seven to a line, the chosen one ringed. The way back out of a colour is always
   there, not only once one has been chosen.
+  > **Custom (§8.2a)** is the last swatch in every colour grid (here, Settings' appearance popover,
+  > the new-Space form). It opens `NSColorPanel` (`SpaceColourPanel`); the pick is the first stop and
+  > `Tokens.Gradient.custom(from:)` derives the second — `customSweep` round the hue wheel at the
+  > first stop's luminance, how the twelve are built, so one ink fits both. One colour, not two wells:
+  > two stops picked by eye can straddle §13.6's ink line. Until the Space wears a pair of its own
+  > the swatch shows the palette's first stops round a cone; after, that pair.
 - **Verbs:** *Edit "Name"…* (Settings ▸ Spaces) and *New Space*.
 - **Lined up, in the sidebar.** Opened from the Space pill, its leading edge is the pill's; so are
   §3.2's site settings and §16.4's extensions opened from the sidebar's search bar — the bar's
