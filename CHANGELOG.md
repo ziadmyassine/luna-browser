@@ -5,6 +5,10 @@ under Unreleased; a release will take the entries since the last one.
 
 ## Unreleased
 
+### 2026-10-11
+
+- **Import and export bookmarks from the File menu** (§11.4): Import Bookmarks… reads the bookmarks HTML file any browser exports into a Space named after the file, and importing it again adds only what is new; Export Bookmarks… saves every Space, each as a folder, in the same format for another browser. Both are in the Command Bar and can be given a key in Settings ▸ Shortcuts.
+
 ### 2026-10-10
 
 - **Opening Astro in a window with no tab open no longer crashes Luna**: the window kept the closed page's layout rules, and moving the panel or the sidebar put them back on a page that was gone. ⌘E is Show Agent in the shortcuts list now too; Use Selection for Find keeps its menu item without a key.

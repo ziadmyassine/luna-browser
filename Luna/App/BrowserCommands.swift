@@ -271,6 +271,9 @@ extension AppDelegate: NSMenuItemValidation {
         if let find = validateFindCommand(menuItem) { return find }
         if let media = validateMediaCommand(menuItem) { return media }
         guard let session else { return false }
+        if [#selector(importBookmarks(_:)), #selector(exportBookmarks(_:))].contains(menuItem.action) {
+            return !session.isPrivate
+        }
         return validateFavoriteToggle(menuItem, in: session)
             ?? validateNavigation(menuItem, in: session)
             ?? validatePageCommand(menuItem, in: session)
