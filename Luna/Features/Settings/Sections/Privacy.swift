@@ -29,7 +29,7 @@ final class PrivacySection: SettingsSection {
     static let title = String(localized: "Privacy & Passwords")
     static let symbolName = "lock.shield"
     static let keywords = ["cookies", "trackers", "blocking", "https only", "ads", "clear data", "passwords"]
-        + popupTerms + PasswordsSection.keywords
+        + ["malware", "phishing"] + popupTerms + PasswordsSection.keywords
 
     /// §17's pop-up rows, as people search for them.
     private static let popupTerms = ["popup", "pop-up", "pop-ups", "window", "tab-under", "notify", "notification"]
@@ -55,6 +55,7 @@ final class PrivacySection: SettingsSection {
 
     init() {
         buildBlocking()
+        buildNoSafeBrowsingNote()
         passwords.add(to: body)
         buildClearing()
         observeStatus()
@@ -70,6 +71,16 @@ final class PrivacySection: SettingsSection {
         rows.append(httpsOnlyRow())
         rows.append(filterListsRow())
         body.card(String(localized: "Blocking"), rows)
+    }
+
+    /// §17.7: Luna ships without Safe Browsing, and that has to be said here
+    /// rather than left for someone to assume the blocking card covers it.
+    private func buildNoSafeBrowsingNote() {
+        let note = String(localized: """
+        Luna does not check the addresses you visit against a malware or phishing list, and will not \
+        warn you about a dangerous site. macOS still applies XProtect and Gatekeeper.
+        """)
+        body.loose(SettingsRow.note(note), terms: [note, "safe browsing", "malware", "phishing", "security"])
     }
 
     /// The list behind each toggle is not on screen — the title says what it

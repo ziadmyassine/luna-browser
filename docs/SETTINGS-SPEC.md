@@ -237,9 +237,9 @@ Twelve sections became eight, because several were a single card:
 - **Only rows that work are shown.** The ones that did nothing yet — *On
   launch*, *Ask where to save each file*, *Clear download list*, *Show Develop
   menu* and *Confirm before closing a window with multiple tabs* — are gone,
-  with their keys. So are the paragraphs that sat under groups (Privacy's
-  malware note, Passwords', Spaces', Shortcuts' legend, Luna Control's two):
-  a row's own subtitle says what it needs to.
+  with their keys. So are the paragraphs that sat under groups (Passwords',
+  Spaces', Shortcuts' legend, Luna Control's two): a row's own subtitle says
+  what it needs to. Privacy's malware note stays, because §3.3 requires it.
 - **Most rows have no subtitle.** A switch whose title says what it does
   does not get a second line that says it again: *Match macOS corners*,
   *HTTPS-Only Mode*, the three blocking rows (the filter list's name is still a
