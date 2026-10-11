@@ -9,6 +9,7 @@
 //  it install on its own, and — when there is one — the newer build with the
 //  one thing left to do about it. The card is rebuilt whenever the updater
 //  says anything, because every row in it is a sentence about its state.
+//  A second card opens the third-party notices the app carries.
 //
 
 import AppKit
@@ -19,7 +20,15 @@ final class AboutSection: SettingsSection {
     static let id = "about"
     static let title = String(localized: "About")
     static let symbolName = "info.circle"
-    static let keywords = ["about", "version", "update", "updates", "check for updates", "install", "release"]
+    static let keywords = [
+        "about", "version", "update", "updates", "check for updates", "install", "release",
+        "acknowledgements", "licenses", "open source"
+    ]
+
+    /// `THIRD_PARTY_NOTICES.md`, copied into the app by `project.yml`.
+    static var acknowledgements: URL? {
+        Bundle.main.url(forResource: "THIRD_PARTY_NOTICES", withExtension: "md")
+    }
 
     private let container = NSView()
     private var body = SettingsBody()
@@ -45,6 +54,7 @@ final class AboutSection: SettingsSection {
         var rows = [checkRow(), installRow()]
         if let release = releaseRow() { rows.append(release) }
         body.card(nil, rows)
+        if let notices = acknowledgementsRow() { body.card(nil, [notices]) }
         for subview in container.subviews { subview.removeFromSuperview() }
         let stack = body.view
         container.addSubview(stack)
@@ -115,6 +125,17 @@ final class AboutSection: SettingsSection {
         if case .installing = updater.stage { button.isEnabled = false }
         let row = SettingsRowView(title: title, subtitle: subtitle, control: button, isEnabled: true, disabledReason: nil)
         return (row, [title, action])
+    }
+
+    /// Opens the notices as a tab, which the Markdown reader shows.
+    private func acknowledgementsRow() -> (view: NSView, terms: [String])? {
+        guard let notices = Self.acknowledgements else { return nil }
+        let title = String(localized: "Acknowledgements")
+        let subtitle = String(localized: "The open-source software Luna is built with, and its licences")
+        let button = SettingsPushButton(title: String(localized: "Show"), isDestructive: false)
+        button.onActivate = { SettingsHost.open(notices) }
+        let row = SettingsRowView(title: title, subtitle: subtitle, control: button, isEnabled: true, disabledReason: nil)
+        return (row, [title, "licenses", "open source", "third-party notices"])
     }
 
     /// The Updates row's second line: what the updater is doing, or when it

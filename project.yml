@@ -82,6 +82,11 @@ targets:
         buildPhase: resources
         excludes:
           - "*.md"
+      # The BSD and MIT licences ask for their notices to travel with the binary;
+      # Settings › About opens this copy (AboutSection.acknowledgements).
+      - path: THIRD_PARTY_NOTICES.md
+        type: file
+        buildPhase: resources
     dependencies:
       - package: BrowserKit
       - package: BrowserKit

@@ -163,6 +163,22 @@ final class AboutSectionTests: XCTestCase {
         _ = AboutSection().view
     }
 
+    /// The BSD and MIT licences of what the app is built with ask
+    /// for their notice to travel with the binary, so the file is in the
+    /// bundle, and it opens as a page like any Markdown file handed to Luna.
+    func testTheAcknowledgementsShipInsideTheApp() throws {
+        let notices = try XCTUnwrap(AboutSection.acknowledgements, "THIRD_PARTY_NOTICES.md is not in the app")
+        let text = try String(contentsOf: notices, encoding: .utf8)
+        for name in ["GRDB", "swift-markdown", "swift-cmark"] {
+            XCTAssertTrue(text.contains(name), "the notices leave out \(name)")
+        }
+        XCTAssertEqual(AppDelegate.pages(in: [notices]), [notices])
+    }
+
+    func testTheCardOffersTheAcknowledgements() {
+        XCTAssertTrue(AboutSection().searchIndex.contains("acknowledgements"))
+    }
+
     /// The icon starts where the card below starts, as a group's name does,
     /// not a `cardInset` further in.
     func testTheIconIsNotIndented() {

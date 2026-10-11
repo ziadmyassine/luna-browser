@@ -20,5 +20,11 @@ database in Luna's Application Support folder), and each Space's cookies and
 site data, kept apart from every other Space's. Passwords are in the macOS
 Keychain; iCloud Keychain syncs them if you have it on.
 
+Luna does not check the addresses you visit against a malware or phishing
+list (no Safe Browsing service), so none are sent anywhere for checking, and
+Luna will not warn you about a dangerous site. macOS's own XProtect and
+Gatekeeper still apply (§17.7). What iCloud sync carries, and what
+it never does, is in [SYNC.md](SYNC.md).
+
 Luna sends no telemetry, analytics or crash reports (decision D16 in
 [DECISIONS.md](DECISIONS.md)).

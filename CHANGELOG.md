@@ -5,6 +5,10 @@ under Unreleased; a release will take the entries since the last one.
 
 ## Unreleased
 
+### 2026-10-11
+
+- **Settings › About lists what Luna is built with** (§24.7): an Acknowledgements row opens the third-party notices — GRDB, swift-markdown, cmark-gfm and the extension shim adapted from Search — with their licences, from a copy inside the app. `docs/SYNC.md` now says exactly what iCloud sync carries and what never leaves the Mac (§31.5), and `docs/PRIVACY.md` that Luna does not check addresses against a malware or phishing list.
+
 ### 2026-10-10
 
 - **Opening Astro in a window with no tab open no longer crashes Luna**: the window kept the closed page's layout rules, and moving the panel or the sidebar put them back on a page that was gone. ⌘E is Show Agent in the shortcuts list now too; Use Selection for Find keeps its menu item without a key.

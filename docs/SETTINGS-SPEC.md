@@ -586,6 +586,10 @@ The app's icon (64 pt, as macOS's own About panel draws it), its name and its ve
 | Install updates on their own | Toggle, on | `updates.installOnItsOwn` |
 | Luna *x.y.z* — only when a newer one is known | Button: Install · Restart · Download | `Updater` |
 
+A second card holds one row, **Acknowledgements**, with a Show button that opens
+`THIRD_PARTY_NOTICES.md` (bundled with the app) as a tab: the BSD and MIT
+licences of what Luna is built with ask for their notices to travel with it.
+
 The app menu's *About Luna* opens this section, and *Check for Updates…* looks and opens it.
 
 **Where updates come from.** The repo's latest GitHub release
