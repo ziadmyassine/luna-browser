@@ -289,6 +289,22 @@ final class SectionsATests: XCTestCase {
         }
     }
 
+    /// §17.7: Luna ships without Safe Browsing and has to say so in Settings,
+    /// where someone looking for a malware switch will search for one.
+    func testPrivacySaysThereIsNoMalwareCheckAndSearchFindsIt() throws {
+        let section = PrivacySection()
+        XCTAssertTrue(section.searchIndex.contains("safe browsing"))
+        section.filter("phishing")
+        let note = try XCTUnwrap(Self.labels(in: section.view).first { $0.stringValue.contains("phishing") })
+        XCTAssertTrue(note.stringValue.contains("XProtect"))
+        XCTAssertTrue(note.stringValue.contains("Gatekeeper"))
+        XCTAssertFalse(note.isHiddenOrHasHiddenAncestor, "the search hides the paragraph it matched")
+    }
+
+    private static func labels(in view: NSView) -> [NSTextField] {
+        view.subviews.flatMap { ([$0 as? NSTextField].compactMap { $0 }) + labels(in: $0) }
+    }
+
     /// The Shortcuts table is only correct because it is not a second copy of
     /// the key map: `MainMenu` installed this menu bar at launch, and `⌘,`
     /// arrived in it after this section was written.
