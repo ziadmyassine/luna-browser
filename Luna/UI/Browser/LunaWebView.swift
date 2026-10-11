@@ -42,6 +42,37 @@ final class LunaWebView: WKWebView {
 
     private var tab: TabController? { uiDelegate as? TabController }
 
+    // MARK: - Unpainted edge (#218)
+
+    // Widened in one step (`ContentCardView.beginGeometryTransition`), the view's
+    // own layer grows at once and the web process's layers catch up a few frames
+    // later. The strip between them is this layer, which WebKit fills from the
+    // view's appearance: `#1e1e1e` under dark chrome on a white page, a black
+    // band down the trailing edge while the sidebar hid. The page's colour fills
+    // it instead. `underPageBackgroundColor` alone does not reach it — that
+    // paints a web-process layer, which is as stale as the rest.
+
+    private var pageColourObservation: NSKeyValueObservation?
+
+    override init(frame: CGRect, configuration: WKWebViewConfiguration) {
+        super.init(frame: frame, configuration: configuration)
+        pageColourObservation = observe(\.underPageBackgroundColor) { view, _ in
+            MainActor.assumeIsolated { view.needsDisplay = true }
+        }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("Luna builds its views in code")
+    }
+
+    override func updateLayer() {
+        super.updateLayer()
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer?.backgroundColor = underPageBackgroundColor.cgColor
+        }
+    }
+
     // MARK: - Markdown Edit
 
     // While Edit shows, WebKit files the typing on the document's own undo

@@ -36,4 +36,4 @@ titled with that number.
 
 - [RESEARCH.md](RESEARCH.md): WebKit's limits, sources, reference UI and implementations
 - [research/ENGINES.md](research/ENGINES.md): why no second engine
-- [research/SIDEBAR-FLICKER.md](research/SIDEBAR-FLICKER.md): an unsolved rendering bug, measured
+- [research/SIDEBAR-FLICKER.md](research/SIDEBAR-FLICKER.md): the sidebar band (#218): how it was measured and what it turned out to be
