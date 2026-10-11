@@ -108,10 +108,7 @@ extension ControlService {
     /// agent's tab is seldom the one on screen, and may be in another Space.
     func pdfCookies(for url: URL, tab id: UUID?, in session: BrowserSession) async -> [HTTPCookie] {
         let store = session.dataStore(forSpace: id.flatMap { session.tab($0)?.spaceID } ?? session.activeSpaceID)
-        let host = url.host() ?? ""
-        return await store.loadedCookies().filter { cookie in
-            host.hasSuffix(cookie.domain.trimmingCharacters(in: CharacterSet(charactersIn: ".")))
-        }
+        return await store.cookies(for: url)
     }
 
     // MARK: - The calendar
