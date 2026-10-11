@@ -93,10 +93,24 @@ final class PageEdgeFillTests: XCTestCase {
         card.endGeometryTransition()
     }
 
-    /// The fill changes in the turn the page's colour does. A display pass can
-    /// land after the widening, and a slow runner was measured asserting inside
-    /// that gap: the page reported white, the strip was still `#1e1e1e`. No
-    /// run loop turn passes between the change and the assertion here.
+    /// WebKit does not always say when the page's colour arrives. On CI's
+    /// runner (light system, dark window) the page read white while no change
+    /// was ever observed, and the fill kept the `#1e1e1e` it took from the
+    /// window. Here the fill is left stale by hand, and widening the page has
+    /// to correct it.
+    func testWideningThePageFillsTheStripEvenIfTheColourWasNeverReported() async throws {
+        let (card, web) = try await lightPageInCard()
+        let page = Self.srgb(web.underPageBackgroundColor.cgColor)
+        web.layer?.backgroundColor = NSColor(srgbRed: 0.118, green: 0.118, blue: 0.118, alpha: 1).cgColor
+
+        card.beginGeometryTransition(toWidth: 1000, over: 0.2)
+        assertFill(web, is: page, "the widened strip should show the page's colour, not a stale fill")
+        card.endGeometryTransition()
+    }
+
+    /// The fill changes in the turn the page's colour does, not on the next
+    /// display pass, which can land after the widening. No run loop turn
+    /// passes between the change and the assertion here.
     func testTheFillChangesWithThePageColourBeforeAnyDisplayPass() async throws {
         let (_, web) = try await lightPageInCard()
         web.underPageBackgroundColor = NSColor(srgbRed: 0, green: 0.5, blue: 0, alpha: 1)

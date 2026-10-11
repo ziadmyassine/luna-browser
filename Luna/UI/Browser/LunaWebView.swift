@@ -53,9 +53,11 @@ final class LunaWebView: WKWebView {
     // paints a web-process layer, which is as stale as the rest.
     //
     // Set where the colour changes, not on the next display pass: the page can
-    // report its colour and be widened before that pass runs, and a slow CI
-    // runner did exactly that. `updateLayer` sets it again because WebKit's own
-    // `updateLayer` writes the appearance fill back.
+    // report its colour and be widened before that pass runs. `updateLayer`
+    // sets it again because WebKit's own `updateLayer` writes the appearance
+    // fill back. And set on every resize, which is when the strip shows: the
+    // colour can change without the KVO firing — on a light system under a
+    // dark window, a white page read white and no change was ever observed.
 
     private var pageColourObservation: NSKeyValueObservation?
 
@@ -73,6 +75,11 @@ final class LunaWebView: WKWebView {
 
     override func updateLayer() {
         super.updateLayer()
+        fillWithPageColour()
+    }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
         fillWithPageColour()
     }
 
