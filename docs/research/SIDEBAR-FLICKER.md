@@ -1,7 +1,17 @@
 # The black band on the page's trailing edge (§4.1)
 
-**Status: unsolved. Four approaches tried and reverted. Nothing from this
-investigation is in the tree.**
+**Status: fixed (#218), 2026-10-11.** The band is the `WKWebView`'s own
+backing layer (`NSViewBackingLayer`). Widened in one step, that layer grows in
+the same turn; the web process's layers — `overhang areas`, which wears
+`underPageBackgroundColor`, the `RenderView` and its tiles — keep the old width
+until the next commit. Measured in an off-screen window, dark appearance, white
+page, 730 → 1000 pt: at t = 0 the backing layer was 1000 wide with background
+`0.118` (`#1e1e1e`, WebKit's appearance-derived fill), every web-process layer
+still 730 wide; by the next commit all were 1000. That is why attempt 4 failed:
+`underPageBackgroundColor` paints a web-process layer, which is as stale as the
+rest. `LunaWebView.updateLayer` now gives the backing layer the page's colour;
+`Tests/Window/PageEdgeFillTests.swift` asserts it at the moment of the resize.
+The rest of this file is the investigation as it stood before.
 
 This file exists so the next attempt starts from the measurements rather than
 from the beginning. The expensive part of this work was not the code — every
