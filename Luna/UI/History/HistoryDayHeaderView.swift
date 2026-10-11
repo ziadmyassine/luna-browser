@@ -66,7 +66,7 @@ final class HistoryDayHeaderView: NSView {
         label.textColor = Tokens.Text.tertiary
     }
 
-    /// The panel's scrim closes the pop-out on a press, and a press on a
-    /// header is still a press inside the panel.
+    /// The pop-out's sheet (`PopoutPanelView`) closes it on a press, and a
+    /// press on a header is still a press inside the panel.
     override func mouseDown(with event: NSEvent) {}
 }

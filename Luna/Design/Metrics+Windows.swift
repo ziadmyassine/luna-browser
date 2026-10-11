@@ -61,9 +61,8 @@ extension Tokens.Metric {
     static let settingsSegmentGap: CGFloat = 2
 
     /// Appearance's Layout row: a picture of each layout. 72 tall, the glass
-    /// preview tile's height (`AppearanceSection.previewTileSize`), so the
-    /// section's two pictures stand the same size; 116 wide is that at a Mac
-    /// window's 16:10.
+    /// preview tile's height (`glassPreviewTile`), so the section's two
+    /// pictures stand the same size; 116 wide is that at a Mac window's 16:10.
     static let settingsLayoutPreview = CGSize(width: 116, height: 72)
     /// The ring on the chosen layout — the Space swatch's, the other chooser
     /// in Settings that answers with a ring.

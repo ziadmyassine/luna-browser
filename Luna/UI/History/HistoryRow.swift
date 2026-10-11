@@ -264,9 +264,9 @@ final class HistoryRowView: NSView {
 
     override func mouseEntered(with event: NSEvent) { onHover?() }
 
-    /// Swallowed, not ignored: the panel's scrim dismisses on `mouseDown`, and
-    /// letting a row's press walk up there would tear the panel down before the
-    /// `mouseUp` that was meant to choose this row arrived.
+    /// Swallowed, not ignored: the pop-out's sheet (`PopoutPanelView`) dismisses
+    /// on `mouseDown`, and letting a row's press walk up there would tear the
+    /// panel down before the `mouseUp` that was meant to choose this row arrived.
     override func mouseDown(with event: NSEvent) {}
 
     override func mouseUp(with event: NSEvent) {

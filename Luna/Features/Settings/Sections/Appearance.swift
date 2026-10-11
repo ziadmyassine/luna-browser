@@ -81,14 +81,6 @@ final class AppearanceSection: NSObject, SettingsSection {
         NSApp.appearance = theme.appearance
     }
 
-    // MARK: The §7 preview tile
-
-    /// §3.2: "a 160 × 72 sample of the real material".
-    ///
-    /// A literal that duplicates `Tokens.Metric.glassPreviewTile` and should
-    /// become a reference to it; nothing else here writes a literal length.
-    static let previewTileSize = NSSize(width: 160, height: 72)
-
     // MARK: Section
 
     private let body = SettingsBody()
@@ -109,8 +101,8 @@ final class AppearanceSection: NSObject, SettingsSection {
         super.init()
         tileHost.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            tileHost.widthAnchor.constraint(equalToConstant: Self.previewTileSize.width),
-            tileHost.heightAnchor.constraint(equalToConstant: Self.previewTileSize.height)
+            tileHost.widthAnchor.constraint(equalToConstant: Tokens.Metric.glassPreviewTile.width),
+            tileHost.heightAnchor.constraint(equalToConstant: Tokens.Metric.glassPreviewTile.height)
         ])
 
         body.card(nil, [
@@ -173,7 +165,7 @@ final class AppearanceSection: NSObject, SettingsSection {
     /// the segmented control above it carries the meaning.
     private func rebuildTile() {
         let optimised = Glass.isOptimised(for: tileHost.window)
-        let tile = Glass.previewTile(size: Self.previewTileSize, optimised: optimised)
+        let tile = Glass.previewTile(size: Tokens.Metric.glassPreviewTile.size, optimised: optimised)
         tile.translatesAutoresizingMaskIntoConstraints = false
         let swap = {
             self.tileHost.subviews.forEach { $0.removeFromSuperview() }

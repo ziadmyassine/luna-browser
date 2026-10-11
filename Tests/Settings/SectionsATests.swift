@@ -241,7 +241,7 @@ final class SectionsATests: XCTestCase {
 
     /// §3.2: 160 × 72. A tile that is not the sampled size is not a sample.
     func testThePreviewTileIsTheSizeTheSpecMeasures() {
-        XCTAssertEqual(AppearanceSection.previewTileSize, NSSize(width: 160, height: 72))
+        XCTAssertEqual(Tokens.Metric.glassPreviewTile.size, NSSize(width: 160, height: 72))
     }
 
     // MARK: - §3.6 shortcuts
