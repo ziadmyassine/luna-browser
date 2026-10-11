@@ -47,9 +47,9 @@ enum BookmarkPlacement: String, Sendable, Hashable {
 
 /// One bookmark, flattened out of whatever tree it came from.
 ///
-/// `folderPath` is carried even though Luna has nowhere to persist it yet
-/// (§11.1 lists a `bookmarks` table that is not created): the Netscape HTML
-/// export rebuilds the tree from it, and it is what the future table needs.
+/// `folderPath` is the source's tree, outermost folder first. The sidebar
+/// flattens it to one folder; `leaf(in:)` keeps it in `bookmarks` for the
+/// Netscape HTML export to rebuild.
 struct ImportedBookmark: Sendable, Hashable {
     var url: URL
     var title: String
@@ -85,6 +85,11 @@ struct ImportedBookmark: Sendable, Hashable {
         self.placement = placement
         self.spaceName = spaceName
         self.category = category ?? (placement == .favorite ? .bookmarkBar : .bookmarkFolders)
+    }
+
+    /// Where this sat in the source, as the row `bookmarks` keeps for `spaceID`.
+    func leaf(in spaceID: UUID) -> Bookmark {
+        Bookmark(spaceID: spaceID, url: url, title: title, folderPath: folderPath, dateAdded: dateAdded)
     }
 
     /// A saved address, or nil for anything that is not plain web content.

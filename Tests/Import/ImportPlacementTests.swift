@@ -2,9 +2,9 @@
 //  ImportPlacementTests.swift
 //  LunaTests
 //
-//  Where an imported bookmark lands. §23.2 reads a bookmark; Luna has no
-//  bookmarks table (§11.1), so what it writes is a `Tab` — a saved one, inside
-//  a §3.4b folder named after the browser it came from.
+//  Where an imported bookmark lands. §23.2 reads a bookmark and the sidebar
+//  gets a `Tab` — a saved one, inside a §3.4b folder named after the browser
+//  it came from. The source's tree is `BookmarkTreeImportTests`.
 //
 //  The two things that go wrong silently:
 //

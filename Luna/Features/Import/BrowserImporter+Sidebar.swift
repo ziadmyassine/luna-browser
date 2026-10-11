@@ -177,6 +177,7 @@ extension BrowserImporter {
         var tiles = try await store.favorites(inSpace: spaceID).count
         var added = 0
         var skipped = 0
+        var kept: [Bookmark] = []
 
         for bookmark in bookmarks {
             guard let placement = mapping.placement(
@@ -186,6 +187,7 @@ extension BrowserImporter {
             ) else {
                 continue
             }
+            kept.append(bookmark.leaf(in: spaceID))
             guard seen.insert(Self.dedupKey(bookmark.url)).inserted else {
                 skipped += 1
                 continue
@@ -204,6 +206,7 @@ extension BrowserImporter {
             }
             try await place(bookmark, inSpace: spaceID, asTile: isTile, folder: folder)
         }
+        if !dryRun { try await store.recordBookmarks(kept) }
         return (added, skipped)
     }
 
