@@ -108,6 +108,38 @@ final class ChromeTransitionTests: XCTestCase {
         card.endGeometryTransition()
     }
 
+    /// A page in element fullscreen: WebKit puts a placeholder in its place
+    /// and moves it to a window of its own. The sidebar toggled then held the
+    /// page there by a width alone, activated an edge to a card it was no
+    /// longer in (an exception), and the video played on black. Back in the
+    /// card, it follows the pane again.
+    func testTheChromeLeavesAPageInFullscreenAlone() async throws {
+        let (window, page) = try shown()
+        let card = try XCTUnwrap(page.superview as? ContentCardView)
+        let fullscreen = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 900, height: 600), styleMask: [.borderless], backing: .buffered, defer: true
+        )
+        let stage = try XCTUnwrap(fullscreen.contentView)
+        let placeholder = NSView(frame: page.frame)
+        card.addSubview(placeholder, positioned: .above, relativeTo: page)
+        stage.addSubview(page)
+        page.frame = stage.bounds
+
+        window.setSidebarCollapsed(true)
+        window.setAgentPanel(AgentPanelView(), shown: true)
+        stage.layoutSubtreeIfNeeded()
+        XCTAssertEqual(page.frame.size, stage.bounds.size, "the chrome reached the page in WebKit's window")
+        XCTAssertTrue(page.constraints.filter(\.isActive).isEmpty, "the page took a width into WebKit's window")
+
+        card.addSubview(page, positioned: .above, relativeTo: placeholder)
+        page.frame = placeholder.frame
+        placeholder.removeFromSuperview()
+        window.setAgentPanel(AgentPanelView(), shown: false)
+        window.setSidebarCollapsed(false)
+        try await Task.sleep(for: .milliseconds(600))
+        XCTAssertEqual(page.frame.width, window.contentFrame.width, accuracy: 0.5, "back in the card, the page kept its old frame")
+    }
+
     /// And it does end up the width of the pane, both ways round. The hold is a
     /// hold, not a new resting state — `endGeometryTransition` hands the width
     /// back to Auto Layout, and a watchdog does it even if the completion

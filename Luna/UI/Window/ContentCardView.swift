@@ -373,7 +373,7 @@ final class ContentCardView: NSView {
     ///     edge that moves, the page slid sideways with it and jumped back at
     ///     the end.
     func beginGeometryTransition(toWidth width: CGFloat, over duration: TimeInterval, holding edge: CardEdge = .trailing) {
-        guard !contentFollowsFrames else { return }
+        guard !contentFollowsFrames, holdsContent else { return }
         let trailing = contentEdges.first { $0.firstAttribute == .trailing }
         // Deactivate before activating: the two contradict each other, and an
         // over-constrained instant is a console full of broken-constraint logs.
@@ -533,6 +533,32 @@ extension ContentCardView {
         contentWidth = nil
         contentTop = nil
     }
+
+    /// Whether the page is in the card. WebKit lends it to a window of its
+    /// own for element fullscreen, putting a placeholder in its place, and
+    /// gives it back on the way out; the card is still showing it throughout.
+    var holdsContent: Bool { content?.isDescendant(of: self) == true }
+
+    /// The page leaving while it is still the card's: WebKit's fullscreen.
+    /// Its edges to the card went with it, and a width the card held it at
+    /// would follow it into WebKit's window, where it is the page's only
+    /// constraint: the page laid out at no height and the video played on
+    /// black. A transition over the placeholder leaves the page alone.
+    fileprivate func pageWasLent() {
+        transitionWatchdog?.cancel()
+        transitionWatchdog = nil
+        contentWidth?.isActive = false
+    }
+
+    /// The page back from WebKit's window, at the frame its placeholder had.
+    /// AppKit dropped its edges when it left, so they go on again here, or
+    /// the page keeps that frame through every later resize.
+    fileprivate func pageCameBack() {
+        guard let content, !contentFollowsFrames else { return }
+        content.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate(contentEdges)
+        needsLayout = true
+    }
 }
 
 // MARK: - A docked Web Inspector
@@ -548,6 +574,7 @@ extension ContentCardView {
     override func didAddSubview(_ subview: NSView) {
         super.didAddSubview(subview)
         onSubviewsChange?()
+        if subview === content { pageCameBack() }
         guard Self.isDockedInspector(subview) else { return }
         followFrames(true)
         dockedInspector = subview as? WKWebView
@@ -565,6 +592,7 @@ extension ContentCardView {
     override func willRemoveSubview(_ subview: NSView) {
         super.willRemoveSubview(subview)
         onSubviewsChange?()
+        if subview === content { pageWasLent() }
         guard Self.isDockedInspector(subview) else { return }
         followFrames(false)
         NotificationCenter.default.removeObserver(self, name: NSView.frameDidChangeNotification, object: subview)
