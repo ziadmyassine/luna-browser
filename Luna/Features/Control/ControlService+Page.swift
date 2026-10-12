@@ -24,7 +24,7 @@ extension ControlService {
 
     func run(_ command: ControlCommand, in webView: WKWebView, controller: TabController) async throws -> ControlResult {
         if let session { size(webView, in: session) }
-        let hidden = await catchUpFrames(webView)
+        let hidden = await catchUpFrames(webView, tab: controller.id)
         // Every call, so the recorder is there from the first touch of each
         // new document on. Refused on pages with no script, which is fine.
         _ = try? await webView.callAsyncJavaScript(ControlScripts.consoleInstall, arguments: [:], in: nil, contentWorld: .page)
@@ -55,7 +55,7 @@ extension ControlService {
         }
     }
 
-    private static let hiddenNote = """
+    static let hiddenNote = """
     (This tab is hidden to the page, so content that waits for an animation frame may be missing.)
     """
 
@@ -65,9 +65,12 @@ extension ControlService {
     /// two frames a callback the page queued has run, and the timeout ends
     /// the wait where no frame comes. Answers whether the
     /// page is still hidden: a WebKit without the occlusion switch
-    /// (`ControlStage.detectOcclusion`) leaves it so.
-    private func catchUpFrames(_ webView: WKWebView) async -> Bool {
-        guard webView.window == nil else { return false }
+    /// (`ControlStage.detectOcclusion`) leaves it so. Only a tab in an
+    /// agent's folder: a background tab of the user's stays as the user
+    /// left it.
+    private func catchUpFrames(_ webView: WKWebView, tab id: UUID) async -> Bool {
+        guard webView.window == nil, let session,
+              let folder = session.tab(id)?.groupID, session.controlFaces[folder] != nil else { return false }
         guard let stage = try? ControlStage(adopting: webView) else { return true }
         defer { stage.release() }
         let state = try? await webView.callAsyncJavaScript("""
