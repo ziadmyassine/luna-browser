@@ -1,13 +1,17 @@
 # Changelog
 
-What changed, newest first. Luna has not had a release yet, so everything is
-under Unreleased; a release will take the entries since the last one.
+What changed, newest first, under the release that shipped it. Entries not yet
+in a release go under Unreleased, grouped by date.
 
 ## Unreleased
+
+## 0.2.1 — 2026-10-15
 
 ### 2026-10-12
 
 - **Pages an agent opens finish drawing before it reads them** (Luna Control's `page_text`, `read_page`): a tab an agent opened was never on screen, so its page counted itself hidden and stopped its animation frames, and sites built on React or Next.js that reveal streamed content on a frame read back an empty page. Luna now lets a page in the agent's own folder draw for a moment before each page tool, out of sight and without taking focus, and the page sees itself as visible. If a page still cannot draw, the answer says so. The user's own background tabs are left as they were.
+
+## 0.2.0 — 2026-10-11
 
 ### 2026-10-11
 
