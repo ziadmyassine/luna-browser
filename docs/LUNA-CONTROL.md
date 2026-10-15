@@ -257,10 +257,16 @@ hands off the mouse, before changing anything under "Trusted input".
   opens on the user's screen. As a backstop, a menu that starts tracking while
   a stage is up gets an Escape posted to Luna's event queue. A menu the user
   opens in that moment closes too.
-- A page on the stage is `hidden`: `requestAnimationFrame` does not run and
-  timers are throttled. Results say `trusted: true` or `trusted: false`. Pass
-  `trusted: false` to use page events for a page that only reacts on an
-  animation frame.
+- A page on the stage is `visible` and gets animation frames: the stage turns
+  WebKit's window-occlusion detection off for its web view, and back on when
+  it gives the tab back (private, checked with `responds(to:)`; see D10 in
+  `DECISIONS.md`). Out of the stage, an agent's tab is in no window and
+  `hidden`, so every page tool on a tab in an agent's folder first lends it
+  to a stage for two animation frames (at most a second). A background tab
+  of the user's that an agent reads is left hidden, as it was. Content a page reveals on a frame, such as React
+  and Next.js streamed Suspense, is there for `page_text` and `read_page`; if
+  the page is still hidden, those two say so. Results say `trusted: true` or
+  `trusted: false`.
 - Page events are used for hover and middle clicks, because WebKit does not
   turn a moved event into a hover on the stage and `NSEvent` cannot build a
   middle-button press. They are also used for drag and drop from a draggable

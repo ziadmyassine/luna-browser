@@ -74,6 +74,7 @@ final class ControlStage {
         webView.translatesAutoresizingMaskIntoConstraints = true
         webView.frame = NSRect(origin: .zero, size: size)
         window.contentView?.addSubview(webView)
+        Self.detectOcclusion(false, of: webView)
         // Regardless: Luna may not be active, and must not become so.
         window.orderFrontRegardless()
         window.makeFirstResponder(webView)
@@ -90,12 +91,25 @@ final class ControlStage {
         released = true
         if let menuWatch { NotificationCenter.default.removeObserver(menuWatch) }
         if webView.window === window {
+            Self.detectOcclusion(true, of: webView)
             webView.removeFromSuperview()
             webView.frame = savedFrame
             webView.translatesAutoresizingMaskIntoConstraints = savedAutoresizing
         }
         window.orderOut(nil)
         window.close()
+    }
+
+    /// A window off every screen is occluded, so WebKit reports the page
+    /// `hidden` and stops its animation frames; content that waits on one
+    /// (React's streamed Suspense) never appears. With detection off the
+    /// page is `visible` on the stage. Private, so checked first: a WebKit
+    /// without it leaves the page hidden, as before (`docs/DECISIONS.md` D10).
+    private static func detectOcclusion(_ enabled: Bool, of webView: WKWebView) {
+        let selector = NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")
+        guard webView.responds(to: selector) else { return }
+        typealias Setter = @convention(c) (AnyObject, Selector, Bool) -> Void
+        unsafeBitCast(webView.method(for: selector), to: Setter.self)(webView, selector, enabled)
     }
 
     // MARK: - Input

@@ -24,12 +24,13 @@ extension ControlService {
 
     func run(_ command: ControlCommand, in webView: WKWebView, controller: TabController) async throws -> ControlResult {
         if let session { size(webView, in: session) }
+        let hidden = await catchUpFrames(webView, tab: controller.id)
         // Every call, so the recorder is there from the first touch of each
         // new document on. Refused on pages with no script, which is fine.
         _ = try? await webView.callAsyncJavaScript(ControlScripts.consoleInstall, arguments: [:], in: nil, contentWorld: .page)
         await watchNetwork(of: controller, in: webView)
         if let result = try await trustedInput(command, in: webView) { return result }
-        if let result = try await viaLibrary(command, in: webView) { return result }
+        if let result = try await viaLibrary(command, in: webView, hidden: hidden) { return result }
         switch command {
         case let .navigate(navigation):
             return await navigate(navigation, controller: controller, webView: webView)
@@ -54,14 +55,42 @@ extension ControlService {
         }
     }
 
+    static let hiddenNote = """
+    (This tab is hidden to the page, so content that waits for an animation frame may be missing.)
+    """
+
+    /// A tab in no window is hidden to its page, and WebKit runs no animation
+    /// frames for it: a page that reveals content on one (React's streamed
+    /// Suspense) reads empty. Lent to a stage, it is visible and draws; after
+    /// two frames a callback the page queued has run, and the timeout ends
+    /// the wait where no frame comes. Answers whether the
+    /// page is still hidden: a WebKit without the occlusion switch
+    /// (`ControlStage.detectOcclusion`) leaves it so. Only a tab in an
+    /// agent's folder: a background tab of the user's stays as the user
+    /// left it.
+    private func catchUpFrames(_ webView: WKWebView, tab id: UUID) async -> Bool {
+        guard webView.window == nil, let session,
+              let folder = session.tab(id)?.groupID, session.controlFaces[folder] != nil else { return false }
+        guard let stage = try? ControlStage(adopting: webView) else { return true }
+        defer { stage.release() }
+        let state = try? await webView.callAsyncJavaScript("""
+            await new Promise(r => { requestAnimationFrame(() => requestAnimationFrame(r)); setTimeout(r, 1000) });
+            return document.visibilityState;
+            """, arguments: [:], in: nil, contentWorld: ControlCapture.world)
+        return state as? String != "visible"
+    }
+
     /// A command the library carries out, or nil for one it does not.
-    private func viaLibrary(_ command: ControlCommand, in webView: WKWebView) async throws -> ControlResult? {
+    private func viaLibrary(_ command: ControlCommand, in webView: WKWebView, hidden: Bool) async throws -> ControlResult? {
         guard let (operation, args, acts) = Self.libraryCall(for: command) else { return nil }
         var result = acts
             ? try await acting(operation, in: webView, args)
             : .text(try await library(operation, in: webView, args))
         if command.isInput, case let .text(said)? = result.content.first {
             result.content[0] = .text(said + " (trusted: false)")
+        }
+        if hidden, command.reads, case let .text(said)? = result.content.first {
+            result.content[0] = .text(said + "\n" + Self.hiddenNote)
         }
         return result
     }
@@ -232,6 +261,14 @@ extension ControlService {
 }
 
 private extension ControlCommand {
+    /// The calls that read what the page shows.
+    var reads: Bool {
+        switch self {
+        case .pageText, .readPage: true
+        default: false
+        }
+    }
+
     /// The calls that report whether their input was trusted.
     var isInput: Bool {
         switch self {

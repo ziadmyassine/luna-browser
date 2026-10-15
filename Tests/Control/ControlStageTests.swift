@@ -210,6 +210,8 @@ final class ControlStageTests: XCTestCase {
         // Cmd+W reaches the page, never the menu that would close the user's tab.
         let keyed = await service.perform(ControlCall(.key("cmd+a cmd+w")), client)
         XCTAssertFalse(keyed.isError, text(keyed))
+        let read = await service.perform(ControlCall(.pageText), client)
+        XCTAssertFalse(read.isError, text(read))
 
         XCTAssertEqual(NSApp.keyWindow, keyWindow)
         XCTAssertTrue(NSApp.keyWindow?.firstResponder === firstResponder)
@@ -219,6 +221,44 @@ final class ControlStageTests: XCTestCase {
             XCTAssertEqual(window.frame, frames[window.windowNumber], "a window of the user's moved")
         }
         XCTAssertFalse(NSApp.windows.contains { $0 is ControlStageWindow && $0.isVisible }, "a stage was left up")
+    }
+
+    /// Its `<main>` reads `waiting` until an animation frame runs.
+    private let revealing = URL(string: "data:text/html," + """
+    <main>waiting</main><script>requestAnimationFrame(() => {
+    document.querySelector('main').textContent = 'revealed ' + document.visibilityState })</script>
+    """.addingPercentEncoding(withAllowedCharacters: .alphanumerics)!)!
+
+    /// A tab the agent opened is in no window, so the page is hidden to
+    /// itself and gets no animation frames; React's streamed Suspense
+    /// content waits on one. Reading the page catches it up first.
+    func testPageTextSeesWhatAnAnimationFrameReveals() async throws {
+        let (service, session) = try await makeService()
+        _ = await service.perform(ControlCall(.openTab(revealing)), client)
+        let id = try XCTUnwrap(session.allTabs(includeArchived: false).first { $0.url.scheme == "data" }?.id)
+        let webView = try XCTUnwrap(session.controller(for: id)?.webView)
+
+        let read = await service.perform(ControlCall(.pageText), client)
+        XCTAssertFalse(read.isError, text(read))
+        XCTAssertTrue(text(read).contains("revealed visible"), text(read))
+        XCTAssertNil(webView.window, "the stage kept the tab")
+        XCTAssertFalse(NSApp.windows.contains { $0 is ControlStageWindow && $0.isVisible }, "a stage was left up")
+    }
+
+    /// A background tab of the user's that an agent reads is left as it is:
+    /// only tabs in an agent's folder are lent to a stage to draw.
+    func testPageTextLeavesTheUsersBackgroundTabHidden() async throws {
+        let (service, session) = try await makeService()
+        let users = session.newTab(url: revealing)
+        session.newTab(url: nil)
+        let webView = try XCTUnwrap(session.controller(for: users)?.webView)
+        XCTAssertNil(webView.window)
+
+        let read = await service.perform(ControlCall(tab: service.number(users), .pageText), client)
+        XCTAssertFalse(read.isError, text(read))
+        XCTAssertTrue(text(read).contains("waiting"), "the user's tab was staged: \(text(read))")
+        XCTAssertFalse(text(read).contains(ControlService.hiddenNote), text(read))
+        XCTAssertNil(session.tab(users)?.groupID, "reading the tab moved it")
     }
 
     /// A phone-sized agent tab while the user watches something else: only
