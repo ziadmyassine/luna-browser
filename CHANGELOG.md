@@ -5,6 +5,10 @@ in a release go under Unreleased, grouped by date.
 
 ## Unreleased
 
+### 2026-11-02
+
+- **Extensions can use a Space's sign-ins** (Settings → Extensions, one switch per Space, off by default): an extension that signs in with the sites' own cookies from its background worker, as Docta does with itslearning, never saw them, because a Space's extension pages run in a store of their own. With the switch on, they run in the Space's store and their requests carry its cookies, as in Chrome. The cost is that Luna then also re-registers that Space's websites' service workers at each launch. Takes effect after a relaunch.
+
 ## 0.4.2 — 2026-10-30
 
 ### 2026-10-29

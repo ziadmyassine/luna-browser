@@ -17,6 +17,10 @@ public final class ExtensionHost: NSObject {
     let backgroundStore: WKWebsiteDataStore
     /// The Space's own store: the sites `chrome.browsingData` may clear.
     let dataStore: WKWebsiteDataStore
+    /// Where the Space's background pages, popups and options run: the Space's
+    /// own store when it shares its sign-ins with extensions, else
+    /// `backgroundStore` (docs/EXTENSIONS.md §3.11).
+    let pagesStore: WKWebsiteDataStore
 
     weak var browser: (any ExtensionBrowser)?
     weak var ui: (any ExtensionUI)?
@@ -48,22 +52,28 @@ public final class ExtensionHost: NSObject {
     /// Bitwarden); after this long it is treated as failed.
     static let backgroundTimeout: Duration = .seconds(8)
 
-    /// - Parameter dataStore: the Space's own, identified store. Its identifier
-    ///   names the controller's storage, so it has to be the same every launch.
-    init(spaceID: UUID, dataStore: WKWebsiteDataStore) {
+    /// - Parameters:
+    ///   - dataStore: the Space's own, identified store. Its identifier names
+    ///     the controller's storage, so it has to be the same every launch.
+    ///   - sharesSessions: run the extension pages in `dataStore`, so a
+    ///     worker's `fetch` with `credentials: "include"` carries the Space's
+    ///     cookies, as it does in Chrome. Off, they run in a store of their own.
+    init(spaceID: UUID, dataStore: WKWebsiteDataStore, sharesSessions: Bool = false) {
         self.spaceID = spaceID
         self.dataStore = dataStore
         let identifier = dataStore.identifier ?? UUID()
         backgroundStore = WKWebsiteDataStore(forIdentifier: Self.backgroundStoreIdentifier(forSpaceStore: identifier))
+        pagesStore = sharesSessions ? dataStore : backgroundStore
 
         // All of it before `init`: `controller.configuration` hands back a copy.
         let configuration = WKWebExtensionController.Configuration(identifier: identifier)
         configuration.defaultWebsiteDataStore = dataStore
         // Background pages register their workers in this store, not in
-        // `defaultWebsiteDataStore`. Its own store is what lets launch clear
-        // stale registrations without touching the sites' workers (§4).
+        // `defaultWebsiteDataStore`. A store of their own is what lets launch
+        // clear stale registrations without touching the sites' workers (§4);
+        // a Space that shares its sign-ins gives that up for the cookies.
         let extensionPages = WKWebViewConfiguration()
-        extensionPages.websiteDataStore = backgroundStore
+        extensionPages.websiteDataStore = pagesStore
         extensionPages.applicationNameForUserAgent = WebViewFactory.extensionApplicationNameForUserAgent
         configuration.webViewConfiguration = extensionPages
         controller = WKWebExtensionController(configuration: configuration)
@@ -164,10 +174,12 @@ public final class ExtensionHost: NSObject {
     /// The §4 trap: a service-worker registration left from the last launch
     /// is reused and never started, silently. The store-wide removal is the
     /// only one that works — `dataRecords(ofTypes:)` does not list
-    /// `webkit-extension://` origins — and it is safe because this store holds
-    /// nothing but extension pages.
+    /// `webkit-extension://` origins. It is free when `pagesStore` holds
+    /// nothing but extension pages; in a Space that shares its sign-ins it
+    /// also unregisters the Space's sites' workers, which register again on
+    /// their next visit.
     private func clearWorkerRegistrations() async {
-        await backgroundStore.removeData(ofTypes: [WKWebsiteDataTypeServiceWorkerRegistrations], modifiedSince: .distantPast)
+        await pagesStore.removeData(ofTypes: [WKWebsiteDataTypeServiceWorkerRegistrations], modifiedSince: .distantPast)
     }
 
     /// Unload, clear the registrations, load again. Once a minute at most, and

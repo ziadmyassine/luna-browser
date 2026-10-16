@@ -78,6 +78,7 @@ enum Settings {
     private static let macCornersKey = "luna.macWindowCorners"
     private static let tabHintKey = "luna.pinHint.tabDismissed"
     private static let folderHintKey = "luna.pinHint.folderDismissed"
+    private static let extensionsShareSessionsKey = "luna.extensions.sharesSessions."
 
     /// Defaults to the sidebar: it is the layout the reference shows and the
     /// one §3 is written against.
@@ -119,6 +120,20 @@ enum Settings {
             UserDefaults.standard.set(newValue.rawValue, forKey: tabsKey)
             NotificationCenter.default.post(name: didChange, object: nil)
         }
+    }
+
+    /// Whether a Space's extension pages run in the Space's own website data
+    /// store, so a worker's requests carry its sign-ins (docs/EXTENSIONS.md
+    /// §3.11). Off by default, per Space, and read once per launch: the store
+    /// is chosen when the Space's extension controller is made.
+    static func extensionsShareSessions(inSpace spaceID: UUID) -> Bool {
+        UserDefaults.standard.bool(forKey: extensionsShareSessionsKey + spaceID.uuidString)
+    }
+
+    static func setExtensionsShareSessions(_ shares: Bool, inSpace spaceID: UUID) {
+        guard shares != extensionsShareSessions(inSpace: spaceID) else { return }
+        UserDefaults.standard.set(shares, forKey: extensionsShareSessionsKey + spaceID.uuidString)
+        NotificationCenter.default.post(name: didChange, object: nil)
     }
 
     /// The corner macOS gives its own windows instead of Luna's rounder one.

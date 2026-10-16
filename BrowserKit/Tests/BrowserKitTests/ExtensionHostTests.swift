@@ -61,7 +61,7 @@ struct ExtensionHostTests {
         let browser = FakeBrowser(space: spaceID, tabCount: 3)
         let manager = ExtensionManager(store: store, library: library)
         manager.browser = browser
-        await manager.start(spaces: [(spaceID, dataStore)])
+        await manager.start(spaces: [(spaceID, dataStore, false)])
         try await waitUntil { browser.opened.contains { $0.query == "luna-fixture=3" } }
 
         // Uninstalling takes what it stored with it. WebKit keeps listing an
@@ -99,6 +99,23 @@ struct ExtensionHostTests {
 
         #expect(ExtensionTab(id: wired.id, host: host).webView(for: context) === wired.webView)
         #expect(ExtensionTab(id: bare.id, host: host).webView(for: context) == nil, "a view with no controller reached WebKit")
+    }
+
+    /// The pages' store is the switch (§3.11): the Space's own with sharing on,
+    /// so a worker's requests carry its cookies, and the background store off,
+    /// so the launch wipe of worker registrations touches no site.
+    @Test func extensionPagesRunInTheSpacesStoreOnlyWhenItSharesSessions() throws {
+        let dataStore = WKWebsiteDataStore(forIdentifier: UUID())
+        defer { Self.remove(dataStore) }
+        let background = ExtensionHost.backgroundStoreIdentifier(forSpaceStore: try #require(dataStore.identifier))
+
+        let sharing = ExtensionHost(spaceID: UUID(), dataStore: dataStore, sharesSessions: true)
+        #expect(sharing.controller.configuration.webViewConfiguration?.websiteDataStore.identifier == dataStore.identifier)
+        #expect(sharing.pagesStore === dataStore)
+
+        let apart = ExtensionHost(spaceID: UUID(), dataStore: dataStore)
+        #expect(apart.controller.configuration.webViewConfiguration?.websiteDataStore.identifier == background)
+        #expect(apart.pagesStore === apart.backgroundStore)
     }
 
     /// A new install is on in every Space, each with the answers given at

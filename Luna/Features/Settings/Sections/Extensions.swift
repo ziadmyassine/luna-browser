@@ -31,6 +31,8 @@ final class ExtensionsSection: NSObject, SettingsSection {
     /// The cards on screen, in order, so a change that keeps the same
     /// extensions updates them rather than building the pane again.
     private var shown: [(id: String, card: ExtensionCardView)] = []
+    /// The Spaces the sign-in rows were built for; a different list rebuilds.
+    private var shownSpaces: [UUID] = []
     /// The Details popover, while one is open.
     private weak var details: NSPopover?
 
@@ -57,7 +59,7 @@ final class ExtensionsSection: NSObject, SettingsSection {
     /// Only a different list of extensions builds the pane again.
     @objc private func refresh() {
         let installed = center.installed
-        guard installed.map(\.id) == shown.map(\.id) else { return build() }
+        guard installed.map(\.id) == shown.map(\.id), spaces.map(\.id) == shownSpaces else { return build() }
         for (info, entry) in zip(installed, shown) {
             let made = model(for: info)
             entry.card.update(made.model)
@@ -69,11 +71,13 @@ final class ExtensionsSection: NSObject, SettingsSection {
     func willAppear() { refresh() }
 
     private var center: ExtensionsCenter { .shared }
+    private var spaces: [Space] { center.session?.spaces ?? [] }
 
     private func build() {
         body = SettingsBody()
         shown = []
         addCard()
+        signInsCard()
         let installed = center.installed
         if installed.isEmpty {
             body.card(ExtensionsEmptyCard(), rows: [(view: NSView(), terms: ["no extensions"])])
@@ -138,6 +142,29 @@ final class ExtensionsSection: NSObject, SettingsSection {
         alert.messageText = String(localized: "Luna couldn’t add that extension")
         alert.informativeText = reason
         if let window { alert.beginSheetModal(for: window) } else { alert.runModal() }
+    }
+
+    // MARK: - Sign-ins
+
+    /// One switch per Space (docs/EXTENSIONS.md §3.11). Next launch, not now:
+    /// every web view in the Space binds the controller the store was chosen
+    /// for, so a new store means a new controller and every tab rebuilt.
+    private func signInsCard() {
+        let spaces = spaces
+        shownSpaces = spaces.map(\.id)
+        guard !spaces.isEmpty else { return }
+        let subtitle = String(localized: """
+        Background requests from extensions carry this Space’s cookies, as in Chrome. Luna then also \
+        re-registers the Space’s websites’ service workers at each launch. Takes effect after Luna relaunches.
+        """)
+        body.card(String(localized: "Can use a Space’s sign-ins"), spaces.map { space in
+            let row = SettingsRow.toggle(
+                space.name,
+                subtitle: subtitle,
+                value: Settings.extensionsShareSessions(inSpace: space.id)
+            ) { on in Settings.setExtensionsShareSessions(on, inSpace: space.id) }
+            return (view: row, terms: [space.name, "sign-ins", "cookies", "sessions", "login", "credentials", "space"])
+        })
     }
 
     // MARK: - One extension
