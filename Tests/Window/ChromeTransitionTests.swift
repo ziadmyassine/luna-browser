@@ -109,21 +109,37 @@ final class ChromeTransitionTests: XCTestCase {
     }
 
     /// A page in element fullscreen: WebKit puts a placeholder in its place
-    /// and moves it to a window of its own. The sidebar toggled then held the
-    /// page there by a width alone, activated an edge to a card it was no
-    /// longer in (an exception), and the video played on black. Back in the
-    /// card, it follows the pane again.
+    /// and moves it to a window of its own. There it is sized by frame, and
+    /// the chrome leaves it alone: the sidebar toggled once held it by a width
+    /// alone and activated an edge to a card it was no longer in (an
+    /// exception). Back in the card, it follows the pane again.
     func testTheChromeLeavesAPageInFullscreenAlone() async throws {
         let (window, page) = try shown()
         let card = try XCTUnwrap(page.superview as? ContentCardView)
-        let fullscreen = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 900, height: 600), styleMask: [.borderless], backing: .buffered, defer: true
-        )
+        // WebKit's order: the window built at no size, the page put in at its
+        // bounds, then the window grown to the screen with the page expected
+        // to follow. Something in it is laid out by constraints, as WebKit's
+        // own views are. Held by constraints, the page stayed 0 × 0, and a
+        // paused video showed black.
+        let fullscreen = NSWindow(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: true)
         let stage = try XCTUnwrap(fullscreen.contentView)
+        let constrained = NSView()
+        constrained.translatesAutoresizingMaskIntoConstraints = false
+        stage.addSubview(constrained)
+        NSLayoutConstraint.activate([
+            constrained.topAnchor.constraint(equalTo: stage.topAnchor),
+            constrained.leadingAnchor.constraint(equalTo: stage.leadingAnchor),
+            constrained.widthAnchor.constraint(equalToConstant: 1),
+            constrained.heightAnchor.constraint(equalToConstant: 1)
+        ])
         let placeholder = NSView(frame: page.frame)
         card.addSubview(placeholder, positioned: .above, relativeTo: page)
         stage.addSubview(page)
         page.frame = stage.bounds
+        page.autoresizingMask = [.width, .height]
+        fullscreen.setFrame(NSRect(x: 0, y: 0, width: 900, height: 600), display: false)
+        stage.layoutSubtreeIfNeeded()
+        XCTAssertEqual(page.frame.size, stage.bounds.size, "the page did not grow with WebKit's fullscreen window")
 
         window.setSidebarCollapsed(true)
         window.setAgentPanel(AgentPanelView(), shown: true)

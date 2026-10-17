@@ -214,7 +214,6 @@ final class ContentCardView: NSView {
         letGoOfContentEdges()
         content = view
         guard let view else { return }
-        view.translatesAutoresizingMaskIntoConstraints = false
         // Under the overlay, whichever arrived first: the page bar floats over
         // the page, and a web view added afterwards would otherwise cover it.
         if let below = agentLayer ?? overlay {
@@ -222,6 +221,9 @@ final class ContentCardView: NSView {
         } else {
             addSubview(view)
         }
+        // After adding it, not before: a page taken from another card is
+        // handed back to frames on its way out of that one (`pageWasLent`).
+        view.translatesAutoresizingMaskIntoConstraints = false
         // Four edges at rest; one edge and a width only while a chrome
         // transition is running (`beginGeometryTransition`).
         //
@@ -540,14 +542,19 @@ extension ContentCardView {
     var holdsContent: Bool { content?.isDescendant(of: self) == true }
 
     /// The page leaving while it is still the card's: WebKit's fullscreen.
-    /// Its edges to the card went with it, and a width the card held it at
-    /// would follow it into WebKit's window, where it is the page's only
-    /// constraint: the page laid out at no height and the video played on
-    /// black. A transition over the placeholder leaves the page alone.
+    /// Its edges to the card went with it, so it is sized by frame again.
+    /// WebKit builds its fullscreen window at no size, puts the page in at
+    /// the content view's bounds, then grows the window and expects the page
+    /// to grow with it; held by constraints it had none in that window and
+    /// stayed 0 × 0. A playing video is drawn by a layer of its own the size
+    /// of the screen, so the page only showed black once it was paused.
+    /// A width held for a transition would follow it too, and a transition
+    /// over the placeholder leaves the page alone.
     fileprivate func pageWasLent() {
         transitionWatchdog?.cancel()
         transitionWatchdog = nil
         contentWidth?.isActive = false
+        content?.translatesAutoresizingMaskIntoConstraints = true
     }
 
     /// The page back from WebKit's window, at the frame its placeholder had.
