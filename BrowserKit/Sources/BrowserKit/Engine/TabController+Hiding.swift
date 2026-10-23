@@ -163,7 +163,7 @@ extension TabController {
     /// Ends whichever picker is on: a tab left or put into Reader must not keep a crosshair.
     public func stopPickingElements() {
         guard picking != nil else { return }
-        webView?.evaluateJavaScript("window.__lunaPicker && window.__lunaPicker.off();", in: nil, in: .defaultClient)
+        webView?.evaluateJavaScript("window.__lunaPicker && window.__lunaPicker.off(true);", in: nil, in: .defaultClient)
         endPicking()
     }
 

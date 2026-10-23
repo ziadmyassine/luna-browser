@@ -235,7 +235,9 @@ extension TabController {
           presses.forEach(function (kind) { window.addEventListener(kind, onPress, true); });
         }
 
-        function off() {
+        // Swift's own stop passes `quiet`: it has ended the picker already, and
+        // a late `off` would end whichever picker was started after it.
+        function off(quiet) {
           if (!live) { return; }
           live = false;
           target = null;
@@ -245,7 +247,7 @@ extension TabController {
           window.removeEventListener('keydown', onKey, true);
           presses.forEach(function (kind) { window.removeEventListener(kind, onPress, true); });
           if (host) { host.remove(); host = null; }
-          post({ off: true });
+          if (!quiet) { post({ off: true }); }
         }
 
         // Where the outline was put, or [] while it is hidden: tests cannot

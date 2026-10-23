@@ -54,11 +54,12 @@ final class CommentMode: WindowScoped {
         surface = window.controller.controlSurface
     }
 
-    /// Starts the picker on the tab in front.
-    /// - Returns: whether it started; Hide's picker already running stops it.
+    /// Starts the picker on the tab in front, ending Hide's if it is on.
+    /// - Returns: whether it started.
     func enter() -> Bool {
         guard let tab = activeTabID, let controller = session.controller(for: tab) else { return false }
         tabID = tab
+        controller.stopPickingElements()
         controller.startDescribingElements { [weak self] element in
             self?.picked(element)
         } onEnd: { [weak self] in

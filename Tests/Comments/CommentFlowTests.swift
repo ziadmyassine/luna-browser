@@ -239,6 +239,18 @@ final class CommentFlowTests: XCTestCase {
         XCTAssertEqual(set.comments.map(\.note), ["Make it blue", ""])
     }
 
+    /// ⇧⌘M takes the page from Hide's picker rather than doing nothing.
+    func testCommentingStopsHidesPicker() async throws {
+        delegate.toggleHidingElements(nil)
+        XCTAssertTrue(tab.isPickingElements)
+        delegate.toggleCommenting(nil)
+        XCTAssertNotNil(window.comments)
+        XCTAssertFalse(tab.isPickingElements)
+        try await pick(x: "90", y: "80")
+        XCTAssertNotNil(window.comments, "Hide's picker ending took comment mode with it")
+        XCTAssertTrue(tab.isDescribingElements)
+    }
+
     // MARK: - Capture
 
     func testTheCropIsTheBoxPaddedAtTheDisplayScale() async throws {
