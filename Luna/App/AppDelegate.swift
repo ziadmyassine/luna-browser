@@ -29,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // class registry — see `LaunchTrace.sinceExec`.
         LaunchTrace.mark("main")
         if CloudKitProbe.isRequested { CloudKitProbe.run() }
+        if isUnitTestHost { isolateTestHostDefaults() }
         let app = LunaApplication.shared
         let delegate = AppDelegate()
         // `NSApplication.delegate` is weak and nothing else owns us.

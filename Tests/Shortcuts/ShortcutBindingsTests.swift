@@ -5,10 +5,8 @@
 //  §3.6's store and the menu it drives: overrides, conflicts, and the invariant
 //  that Luna does not ship two commands on one keystroke.
 //
-//  Every test that writes a binding puts the whole stored domain back. The test
-//  host is the real app (`AppDelegate`'s `databaseURL` comment has the story),
-//  so an override left behind here is an override on the developer's own copy
-//  of Luna.
+//  Every test that writes a binding puts the whole stored domain back, so an
+//  override left behind here does not become the next test's starting point.
 //
 
 import AppKit
@@ -18,7 +16,7 @@ import XCTest
 @MainActor
 final class ShortcutBindingsTests: XCTestCase {
 
-    private let domain = Bundle.main.bundleIdentifier ?? "dev.novapps.luna"
+    private var domain: String { UserDefaults.standardDomain }
     private var snapshot: [String: Any]?
 
     override func setUp() {
@@ -169,7 +167,7 @@ final class ShortcutBindingsTests: XCTestCase {
 @MainActor
 final class MainMenuBindingTests: XCTestCase {
 
-    private let domain = Bundle.main.bundleIdentifier ?? "dev.novapps.luna"
+    private var domain: String { UserDefaults.standardDomain }
     private var snapshot: [String: Any]?
 
     override func setUp() {
