@@ -335,12 +335,7 @@ enum MainMenu {
         let bug = [
             (BrowserCommand.reportBugWindow, "Whole Window"), (.reportBugPage, "Page Only"),
             (.reportBugArea, "Pick an Area…"), (.reportBugNoScreenshot, "No Screenshot")
-        ].flatMap { command, title in
-            items(command).map { item in
-                item.title = title
-                return item
-            }
-        }
+        ].flatMap { command, title in items(command).map { $0.title = title; return $0 } }
         return menu("Help", flatten([
             // §30.17's first run, which is also where the import and the theme
             // are offered side by side.
