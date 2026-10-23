@@ -11,10 +11,13 @@ extension TabController {
     ///
     /// Every kind of press is swallowed, not only `click`: pages act on
     /// `pointerdown` and `mousedown` and are gone before a click completes.
+    ///
+    /// `on(palette, { detail: true })` is comment mode: a press posts a
+    /// description of the element, and is kept when its selector is not unique.
     static let pickerScript = """
     if (!window.__lunaPicker) {
       window.__lunaPicker = (function () {
-        var live = false, host = null, box = null, tag = null, target = null, cursor = null;
+        var live = false, detail = false, host = null, box = null, tag = null, target = null, cursor = null;
         var presses = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click',
                        'dblclick', 'auxclick', 'contextmenu', 'touchstart'];
         var known = { nav: 'Navigation', header: 'Header', footer: 'Footer', aside: 'Sidebar',
@@ -53,10 +56,14 @@ extension TabController {
 
         function clip(text, n) { return text.length > n ? text.slice(0, n - 1) + '…' : text; }
 
+        function said(el) {
+          var label = el.getAttribute('aria-label') || el.getAttribute('title') || el.getAttribute('alt');
+          return label && label.trim() ? clip(label.trim(), 40) : '';
+        }
+
         // What a person would call it: its own label, then its kind, then its words.
         function name(el) {
-          var said = el.getAttribute('aria-label') || el.getAttribute('title') || el.getAttribute('alt');
-          if (said && said.trim()) { return clip(said.trim(), 40); }
+          if (said(el)) { return said(el); }
           var kind = el.tagName.toLowerCase();
           if (known[kind]) { return known[kind]; }
           var role = el.getAttribute('role');
@@ -65,8 +72,42 @@ extension TabController {
           return words ? clip(words, 40) : kind;
         }
 
-        function unique(selector) {
-          try { return document.querySelectorAll(selector).length === 1; } catch (e) { return false; }
+        function count(selector) {
+          try { return document.querySelectorAll(selector).length; } catch (e) { return 0; }
+        }
+
+        function unique(selector) { return count(selector) === 1; }
+
+        function line(text) { return (text || '').replace(/\\s+/g, ' ').trim(); }
+
+        // Read for an agent, so every string is the page's: one line, clipped,
+        // and the value attribute cut so a form's contents never leave.
+        function describe(el, selector, matches) {
+          var headings = document.querySelectorAll('h1,h2,h3,h4,h5,h6'), heading = null;
+          for (var i = 0; i < headings.length; i++) {
+            if (!(headings[i].compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING)) { break; }
+            heading = headings[i];
+          }
+          var around = el.parentElement && el.parentElement.closest('header,nav,main,aside,footer,[role]');
+          var landmark = !around ? null : /^(HEADER|NAV|MAIN|ASIDE|FOOTER)$/.test(around.tagName)
+            ? around.tagName.toLowerCase() : around.getAttribute('role');
+          // Only what is drawn: a script beside it has no name a person would use.
+          // Words before kind, unlike `name`: three neighbours all called Button
+          // say nothing about which ones to leave alone.
+          var siblings = !el.parentElement ? [] : Array.prototype.filter.call(el.parentElement.children, function (c) {
+            return c !== el && c !== host && c.getClientRects().length > 0;
+          }).slice(0, 6).map(function (c) { return line(said(c) || clip(line(c.innerText), 40) || name(c)); });
+          var r = el.getBoundingClientRect();
+          return {
+            selector: selector, matches: matches, tag: el.tagName.toLowerCase(),
+            // WebKit has no `computedRole`; the tag stands for the implicit one.
+            role: el.getAttribute('role') || null,
+            text: clip(line(el.innerText), 120),
+            html: clip(line(el.outerHTML.replace(/\\svalue="[^"]*"/g, '')), 300),
+            heading: heading ? clip(line(heading.innerText), 60) : null,
+            landmark: landmark, siblings: siblings,
+            box: { x: r.x, y: r.y, width: r.width, height: r.height }
+          };
         }
 
         // A class written by a person, not one a build tool hashed and will
@@ -144,9 +185,9 @@ extension TabController {
           // A press with no move before it — a trackpad tap — has no target yet.
           var el = target || under(event);
           if (!el) { return; }
-          var selector = selectorFor(el);
-          if (!selector || !unique(selector)) { return; }
-          post({ selector: selector, label: name(el) });
+          var selector = selectorFor(el), matches = count(selector);
+          if (!selector || (!detail && matches !== 1)) { return; }
+          post(detail ? describe(el, selector, matches) : { selector: selector, label: name(el) });
           target = null;
           box.style.display = 'none';
         }
@@ -157,9 +198,10 @@ extension TabController {
           off();
         }
 
-        function on(palette) {
+        function on(palette, options) {
           if (live) { return; }
           live = true;
+          detail = !!(options && options.detail);
           build(palette);
           // Every element, not the root alone: a link's own pointer and the
           // text beam would otherwise win wherever the page sets one.

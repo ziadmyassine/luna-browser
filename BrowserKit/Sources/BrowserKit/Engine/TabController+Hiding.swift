@@ -34,6 +34,7 @@ public struct PageElement: Codable, Equatable, Sendable {
     /// How many elements `selector` matched at the press: 1 unless the hint is ambiguous or resolves to nothing.
     public var matches: Int
     public var tag: String
+    /// The role attribute, nil without one: the tag stands for an implicit role.
     public var role: String?
     /// The element's visible words, at most 120 characters.
     public var text: String
@@ -66,7 +67,14 @@ public struct PageElement: Codable, Equatable, Sendable {
 
 /// A picker that is on, and who to tell what it picks.
 struct ElementPicking {
-    let onPick: @MainActor (HiddenElements.Element) -> Void
+    enum Mode {
+        /// Hide Something…: a selector to file against the site.
+        case hiding(@MainActor (HiddenElements.Element) -> Void)
+        /// Comment mode: a description of the element, kept even when no selector finds it again.
+        case describing(@MainActor (PageElement) -> Void)
+    }
+
+    let mode: Mode
     let onEnd: @MainActor () -> Void
 }
 
@@ -114,11 +122,26 @@ extension TabController {
         onPick: @escaping @MainActor (HiddenElements.Element) -> Void,
         onEnd: @escaping @MainActor () -> Void
     ) {
+        startPicker(ElementPicking(mode: .hiding(onPick), onEnd: onEnd))
+    }
+
+    /// Comment mode's picker: as `startPickingElements`, but every press is
+    /// described, and kept even when its selector is not unique.
+    public func startDescribingElements(
+        onPick: @escaping @MainActor (PageElement) -> Void,
+        onEnd: @escaping @MainActor () -> Void
+    ) {
+        startPicker(ElementPicking(mode: .describing(onPick), onEnd: onEnd))
+    }
+
+    private func startPicker(_ requested: ElementPicking) {
         guard let webView, picking == nil else { return }
-        picking = ElementPicking(onPick: onPick, onEnd: onEnd)
+        picking = requested
+        let detail: Bool
+        if case .describing = requested.mode { detail = true } else { detail = false }
         webView.callAsyncJavaScript(
-            Self.pickerScript + "\nwindow.__lunaPicker.on(palette);",
-            arguments: ["palette": InternalPages.palette],
+            Self.pickerScript + "\nwindow.__lunaPicker.on(palette, options);",
+            arguments: ["palette": InternalPages.palette, "options": ["detail": detail]],
             in: nil,
             in: .defaultClient
         )
@@ -140,11 +163,18 @@ extension TabController {
     /// selector of its own must not get one hidden on the page around it.
     func handlePickMessage(_ message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame, let body = message.body as? [String: Any] else { return }
-        if body["off"] as? Bool == true {
-            endPicking()
-        } else if let selector = body["selector"] as? String, !selector.isEmpty {
-            let label = body["label"] as? String ?? selector
-            picking?.onPick(HiddenElements.Element(selector: selector, label: label))
+        if body["off"] as? Bool == true { return endPicking() }
+        switch picking?.mode {
+        case let .hiding(onPick):
+            guard let selector = body["selector"] as? String, !selector.isEmpty else { return }
+            onPick(HiddenElements.Element(selector: selector, label: body["label"] as? String ?? selector))
+        case let .describing(onPick):
+            // The body's keys are `PageElement`'s own, so it decodes as it stands.
+            guard let data = try? JSONSerialization.data(withJSONObject: body),
+                  let element = try? JSONDecoder().decode(PageElement.self, from: data) else { return }
+            onPick(element)
+        case nil:
+            break
         }
     }
 
