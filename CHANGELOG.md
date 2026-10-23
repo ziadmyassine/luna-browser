@@ -5,6 +5,10 @@ in a release go under Unreleased, grouped by date.
 
 ## Unreleased
 
+### 2026-10-23
+
+- **The Command Bar can be read over a white page in a dark window** (§9.1): its glass went light over a white site while its text stayed white, so the address and the results were white on white. The bar now takes light or dark from the page under it when it opens, as the find field and the page bar already do.
+
 ### 2026-10-17
 
 - **A paused fullscreen video no longer turns black** (§3.6): WebKit builds its fullscreen window at no size and grows it to the screen, and the page, which Luna sizes by layout rules, stayed at no size inside it. A playing video is drawn on a layer of its own, so the black only showed once it was paused. The page is now sized by the fullscreen window while it is there, and by Luna's layout again when it comes back.

@@ -128,6 +128,25 @@ extension NSColor {
     }
 }
 
+// MARK: - Glass over the page
+
+extension NSView {
+
+    /// Gives this view the appearance the page behind it calls for, or the
+    /// content pane's own plane's when the page has not said.
+    ///
+    /// For glass that floats over the page — the find field, Luna Control's
+    /// layer, the Command Bar. The glass goes light over a white site whatever
+    /// the app's appearance is, so a dark app's white ink on it vanished.
+    func takeAppearance(fromPage colour: NSColor?) {
+        let behind = colour ?? Tokens.Surface.base
+        let dark = behind.wantsLightInk(in: (superview ?? self).effectiveAppearance)
+        let wanted = NSAppearance(named: dark ? .darkAqua : .aqua)
+        guard appearance?.name != wanted?.name else { return }
+        appearance = wanted
+    }
+}
+
 /// Straight-alpha sRGB, 0...1. A named type rather than a tuple because four
 /// unlabelled `Double`s in a row is how a red ends up in the blue channel.
 struct SRGB: Sendable {
