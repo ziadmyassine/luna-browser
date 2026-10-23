@@ -18,6 +18,8 @@ extension TabController {
     if (!window.__lunaPicker) {
       window.__lunaPicker = (function () {
         var live = false, detail = false, host = null, box = null, tag = null, target = null, cursor = null;
+        // Comment mode's walk: the element under the pointer, then each parent ↑ added.
+        var trail = [];
         var presses = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click',
                        'dblclick', 'auxclick', 'contextmenu', 'touchstart'];
         var known = { nav: 'Navigation', header: 'Header', footer: 'Footer', aside: 'Sidebar',
@@ -169,6 +171,9 @@ extension TabController {
         function onMove(event) {
           var el = under(event);
           if (!el) { return; }
+          // A walk holds the outline until the pointer reaches another element.
+          if (trail.length > 1 && el === trail[0]) { return; }
+          trail = [el];
           target = el;
           show(el);
         }
@@ -184,18 +189,35 @@ extension TabController {
           if (event.type !== 'pointerdown' || event.button !== 0) { return; }
           // A press with no move before it — a trackpad tap — has no target yet.
           var el = target || under(event);
-          if (!el) { return; }
+          if (el) { pick(el); }
+        }
+
+        function pick(el) {
           var selector = selectorFor(el), matches = count(selector);
           if (!selector || (!detail && matches !== 1)) { return; }
           post(detail ? describe(el, selector, matches) : { selector: selector, label: name(el) });
           target = null;
+          trail = [];
           box.style.display = 'none';
         }
 
         function onKey(event) {
-          if (event.key !== 'Escape') { return; }
+          if (event.key === 'Escape') {
+            swallow(event);
+            return off();
+          }
+          // Hide leaves every other key to the page.
+          if (!detail || !target || ['ArrowUp', 'ArrowDown', 'Enter'].indexOf(event.key) < 0) { return; }
           swallow(event);
-          off();
+          if (event.key === 'Enter') { return pick(target); }
+          var parent = target.parentElement;
+          if (event.key === 'ArrowDown') {
+            if (trail.length > 1) { trail.pop(); }
+          } else if (parent && parent !== document.body && parent !== document.documentElement) {
+            trail.push(parent);
+          }
+          target = trail[trail.length - 1];
+          show(target);
         }
 
         function on(palette, options) {
@@ -217,6 +239,7 @@ extension TabController {
           if (!live) { return; }
           live = false;
           target = null;
+          trail = [];
           if (cursor) { cursor.remove(); cursor = null; }
           window.removeEventListener('mousemove', onMove, true);
           window.removeEventListener('keydown', onKey, true);
@@ -225,7 +248,14 @@ extension TabController {
           post({ off: true });
         }
 
-        return { on: on, off: off };
+        // Where the outline was put, or [] while it is hidden: tests cannot
+        // reach into the closed shadow root, and the box animates to its place.
+        function outline() {
+          if (!box || box.style.display !== 'block') { return []; }
+          return [box.style.left, box.style.top, box.style.width, box.style.height].map(parseFloat);
+        }
+
+        return { on: on, off: off, outline: outline };
       })();
     }
     """

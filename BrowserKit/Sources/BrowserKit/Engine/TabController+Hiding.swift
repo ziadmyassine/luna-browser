@@ -113,7 +113,15 @@ extension TabController {
         hiddenElements.css(forHost: host) != hiddenStyleInstalled
     }
 
-    public var isPickingElements: Bool { picking != nil }
+    /// Hide Something…'s picker. Comment mode's is `isDescribingElements`, so
+    /// one cannot be mistaken for, or ended as, the other.
+    public var isPickingElements: Bool {
+        if case .hiding = picking?.mode { true } else { false }
+    }
+
+    public var isDescribingElements: Bool {
+        if case .describing = picking?.mode { true } else { false }
+    }
 
     /// Turns the picker on. Every element clicked is handed to `onPick` until the
     /// user presses Escape, the page goes away, or `stopPickingElements()`; then
@@ -147,6 +155,12 @@ extension TabController {
         )
     }
 
+    /// Ends comment mode's picker and leaves Hide's alone.
+    public func stopDescribingElements() {
+        if isDescribingElements { stopPickingElements() }
+    }
+
+    /// Ends whichever picker is on: a tab left or put into Reader must not keep a crosshair.
     public func stopPickingElements() {
         guard picking != nil else { return }
         webView?.evaluateJavaScript("window.__lunaPicker && window.__lunaPicker.off();", in: nil, in: .defaultClient)
