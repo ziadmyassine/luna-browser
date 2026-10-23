@@ -50,6 +50,40 @@ final class ReportLinkTests: XCTestCase {
         XCTAssertNil(try fields(bug(nil))["steps"])
     }
 
+    // MARK: - Context and length
+
+    private func bug(_ page: String?, context: [String]) -> URL {
+        ReportLink.bug(luna: "0.2.1 (57), release, a1b2c3d", macos: "Version 26.1 (Build 25B78)",
+                       url: page.flatMap(URL.init(string:)), layout: "Top bar", context: context)
+    }
+
+    func testTheContextFollowsTheSteps() throws {
+        let link = bug("https://example.com/", context: ["Page: \"Moon\", zoom 100 %", "Before this: New Tab"])
+        XCTAssertEqual(
+            try fields(link)["steps"],
+            "1. Open https://example.com/\n2. \n\nPage: \"Moon\", zoom 100 %\nBefore this: New Tab"
+        )
+    }
+
+    func testContextWithoutAPageStillArrives() throws {
+        XCTAssertEqual(try fields(bug(nil, context: ["Page: a", "Site: b"]))["steps"], "Page: a\nSite: b")
+    }
+
+    func testALongContextLosesItsLastLinesFirst() throws {
+        let lines = (1...5).map { "\($0)" + String(repeating: "x", count: 1_499) }
+        let link = bug("https://example.com/", context: lines)
+        XCTAssertLessThanOrEqual(link.absoluteString.count, ReportLink.limit)
+        let steps = try XCTUnwrap(fields(link)["steps"])
+        XCTAssertTrue(steps.contains(lines[0]), "the first line went")
+        XCTAssertFalse(steps.contains(lines[4]), "the last line stayed")
+    }
+
+    func testAHugeAddressIsClippedToFit() throws {
+        let link = bug("https://example.com/" + String(repeating: "a", count: 10_000), context: ["Page: a"])
+        XCTAssertLessThanOrEqual(link.absoluteString.count, ReportLink.limit)
+        XCTAssertTrue(try XCTUnwrap(fields(link)["steps"]).hasPrefix("1. Open https://example.com/"))
+    }
+
     /// A parameter the reporter has no permission for turns the page into a 404.
     func testNoLinkAsksForLabelsOrProjects() {
         for link in [bug("https://example.com/"), ReportLink.idea] {

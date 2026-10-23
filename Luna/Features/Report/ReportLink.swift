@@ -18,12 +18,31 @@ enum ReportLink {
 
     static let idea = URL(string: "\(newIssue)?template=feature_request.yml")!
 
+    /// The longest link Luna builds. Measured signed out on 2026-10-23: a
+    /// 7,011-character link opened the form and 7,015 did not, and a 2 KB
+    /// cookie header brought that down to about 5,000. GitHub's limit is
+    /// the URL and the request headers together, so this leaves room.
+    static let limit = 4_000
+
     /// The field ids are `bug_report.yml`'s. The page's address goes through
-    /// `ControlRedactor.scrub`, because the issue is public.
-    static func bug(luna: String, macos: String, url: URL?, layout: String) -> URL {
-        var fields = [("template", "bug_report.yml"), ("luna", luna), ("macos", macos)]
-        if let url { fields.append(("steps", "1. Open \(ControlRedactor.scrub(url.absoluteString))\n2. ")) }
-        fields.append(("layout", layout))
+    /// `ControlRedactor.scrub`, because the issue is public, and is cut to
+    /// 1,000 characters. `context` follows the reporter's numbered lines,
+    /// most important first: over `limit`, the last lines go first.
+    static func bug(luna: String, macos: String, url: URL?, layout: String, context: [String] = []) -> URL {
+        let open = url.map { "1. Open \(ControlRedactor.scrub($0.absoluteString).prefix(1_000))\n2. " }
+        var context = context
+        while true {
+            let steps = [open, context.isEmpty ? nil : context.joined(separator: "\n")]
+                .compactMap { $0 }.joined(separator: "\n\n")
+            let link = link([
+                ("template", "bug_report.yml"), ("luna", luna), ("macos", macos), ("steps", steps), ("layout", layout)
+            ].filter { !$0.1.isEmpty })
+            if link.absoluteString.count <= limit || context.isEmpty { return link }
+            context.removeLast()
+        }
+    }
+
+    private static func link(_ fields: [(String, String)]) -> URL {
         var components = URLComponents(string: newIssue)!
         // `urlQueryAllowed` keeps `&`, `=` and `+`, and GitHub reads a bare `+` as a space.
         let allowed = CharacterSet.urlQueryAllowed.subtracting(CharacterSet(charactersIn: "&=+"))
