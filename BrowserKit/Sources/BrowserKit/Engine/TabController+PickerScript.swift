@@ -18,8 +18,9 @@ extension TabController {
     /// Every kind of press is swallowed, not only `click`: pages act on
     /// `pointerdown` and `mousedown` and are gone before a click completes.
     ///
-    /// `on(palette, { detail: true })` is comment mode: a press posts a
-    /// description of the element, and is kept when its selector is not unique.
+    /// `on(palette, { detail: true })` is comment mode: a click posts a
+    /// description of the element, and is kept when its selector is not unique;
+    /// a press that moves draws a rectangle.
     static let pickerScript = """
     if (!window.__lunaPicker) {
       window.__lunaPicker = (function () {
@@ -28,8 +29,10 @@ extension TabController {
         var trail = [];
         // Comment mode's held press: where it went down and what it was on.
         var press = null;
+        // `dragstart` and `selectstart` too: links and images drag by default, and
+        // a drag of the page's own would take the pointer before comment mode's release.
         var presses = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click',
-                       'dblclick', 'auxclick', 'contextmenu', 'touchstart'];
+                       'dblclick', 'auxclick', 'contextmenu', 'touchstart', 'dragstart', 'selectstart'];
         var known = { nav: 'Navigation', header: 'Header', footer: 'Footer', aside: 'Sidebar',
                       form: 'Form', dialog: 'Dialog', video: 'Video', img: 'Image', picture: 'Image',
                       button: 'Button', iframe: 'Embed', figure: 'Figure', table: 'Table' };
@@ -53,6 +56,8 @@ extension TabController {
             'white-space:nowrap;padding:0 8px;border-radius:var(--luna-row-radius);' +
             'font:500 var(--luna-size-label)/20px -apple-system,BlinkMacSystemFont,sans-serif;' +
             'color:#fff;background:#000;box-shadow:0 0 0 2px #fff}' +
+            // A drag's rectangle: square as the crop is, and instant, as it follows the pointer.
+            '.box.drag{border-radius:0;transition:none}.box.drag .tag{display:none}' +
             '@media (prefers-reduced-motion: reduce){.box{transition:none}}';
           box = document.createElement('div');
           box.className = 'box';
@@ -164,19 +169,25 @@ extension TabController {
           return el;
         }
 
-        function show(el) {
-          var r = el.getBoundingClientRect();
+        function place(r) {
           box.style.display = 'block';
-          box.style.left = r.left + 'px';
-          box.style.top = r.top + 'px';
+          box.style.left = r.x + 'px';
+          box.style.top = r.y + 'px';
           box.style.width = r.width + 'px';
           box.style.height = r.height + 'px';
+        }
+
+        function show(el) {
+          var r = el.getBoundingClientRect();
+          box.classList.remove('drag');
+          place(r);
           tag.textContent = name(el);
           // Above the outline when there is room, tucked inside it at the top of the window.
           tag.style.top = r.top >= 26 ? '-24px' : '2px';
         }
 
         function onMove(event) {
+          if (press) { return; }
           var el = under(event);
           if (!el) { return; }
           // A walk holds the outline until the pointer reaches another element.
@@ -200,28 +211,61 @@ extension TabController {
           if (event.type === 'pointerdown') {
             // A press with no move before it — a trackpad tap — has no target yet.
             var el = target || under(event);
-            if (detail) { press = { x: event.clientX, y: event.clientY, el: el }; } else if (el) { pick(el); }
+            if (detail) { press = { x: event.clientX, y: event.clientY, el: el, drawn: false }; } else if (el) { pick(el); }
           } else if (event.type === 'pointerup' && press) {
-            var held = press;
-            press = null;
-            if (held.el) { pick(held.el); }
+            var held = press.el, drew = press.drawn || dragged(event);
+            rest();
+            if (!drew && held) { pick(held); }
           }
+        }
+
+        // 6 CSS px on either axis, twice WebKit's drag hysteresis: a jittery press stays a click.
+        function dragged(event) {
+          return Math.abs(event.clientX - press.x) >= 6 || Math.abs(event.clientY - press.y) >= 6;
+        }
+
+        // From the press to the pointer, cut to the viewport as the crop is.
+        function spanned(event) {
+          var left = Math.max(0, Math.min(press.x, event.clientX)), top = Math.max(0, Math.min(press.y, event.clientY));
+          var right = Math.min(innerWidth, Math.max(press.x, event.clientX));
+          var bottom = Math.min(innerHeight, Math.max(press.y, event.clientY));
+          return { x: left, y: top, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
+        }
+
+        // `pointermove`, not `mousemove`: a cancelled `pointerdown` stops the
+        // mouse events while the button is held (Pointer Events, "compatibility
+        // mouse events").
+        function onDrag(event) {
+          if (!press || !(press.drawn || dragged(event))) { return; }
+          press.drawn = true;
+          box.classList.add('drag');
+          place(spanned(event));
+        }
+
+        // A drag cancelled, or a pick made: nothing held, nothing outlined.
+        function rest() {
+          press = null;
+          target = null;
+          trail = [];
+          box.style.display = 'none';
+        }
+
+        function onScroll() {
+          if (press) { rest(); }
         }
 
         function pick(el) {
           var selector = selectorFor(el), matches = count(selector);
           if (!selector || (!detail && matches !== 1)) { return; }
           post(detail ? describe(el, selector, matches) : { selector: selector, label: name(el) });
-          target = null;
-          trail = [];
-          box.style.display = 'none';
+          rest();
         }
 
-        // Every other key is the page's.
+        // Every other key is the page's. Escape mid-drag drops the drag, not the mode.
         function onKey(event) {
           if (event.key !== 'Escape') { return; }
           swallow(event);
-          off();
+          if (press) { rest(); } else { off(); }
         }
 
         // Comment mode's ↑ and ↓, called from Swift: the page hears keys only
@@ -258,6 +302,8 @@ extension TabController {
           cursor.textContent = '*, *::before, *::after { cursor: crosshair !important; }';
           document.documentElement.appendChild(cursor);
           window.addEventListener('mousemove', onMove, true);
+          window.addEventListener('pointermove', onDrag, true);
+          window.addEventListener('scroll', onScroll, true);
           window.addEventListener('keydown', onKey, true);
           presses.forEach(function (kind) { window.addEventListener(kind, onPress, true); });
         }
@@ -272,6 +318,8 @@ extension TabController {
           press = null;
           if (cursor) { cursor.remove(); cursor = null; }
           window.removeEventListener('mousemove', onMove, true);
+          window.removeEventListener('pointermove', onDrag, true);
+          window.removeEventListener('scroll', onScroll, true);
           window.removeEventListener('keydown', onKey, true);
           presses.forEach(function (kind) { window.removeEventListener(kind, onPress, true); });
           if (host) { host.remove(); host = null; }
@@ -290,6 +338,7 @@ extension TabController {
           if (!box) { return null; }
           var b = getComputedStyle(box), t = getComputedStyle(tag);
           return { border: b.borderTopColor, shadow: b.boxShadow, fill: b.backgroundColor,
+                   radius: b.borderTopLeftRadius, tagShown: t.display,
                    tagInk: t.color, tagFill: t.backgroundColor, tagShadow: t.boxShadow };
         }
 

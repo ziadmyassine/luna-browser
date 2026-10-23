@@ -65,7 +65,70 @@ extension PageToolsTests {
         XCTAssertEqual(picked.count, 1, "Hide picked again at the release")
     }
 
+    // MARK: - The rectangle
+
+    /// Square and without its label, as the crop is; the same black line and white halo as the outline.
+    func testADragDrawsTheRectangle() async throws {
+        _ = try await describeCards()
+        try await pointer("pointerdown", x: 60, y: 30)
+        try await pointer("pointermove", x: 200, y: 80)
+        try await pointer("pointermove", x: 490, y: 130)
+        let drawn = try await regionOutline()
+        XCTAssertEqual(drawn, [60, 30, 430, 100])
+
+        let read = try await controller.webView?.evaluateJavaScript("window.__lunaPicker.look()", contentWorld: .defaultClient)
+        let look = try XCTUnwrap(read as? [String: String])
+        XCTAssertEqual(look["border"], "rgb(0, 0, 0)")
+        XCTAssertEqual(look["shadow"], "rgb(255, 255, 255) 0px 0px 0px 2px")
+        XCTAssertEqual(look["radius"], "0px", "the rectangle has rounded corners")
+        XCTAssertEqual(look["tagShown"], "none", "the rectangle carries the element's label")
+    }
+
+    /// The press gave the page the keyboard, so its Escape reaches the picker first.
+    func testEscapeMidDragCancelsTheDragNotTheMode() async throws {
+        let picks = try await describeCards()
+        try await pointer("pointerdown", x: 60, y: 30)
+        try await pointer("pointermove", x: 490, y: 130)
+        _ = try await page("document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1")
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertTrue(controller.isDescribingElements, "Escape mid-drag ended comment mode")
+        let cancelled = try await regionOutline()
+        XCTAssertEqual(cancelled, [])
+
+        try await pointer("pointerup", x: 490, y: 130)
+        try await Task.sleep(for: .milliseconds(150))
+        XCTAssertEqual(picks.all.count, 0, "the cancelled drag still picked")
+    }
+
+    /// The rectangle is fixed to the viewport, so the page moving under it would make it lie.
+    func testAScrollMidDragCancelsIt() async throws {
+        let picks = try await describeCards()
+        _ = try await page("document.body.appendChild(document.createElement('div')).style.height = '3000px'; 1")
+        try await pointer("pointerdown", x: 60, y: 30)
+        try await pointer("pointermove", x: 490, y: 130)
+        _ = try await page("scrollTo(0, 50); 1")
+        for _ in 0 ..< 25 {
+            if try await regionOutline() == [] { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let cancelled = try await regionOutline()
+        XCTAssertEqual(cancelled, [])
+
+        try await pointer("pointerup", x: 490, y: 130)
+        try await Task.sleep(for: .milliseconds(150))
+        XCTAssertEqual(picks.all.count, 0, "the cancelled drag still picked")
+        XCTAssertTrue(controller.isDescribingElements)
+    }
+
     // MARK: - Support
+
+    private func describeCards() async throws -> Picks {
+        try await load(Self.cards)
+        let picks = Picks()
+        controller.startDescribingElements { picks.all.append($0) } onEnd: {}
+        try await Task.sleep(for: .milliseconds(100))
+        return picks
+    }
 
     /// A pointer event where the picker hears it. A move is sent as a browser
     /// sends one, `pointermove` then `mousemove`, with the button held after a press.
