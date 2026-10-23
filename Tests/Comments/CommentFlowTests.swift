@@ -268,6 +268,21 @@ final class CommentFlowTests: XCTestCase {
         XCTAssertNil(try XCTUnwrap(set.comments.first).context)
     }
 
+    /// A pick that cannot be pictured says so, and leaves no picture behind.
+    func testAFailedCaptureSaysSoAndLeavesNoPicture() async throws {
+        delegate.toggleCommenting(nil)
+        window.comments?.frame = { _, _ in throw CocoaError(.fileWriteUnknown) }
+        _ = try await tab.webView?.evaluateJavaScript("""
+        document.dispatchEvent(new PointerEvent('pointerdown',
+          { bubbles: true, cancelable: true, clientX: 90, clientY: 80, button: 0 })); 1
+        """)
+        let surface = controller.controlSurface
+        try await waitFor { surface.toast?.text == PageToast.commentNotCaptured.text }
+        XCTAssertTrue(set.comments.isEmpty)
+        let files = (try? FileManager.default.contentsOfDirectory(atPath: set.folder.path)) ?? []
+        XCTAssertEqual(files.filter { $0.hasSuffix(".png") }, [])
+    }
+
     // MARK: - Support
 
     private var set: CommentSet { delegate.commentSet! }

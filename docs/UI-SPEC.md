@@ -2605,7 +2605,8 @@ something happened, over the page, is one of these — never a panel, chip or ba
   §3.4b's folder links (`linksCopied`, `noLinksToPaste`, and `openLinks` with Open All for a paste
   of more than 15), and comment mode's export (`commentsExported`: "Prompt copied", the copied site's
   count and any other site written as detail, Reveal; `commentsNotExported`: "Couldn’t export
-  comments" with the reason as detail).
+  comments" with the reason as detail; `commentNotCaptured`: "Couldn’t capture that element" when a
+  pick cannot be pictured).
 - **Not a toast:** a question that needs reading and more than two answers — Luna Control's
   approval card. That is a prompt, and keeps its own surface.
 

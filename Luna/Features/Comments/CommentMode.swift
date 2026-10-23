@@ -25,6 +25,8 @@ final class CommentMode: WindowScoped {
     /// Whether a page gets the viewport picture as well as the crop: a live
     /// site's screen may hold customer data, so only a page on this Mac does.
     var isLocal: (URL) -> Bool = NavigationPolicy.isLocalDevelopment
+    /// The viewport picture, taken after the crop is written; tests swap it to fail or to type mid-capture.
+    var frame: (WKWebView, [CGPoint]) async throws -> CGImage = { try await ControlCapture.frame(of: $0, marks: $1) }
     /// The note field on screen, or nil while none is open.
     private(set) var note: CommentNoteView?
 
@@ -95,7 +97,8 @@ final class CommentMode: WindowScoped {
 
     /// The crop, the viewport picture on a local page, and the page's state,
     /// then the comment and its field. A pick that cannot be pictured is not
-    /// kept: a comment without its crop would point the agent at nothing.
+    /// kept, since a comment without its crop would point the agent at
+    /// nothing; the toast says so, and no picture of it is left behind.
     private func capture(_ element: PageElement) async {
         guard !ended, let tabID, let webView = session.controller(for: tabID)?.webView, let url = webView.url,
               let origin = CommentBundle.slug(for: url) else { return }
@@ -112,11 +115,15 @@ final class CommentMode: WindowScoped {
             if isLocal(url) {
                 let centre = CGPoint(x: element.box.x + element.box.width / 2, y: element.box.y + element.box.height / 2)
                 let name = "\(id.uuidString)-context.png"
-                try write(await ControlCapture.frame(of: webView, marks: [centre]), to: name)
+                try write(await frame(webView, [centre]), to: name)
                 context = name
             }
             page = try await state(of: webView, at: url)
         } catch {
+            for name in [image, context].compactMap(\.self) {
+                try? FileManager.default.removeItem(at: set.folder.appending(path: name))
+            }
+            if !ended { PageToast.commentNotCaptured.show(in: surface.window) }
             return
         }
         guard !ended else { return }

@@ -179,6 +179,10 @@ struct PageToast: Equatable {
         PageToast(symbol: "exclamationmark.triangle", text: String(localized: "Couldn’t export comments"), detail: reason)
     }
 
+    static let commentNotCaptured = PageToast(
+        symbol: "exclamationmark.triangle", text: String(localized: "Couldn’t capture that element")
+    )
+
     /// The host says whose zoom it now is: Luna keeps it for the site (§18.2).
     static func zoom(_ level: CGFloat, host: String? = nil) -> PageToast {
         PageToast(symbol: "magnifyingglass", text: String(localized: "Zoom \(Int((level * 100).rounded())) %"), detail: host)
