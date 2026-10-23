@@ -63,14 +63,15 @@ extension AppDelegate {
     /// screen when the reporter asked rather than after an area pick.
     private func reportBug(_ shot: BugShot) {
         guard let window = front, !window.isPrivate, let host = window.controller.window else { return }
-        let page = window.session.activeController?.webView
+        let tab = window.session.activeController
+        let page = tab?.webView
         let luna = ReportLink.lunaLine(
             version: Updater.version.description, build: Updater.build, release: Updater.shared.canInstall,
             commit: Bundle.main.object(forInfoDictionaryKey: "LunaCommit") as? String ?? "unknown"
         )
         let link = ReportLink.bug(
             luna: luna, macos: ProcessInfo.processInfo.operatingSystemVersionString, url: page?.url,
-            context: reportContext(window, page: page)
+            context: reportContext(window, tab: tab)
         )
         Task {
             let taken = await BugScreenshot().take(shot, window: host.windowNumber, page: page)
@@ -94,20 +95,36 @@ extension AppDelegate {
         }
     }
 
+    /// `#rrggbb`, or nil while the page loads: until then WebKit reports
+    /// the blank tab's colour, not the page's.
+    static func pageBackground(_ colour: RGBA?, loading: Bool) -> String? {
+        guard let colour, !loading else { return nil }
+        return "#" + [colour.r, colour.g, colour.b].map { String(format: "%02x", min(max(Int(($0 * 255).rounded()), 0), 255)) }.joined()
+    }
+
     /// One line each, most important first; `ReportLink` drops from the end
     /// when the link runs long, so the layout is in the first. English, as the issue is. Selectors only from
     /// the hidden elements, never their labels, which are page text.
-    func reportContext(_ window: BrowserWindow, page: WKWebView?) -> [String] {
+    func reportContext(_ window: BrowserWindow, tab: TabController?) -> [String] {
         let session = window.session
+        let page = tab?.webView
         let site = page?.url?.host()
         var lines: [String] = []
         if let host = window.controller.window {
+            var parts: [String] = []
+            if let tab, let page {
+                parts.append("\"\(session.linkTitle(of: tab.id).prefix(80))\"")
+                parts.append("zoom \(Int((page.pageZoom * page.magnification * 100).rounded())) %")
+            }
+            parts.append("window \(Int(host.frame.width))×\(Int(host.frame.height))")
+            // `FindController.colourUnder`'s source.
+            if let tab, let colour = Self.pageBackground(tab.topColour ?? tab.state.pageBackground, loading: tab.state.isLoading) {
+                parts.append("page background \(colour)")
+            }
             let dark = host.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            let layout = host.styleMask.contains(.fullScreen) ? "Full screen" : Settings.chromeLayout.title
-            let size = "window \(Int(host.frame.width))×\(Int(host.frame.height)), \(dark ? "dark" : "light"), \(layout) layout"
-            lines.append("Page: " + (page.map {
-                "\"\(session.activeTitle.prefix(80))\", zoom \(Int(($0.pageZoom * $0.magnification * 100).rounded())) %, "
-            } ?? "") + size)
+            parts.append("Luna \(dark ? "dark" : "light")")
+            parts.append("\(host.styleMask.contains(.fullScreen) ? "Full screen" : Settings.chromeLayout.title) layout")
+            lines.append("Page: " + parts.joined(separator: ", "))
         }
         let recent = RecentCommands.titles
         if !recent.isEmpty { lines.append("Before this: " + recent.joined(separator: ", ")) }

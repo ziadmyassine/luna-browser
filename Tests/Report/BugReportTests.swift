@@ -109,9 +109,19 @@ final class BugReportTests: XCTestCase {
             window.controller.close()
             session.tearDown()
         }
-        let first = try XCTUnwrap(AppDelegate().reportContext(window, page: nil).first)
+        let first = try XCTUnwrap(AppDelegate().reportContext(window, tab: nil).first)
         XCTAssertTrue(first.hasPrefix("Page: window "), first)
+        XCTAssertNotNil(first.firstMatch(of: #/, Luna (dark|light), /#), "the appearance is not plainly Luna's: \(first)")
         XCTAssertTrue(first.hasSuffix(", \(Settings.chromeLayout.title) layout"), first)
+    }
+
+    /// The colour the find field reads, as a hex a fixer can compare. Left
+    /// out while the page loads: until then it is the blank tab's.
+    func testThePageBackgroundIsItsHexOnceLoaded() {
+        XCTAssertEqual(AppDelegate.pageBackground(RGBA(r: 1, g: 1, b: 1, a: 1), loading: false), "#ffffff")
+        XCTAssertEqual(AppDelegate.pageBackground(RGBA(r: 0.118, g: 0.5, b: 0, a: 1), loading: false), "#1e8000")
+        XCTAssertNil(AppDelegate.pageBackground(RGBA(r: 0.118, g: 0.118, b: 0.118, a: 1), loading: true))
+        XCTAssertNil(AppDelegate.pageBackground(nil, loading: false))
     }
 
     // MARK: - The screenshot
