@@ -215,14 +215,15 @@ final class CommentMode: WindowScoped {
     }
 
     /// An empty note deletes its comment, as `CommentSet.setNote` does.
-    private func commitNote() {
+    private func commitNote(undoable: Bool = true) {
         guard let editing, let note else { return }
-        set.setNote(note.text, of: editing)
+        set.setNote(note.text, of: editing, undoable: undoable)
     }
 
-    func closeNote(focusingPage: Bool) {
+    /// - Parameter undoable: as `CommentSet.setNote`'s.
+    func closeNote(focusingPage: Bool, undoable: Bool = true) {
         guard let field = note else { return }
-        commitNote()
+        commitNote(undoable: undoable)
         let hadFocus = field.hasFocus
         note = nil
         editing = nil

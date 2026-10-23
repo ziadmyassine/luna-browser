@@ -136,7 +136,7 @@ extension AppDelegate {
     func exportComments(to root: URL = CommentBundle.folder, pasteboard: NSPasteboard = .general) -> PageToast? {
         guard let front else { return nil }
         // An open note holds text the set has not been given yet.
-        for window in windows { window.comments?.closeNote(focusingPage: true) }
+        for window in windows { window.comments?.closeNote(focusingPage: true, undoable: false) }
         let set = commentSet ?? CommentSet()
         commentSet = set
         let origins = set.comments.map(\.origin).uniqued()

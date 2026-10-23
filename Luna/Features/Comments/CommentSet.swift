@@ -76,17 +76,20 @@ final class CommentSet {
     }
 
     /// An empty note deletes the comment, as clearing the field does.
-    func setNote(_ note: String, of id: UUID) {
-        guard !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return delete(id) }
+    /// - Parameter undoable: false for the note an export commits first. In
+    ///   one event the two steps share the event's undo group, so ⌘Z on the
+    ///   export would take the note back with it.
+    func setNote(_ note: String, of id: UUID, undoable: Bool = true) {
+        guard !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return delete(id, undoable: undoable) }
         guard let index = comments.firstIndex(where: { $0.id == id }), comments[index].note != note else { return }
         var edited = comments
         edited[index].note = note
-        change("Edit Comment", to: edited)
+        change("Edit Comment", to: edited, undoable: undoable)
     }
 
-    func delete(_ id: UUID) {
+    func delete(_ id: UUID, undoable: Bool = true) {
         guard comments.contains(where: { $0.id == id }) else { return }
-        change("Delete Comment", to: comments.filter { $0.id != id })
+        change("Delete Comment", to: comments.filter { $0.id != id }, undoable: undoable)
     }
 
     /// Writes every origin's bundle, then clears the set as one step. A failed
@@ -100,16 +103,17 @@ final class CommentSet {
     }
 
     /// The one way the set changes, so undo and redo are each the change back.
-    private func change(_ name: String, to new: [Comment]) {
+    private func change(_ name: String, to new: [Comment], undoable: Bool = true) {
         let old = comments
+        comments = new
+        save()
+        guard undoable else { return }
         undoManager.beginUndoGrouping()
         undoManager.registerUndo(withTarget: self) { set in
             MainActor.assumeIsolated { set.change(name, to: old) }
         }
         undoManager.setActionName(name)
         undoManager.endUndoGrouping()
-        comments = new
-        save()
     }
 
     private func save() {

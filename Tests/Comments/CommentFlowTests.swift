@@ -203,6 +203,28 @@ final class CommentFlowTests: XCTestCase {
         for _ in 0 ..< 4 { set.undoManager.undo() }
     }
 
+    /// A menu command is one event, so the note it commits and the export
+    /// share the event's undo group; ⌘Z must still bring back the note.
+    /// The test's run loop never closes an event's group, so the groups here are explicit.
+    func testUndoingAnExportKeepsTheNoteTypedJustBeforeIt() async throws {
+        let undo = UndoManager()
+        undo.groupsByEvent = false
+        delegate.commentSet = CommentSet(folder: directory.appending(path: "draft"), undoManager: undo)
+        delegate.toggleCommenting(nil)
+        try await pick(x: "90", y: "80")
+        try XCTUnwrap(window.comments?.note).textView.string = "Make it blue"
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+
+        undo.beginUndoGrouping()
+        _ = delegate.exportComments(to: directory.appending(path: "Comments"), pasteboard: pasteboard)
+        undo.endUndoGrouping()
+        XCTAssertTrue(set.comments.isEmpty)
+        delegate.undo(nil)
+
+        XCTAssertEqual(set.comments.map(\.note), ["Make it blue"])
+    }
+
     // MARK: - Capture
 
     func testTheCropIsTheBoxPaddedAtTheDisplayScale() async throws {
