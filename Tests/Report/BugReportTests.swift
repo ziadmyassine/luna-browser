@@ -135,6 +135,33 @@ final class BugReportTests: XCTestCase {
         XCTAssertNil(AppDelegate.pageBackground(nil, loading: false))
     }
 
+    // MARK: - Which tab
+
+    /// Reporting from an issue on this repo (the form just filed, say) is
+    /// about the page before it: the newest other tab with a page, in the
+    /// window's Space, that is not an issue page itself.
+    func testAReportFromAnIssuePageIsAboutTheTabBefore() {
+        let (issue, form, page, elsewhere, asleep) = (UUID(), UUID(), UUID(), UUID(), UUID())
+        let urls = [
+            issue: URL(string: "https://github.com/ziadmyassine/luna-browser/issues/238"),
+            form: URL(string: "https://github.com/ziadmyassine/luna-browser/issues/new?template=bug_report.yml"),
+            page: URL(string: "https://example.com/")
+        ]
+        let url = { (id: UUID) in urls[id] ?? nil }
+        XCTAssertEqual(AppDelegate.reportedTab(active: issue, recent: [issue, elsewhere, asleep, form, page], url: url), page)
+        XCTAssertEqual(AppDelegate.reportedTab(active: page, recent: [page, issue], url: url), page, "an ordinary page is its own")
+        XCTAssertEqual(AppDelegate.reportedTab(active: issue, recent: [issue, form], url: url), issue, "nothing before it")
+        XCTAssertNil(AppDelegate.reportedTab(active: nil, recent: [page], url: url))
+    }
+
+    func testOnlyThisReposIssuesCount() {
+        XCTAssertTrue(ReportLink.isIssuePage(URL(string: "https://github.com/ziadmyassine/luna-browser/issues")))
+        XCTAssertTrue(ReportLink.isIssuePage(URL(string: "https://github.com/ziadmyassine/luna-browser/issues/238#top")))
+        XCTAssertFalse(ReportLink.isIssuePage(URL(string: "https://github.com/ziadmyassine/luna-browser/pulls")))
+        XCTAssertFalse(ReportLink.isIssuePage(URL(string: "https://github.com/someone/else/issues/1")))
+        XCTAssertFalse(ReportLink.isIssuePage(nil))
+    }
+
     // MARK: - The screenshot
 
     private var pasteboard: NSPasteboard!

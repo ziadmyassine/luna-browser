@@ -18,6 +18,13 @@ enum ReportLink {
 
     static let idea = URL(string: "\(newIssue)?template=feature_request.yml")!
 
+    /// This repo's issues, the list, one issue or the new-issue form.
+    static func isIssuePage(_ url: URL?) -> Bool {
+        let issues = "/ziadmyassine/luna-browser/issues"
+        guard let url, url.host() == "github.com" else { return false }
+        return url.path() == issues || url.path().hasPrefix(issues + "/")
+    }
+
     /// The longest link Luna builds. Measured signed out on 2026-10-23: a
     /// 7,011-character link opened the form and 7,015 did not, and a 2 KB
     /// cookie header brought that down to about 5,000. GitHub's limit is

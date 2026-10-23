@@ -63,7 +63,11 @@ extension AppDelegate {
     /// screen when the reporter asked rather than after an area pick.
     private func reportBug(_ shot: BugShot) {
         guard let window = front, !window.isPrivate, let host = window.controller.window else { return }
-        let tab = window.session.activeController
+        let session = window.session
+        let here = Set(session.tabs(inWindow: window.id).map(\.id))
+        let tab = Self.reportedTab(active: session.activeTabID(inWindow: window.id), recent: session.recentTabs) {
+            here.contains($0) ? session.controller(for: $0)?.webView?.url : nil
+        }.flatMap { session.controller(for: $0) }
         let page = tab?.webView
         let luna = ReportLink.lunaLine(
             version: Updater.version.description, build: Updater.build, release: Updater.shared.canInstall,
@@ -93,6 +97,16 @@ extension AppDelegate {
                 open([link], in: target)
             }
         }
+    }
+
+    /// The tab a report is about: the active one, unless it is one of this
+    /// repo's issue pages (the form just filed, an issue being read), and then
+    /// the newest other tab with a page that is not. `url` is nil for a tab
+    /// with no page, or outside the window's Space. `recent` is the session's
+    /// most-recently-used list, which spans windows; `url` keeps it to this one.
+    static func reportedTab(active: UUID?, recent: [UUID], url: (UUID) -> URL?) -> UUID? {
+        guard let active, ReportLink.isIssuePage(url(active)) else { return active }
+        return recent.first { $0 != active && url($0).map { !ReportLink.isIssuePage($0) } == true } ?? active
     }
 
     /// `#rrggbb`, or nil while the page loads: until then WebKit reports
