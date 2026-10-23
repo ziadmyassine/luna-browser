@@ -232,6 +232,15 @@ final class CommentMode: WindowScoped {
             field.animator().alphaValue = 1
         }
         field.focus()
+        // Only now: both pictures are taken, and the marker would be in them.
+        tellPicker("mark(box)", ["box": ["x": box.x, "y": box.y, "width": box.width, "height": box.height]])
+    }
+
+    /// A call on the page's picker, if it is still there.
+    private func tellPicker(_ call: String, _ arguments: [String: Any] = [:]) {
+        tabID.flatMap { session.controller(for: $0)?.webView }?.callAsyncJavaScript(
+            "if (window.__lunaPicker) { window.__lunaPicker.\(call); }", arguments: arguments, in: nil, in: .defaultClient
+        )
     }
 
     /// Beside the element on its trailing side, and on its leading side when
@@ -271,6 +280,7 @@ final class CommentMode: WindowScoped {
     func closeNote(focusingPage: Bool, undoable: Bool = true) {
         guard let field = note else { return }
         commitNote(undoable: undoable)
+        tellPicker("unmark()")
         let hadFocus = field.hasFocus
         note = nil
         editing = nil
