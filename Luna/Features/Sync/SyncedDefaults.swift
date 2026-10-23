@@ -40,7 +40,7 @@ enum SyncedDefaults {
     /// `SettingsDefaults.register()` puts every default in the registration one,
     /// and a Mac turning sync on must not send defaults it never chose.
     static func record(
-        _ defaults: UserDefaults = .standard, domain: String = Bundle.main.bundleIdentifier ?? "", to store: BrowserStore
+        _ defaults: UserDefaults = .standard, domain: String = UserDefaults.standardDomain, to store: BrowserStore
     ) async throws {
         var values: [String: Data] = [:]
         for (key, value) in defaults.persistentDomain(forName: domain) ?? [:] where syncs(key) {

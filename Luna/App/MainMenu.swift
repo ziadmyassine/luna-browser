@@ -212,6 +212,13 @@ enum MainMenu {
             [submenu(menu("Find", flatten([
                 items(.find), items(.findNext), items(.findPrevious), [.separator()], items(.useSelectionForFind)
             ])))],
+            // Safari's three, off by default in pages (`WebViewFactory.substitutionsOff`).
+            // The focused web view or text field answers and ticks them.
+            [submenu(menu("Substitutions", [
+                plain("Smart Quotes", #selector(NSTextView.toggleAutomaticQuoteSubstitution(_:))),
+                plain("Smart Dashes", #selector(NSTextView.toggleAutomaticDashSubstitution(_:))),
+                plain("Text Replacement", #selector(NSTextView.toggleAutomaticTextReplacement(_:)))
+            ]))],
             [.separator()],
             // §11.2's two: the address the user is looking at, plain or wrapped
             // in the link syntax every notes app in the dock understands.
