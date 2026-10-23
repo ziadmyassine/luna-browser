@@ -65,6 +65,13 @@ final class ReportLinkTests: XCTestCase {
         )
     }
 
+    /// Every source build reads `0.1.0 (1)`, so the build is stamped with
+    /// the commit it came from (`project.yml`'s post-build script).
+    func testTheBuildNamesItsCommit() throws {
+        let commit = try XCTUnwrap(Bundle.main.object(forInfoDictionaryKey: "LunaCommit") as? String)
+        XCTAssertNotNil(commit.wholeMatch(of: /[0-9a-f]{7,}(-dirty)?|unknown/), commit)
+    }
+
     func testTheLunaLineNamesTheBuild() {
         XCTAssertEqual(
             ReportLink.lunaLine(version: "0.2.1", build: "57", release: true, commit: "a1b2c3d"),
