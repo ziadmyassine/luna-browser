@@ -204,8 +204,10 @@ extension TabController {
           tag.style.top = r.top >= 26 ? '-24px' : '2px';
         }
 
+        // While a note is open the pointer is on its way somewhere else; the
+        // outline comes back on the first move after `unmark`.
         function onMove(event) {
-          if (press) { return; }
+          if (press || pinned) { return; }
           var el = under(event);
           if (!el) { return; }
           // A walk holds the outline until the pointer reaches another element.
@@ -276,7 +278,7 @@ extension TabController {
         // while it has the keyboard, and after a pick the note field has it.
         // Returns whether there was an outline to walk.
         function walk(up) {
-          if (!detail || !target || press) { return false; }
+          if (!detail || !target || press || pinned) { return false; }
           var parent = target.parentElement;
           if (!up) {
             if (trail.length > 1) { trail.pop(); }
@@ -290,7 +292,7 @@ extension TabController {
 
         // Comment mode's Return, as `walk`.
         function commit() {
-          if (!detail || !target || press) { return false; }
+          if (!detail || !target || press || pinned) { return false; }
           pick(target);
           return true;
         }
@@ -359,6 +361,8 @@ extension TabController {
         function mark(r) {
           if (!detail || !spot) { return; }
           pinned = { x: r.x + scrollX, y: r.y + scrollY, width: r.width, height: r.height };
+          // A press made while the pictures were taken is the next comment's; keep it.
+          if (!press) { rest(); }
           stick();
         }
 

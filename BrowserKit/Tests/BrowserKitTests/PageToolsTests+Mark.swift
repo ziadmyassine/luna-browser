@@ -23,15 +23,38 @@ extension PageToolsTests {
         XCTAssertEqual(marked, [140, 40, 100, 80])
     }
 
-    /// The hover outline is its own element: pointing elsewhere moves it and leaves the mark.
-    func testAHoverElsewhereMovesOnlyTheOutline() async throws {
+    /// While a note is written the pointer roams; the picker stays still.
+    func testAHoverWhileMarkedShowsNoOutline() async throws {
         _ = try await describePair()
         try await picker("mark(\(Self.first))")
-        _ = try await page("dispatchEvent(new MouseEvent('mousemove', { clientX: 420, clientY: 70 })); 1")
+        try await hover(x: 420, y: 70)
         let outlined = try await picker("outline()") as? [Double]
-        XCTAssertEqual(outlined, [380, 40, 100, 80])
+        XCTAssertEqual(outlined, [])
         let marked = try await picker("marked()") as? [Double]
         XCTAssertEqual(marked, [140, 40, 100, 80], "the hover moved the mark")
+    }
+
+    /// The outline from before the pick is hidden by the mark, and ↑ and Return do not bring it back.
+    func testKeysWhileMarkedWalkNothing() async throws {
+        _ = try await describePair()
+        try await hover(x: 420, y: 70)
+        try await picker("mark(\(Self.first))")
+        let walked = try await picker("walk(true)") as? Bool
+        let committed = try await picker("commit()") as? Bool
+        XCTAssertEqual(walked, false)
+        XCTAssertEqual(committed, false)
+        let outlined = try await picker("outline()") as? [Double]
+        XCTAssertEqual(outlined, [])
+    }
+
+    func testAHoverAfterUnmarkOutlinesAgain() async throws {
+        _ = try await describePair()
+        try await picker("mark(\(Self.first))")
+        try await hover(x: 420, y: 70)
+        try await picker("unmark()")
+        try await hover(x: 420, y: 70)
+        let outlined = try await picker("outline()") as? [Double]
+        XCTAssertEqual(outlined, [380, 40, 100, 80])
     }
 
     func testTheMarkStaysOnThePageAsItScrolls() async throws {
@@ -88,6 +111,10 @@ extension PageToolsTests {
         controller.startDescribingElements { picks.all.append($0) } onRegion: { picks.regions.append(($0, $1)) } onEnd: {}
         try await Task.sleep(for: .milliseconds(100))
         return picks
+    }
+
+    private func hover(x: Int, y: Int) async throws {
+        _ = try await page("dispatchEvent(new MouseEvent('mousemove', { clientX: \(x), clientY: \(y) })); 1")
     }
 
     @discardableResult
