@@ -271,7 +271,9 @@ extension AppDelegate: NSMenuItemValidation {
         if let find = validateFindCommand(menuItem) { return find }
         if let media = validateMediaCommand(menuItem) { return media }
         guard let session else { return false }
-        if [#selector(importBookmarks(_:)), #selector(exportBookmarks(_:))].contains(menuItem.action) {
+        // A private window's store goes with it; and it is signed out of
+        // GitHub, with pages that are not to be pictured (`reportActions`).
+        if ([#selector(importBookmarks(_:)), #selector(exportBookmarks(_:))] + Self.reportActions).contains(menuItem.action) {
             return !session.isPrivate
         }
         return validateFavoriteToggle(menuItem, in: session)

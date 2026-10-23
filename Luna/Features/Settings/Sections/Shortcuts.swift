@@ -69,9 +69,11 @@ final class ShortcutsSection: SettingsSection {
             if let submenu = item.submenu { return leaves(of: submenu, under: title) }
             guard !item.isSeparatorItem, !item.isHidden, !item.title.isEmpty else { return [] }
             let editable = command(for: item).flatMap { $0.isCustomisable ? $0 : nil }
+            // A submenu's short title ("Whole Window") read alone says too
+            // little, so a row takes its command's whole one.
             return [Command(
                 menu: title,
-                title: item.title,
+                title: editable?.title ?? item.title,
                 key: keyEquivalent(of: item),
                 editableID: editable?.id,
                 fixedReason: editable == nil ? reason(for: item) : nil

@@ -45,4 +45,18 @@ final class HelpMenuTests: XCTestCase {
         delegate.showLunaHelp(item)
         XCTAssertEqual(delegate.linksBeforeLaunch, [AppDelegate.helpPage])
     }
+
+    /// The submenu says only what differs; the Command Bar and Settings ▸
+    /// Shortcuts show the whole title.
+    func testTheBugSubmenuWearsShortTitles() throws {
+        MainMenu.rebuild(in: NSApplication.shared)
+        let help = try XCTUnwrap(NSApp.helpMenu)
+        let bug = try XCTUnwrap(help.items.first { $0.title == "Report a Bug" }?.submenu)
+        XCTAssertEqual(bug.items.filter { !$0.isHidden }.map(\.title), ["Whole Window", "Page Only", "Pick an Area…", "No Screenshot"])
+        let window = try XCTUnwrap(bug.items.first)
+        XCTAssertEqual(window.action, BrowserCommand.reportBugWindow.action)
+        XCTAssertEqual(window.keyEquivalent, "i")
+        XCTAssertEqual(window.keyEquivalentModifierMask, [.command, .shift])
+        XCTAssertNotNil(help.items.first { $0.action == BrowserCommand.suggestIdea.action })
+    }
 }

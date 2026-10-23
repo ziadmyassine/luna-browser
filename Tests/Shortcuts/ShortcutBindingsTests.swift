@@ -73,7 +73,8 @@ final class ShortcutBindingsTests: XCTestCase {
             (.forceReloadPage, "⌥⌘R"), (.reader, "⇧⌘R"), (.hideElements, "⇧⌘H"),
             (.closeAllTabs, "⇧⌘K"), (.cleanUpTabs, "⌥⌘K"),
             (.copyURL, "⇧⌘C"), (.copyMarkdown, "⌥⇧⌘C"), (.showHistory, "⌘Y"),
-            (.zoomIn, "⌘+"), (.zoomOut, "⌘-"), (.actualSize, "⌘0"), (.closeWindow, "⇧⌘W")
+            (.zoomIn, "⌘+"), (.zoomOut, "⌘-"), (.actualSize, "⌘0"), (.closeWindow, "⇧⌘W"),
+            (.reportBugWindow, "⇧⌘I")
         ]
         for (command, printed) in expected {
             XCTAssertEqual(KeyBindings.primary(for: command)?.display, printed, command.id)
@@ -237,6 +238,16 @@ final class MainMenuBindingTests: XCTestCase {
         for command in BrowserCommand.all where command.isCustomisable {
             XCTAssertTrue(listed.contains(command.title), "\(command.id) is not in any menu")
         }
+    }
+
+    /// A submenu item can wear a short title ("Whole Window" under Report a
+    /// Bug); its row is read alone, so it says the whole command.
+    func testAShortcutRowNamesTheWholeCommand() throws {
+        MainMenu.rebuild(in: NSApplication.shared)
+        let rows = ShortcutsSection.commands(in: try XCTUnwrap(NSApp.mainMenu))
+        let row = try XCTUnwrap(rows.first { $0.editableID == BrowserCommand.reportBugWindow.id })
+        XCTAssertEqual(row.title, BrowserCommand.reportBugWindow.title)
+        XCTAssertEqual(row.key, "⇧⌘I")
     }
 
     /// Hidden alternates must not show up as a second row for the same command.

@@ -9,6 +9,7 @@
 //
 
 import AppKit
+@testable import BrowserKit
 import WebKit
 import XCTest
 @testable import Luna
@@ -66,6 +67,28 @@ final class BugReportTests: XCTestCase {
         let before = RecentCommands.titles
         NSApp.sendAction(#selector(Probe.notACommand(_:)), to: probe, from: nil)
         XCTAssertEqual(RecentCommands.titles, before)
+    }
+
+    // MARK: - Where it is offered
+
+    /// A private window is signed out of GitHub, and its pages are not to be
+    /// pictured.
+    func testTheCommandsDimInAPrivateWindow() async throws {
+        let directory = URL.temporaryDirectory.appending(path: "luna-tests-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let delegate = AppDelegate()
+        for isPrivate in [false, true] {
+            let store = try BrowserStore(path: directory.appending(path: "\(isPrivate).sqlite"))
+            let session = try await BrowserSession.restored(store: store, isPrivate: isPrivate)
+            let window = BrowserWindow(session: session, controller: BrowserWindowController(remembersFrame: false))
+            delegate.front = window
+            for action in AppDelegate.reportActions {
+                let item = NSMenuItem(title: "", action: action, keyEquivalent: "")
+                XCTAssertEqual(delegate.validateMenuItem(item), !isPrivate, "\(action), private: \(isPrivate)")
+            }
+            window.controller.close()
+            session.tearDown()
+        }
     }
 
     // MARK: - The screenshot
