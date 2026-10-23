@@ -3,10 +3,10 @@
 //  Luna
 //
 //  The addresses of the repo's issue forms (`.github/ISSUE_TEMPLATE`), filled
-//  in by URL. GitHub's docs promise only the form's text fields, so `layout`,
-//  a dropdown, may be ignored. Never `labels=` or `projects=`: a parameter the
-//  reporter has no permission for turns the page into a 404, and the form's
-//  own `labels:` applies them anyway.
+//  in by URL. Text fields only: GitHub leaves the `layout` dropdown unfilled
+//  (#238), so the layout travels in the context. Never `labels=` or
+//  `projects=`: a parameter the reporter has no permission for turns the
+//  page into a 404, and the form's own `labels:` applies them anyway.
 //
 
 import Foundation
@@ -28,14 +28,14 @@ enum ReportLink {
     /// `ControlRedactor.scrub`, because the issue is public, and is cut to
     /// 1,000 characters. `context` follows the reporter's numbered lines,
     /// most important first: over `limit`, the last lines go first.
-    static func bug(luna: String, macos: String, url: URL?, layout: String, context: [String] = []) -> URL {
+    static func bug(luna: String, macos: String, url: URL?, context: [String] = []) -> URL {
         let open = url.map { "1. Open \(ControlRedactor.scrub($0.absoluteString).prefix(1_000))\n2. " }
         var context = context
         while true {
             let steps = [open, context.isEmpty ? nil : context.joined(separator: "\n")]
                 .compactMap { $0 }.joined(separator: "\n\n")
             let link = link([
-                ("template", "bug_report.yml"), ("luna", luna), ("macos", macos), ("steps", steps), ("layout", layout)
+                ("template", "bug_report.yml"), ("luna", luna), ("macos", macos), ("steps", steps)
             ].filter { !$0.1.isEmpty })
             if link.absoluteString.count <= limit || context.isEmpty { return link }
             context.removeLast()

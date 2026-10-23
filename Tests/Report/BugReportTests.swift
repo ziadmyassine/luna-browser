@@ -99,6 +99,21 @@ final class BugReportTests: XCTestCase {
         }
     }
 
+    /// The layout is in the first line, the one trimming never drops.
+    func testTheFirstContextLineNamesTheLayout() async throws {
+        let directory = URL.temporaryDirectory.appending(path: "luna-tests-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let session = try await BrowserSession.restored(store: BrowserStore(path: directory.appending(path: "luna.sqlite")))
+        let window = BrowserWindow(session: session, controller: BrowserWindowController(remembersFrame: false))
+        defer {
+            window.controller.close()
+            session.tearDown()
+        }
+        let first = try XCTUnwrap(AppDelegate().reportContext(window, page: nil).first)
+        XCTAssertTrue(first.hasPrefix("Page: window "), first)
+        XCTAssertTrue(first.hasSuffix(", \(Settings.chromeLayout.title) layout"), first)
+    }
+
     // MARK: - The screenshot
 
     private var pasteboard: NSPasteboard!

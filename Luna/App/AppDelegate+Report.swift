@@ -64,14 +64,13 @@ extension AppDelegate {
     private func reportBug(_ shot: BugShot) {
         guard let window = front, !window.isPrivate, let host = window.controller.window else { return }
         let page = window.session.activeController?.webView
-        let layout = host.styleMask.contains(.fullScreen) ? "Full screen" : Settings.chromeLayout.title
         let luna = ReportLink.lunaLine(
             version: Updater.version.description, build: Updater.build, release: Updater.shared.canInstall,
             commit: Bundle.main.object(forInfoDictionaryKey: "LunaCommit") as? String ?? "unknown"
         )
         let link = ReportLink.bug(
             luna: luna, macos: ProcessInfo.processInfo.operatingSystemVersionString, url: page?.url,
-            layout: layout, context: reportContext(window, page: page)
+            context: reportContext(window, page: page)
         )
         Task {
             let taken = await BugScreenshot().take(shot, window: host.windowNumber, page: page)
@@ -96,7 +95,7 @@ extension AppDelegate {
     }
 
     /// One line each, most important first; `ReportLink` drops from the end
-    /// when the link runs long. English, as the issue is. Selectors only from
+    /// when the link runs long, so the layout is in the first. English, as the issue is. Selectors only from
     /// the hidden elements, never their labels, which are page text.
     func reportContext(_ window: BrowserWindow, page: WKWebView?) -> [String] {
         let session = window.session
@@ -104,7 +103,8 @@ extension AppDelegate {
         var lines: [String] = []
         if let host = window.controller.window {
             let dark = host.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            let size = "window \(Int(host.frame.width))×\(Int(host.frame.height)), \(dark ? "dark" : "light")"
+            let layout = host.styleMask.contains(.fullScreen) ? "Full screen" : Settings.chromeLayout.title
+            let size = "window \(Int(host.frame.width))×\(Int(host.frame.height)), \(dark ? "dark" : "light"), \(layout) layout"
             lines.append("Page: " + (page.map {
                 "\"\(session.activeTitle.prefix(80))\", zoom \(Int(($0.pageZoom * $0.magnification * 100).rounded())) %, "
             } ?? "") + size)

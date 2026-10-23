@@ -39,7 +39,7 @@ A council reviewed a 12 h native-sheet plan, and the owner chose this route inst
   - **`luna`:** `0.2.1 (57), release, a1b2c3d` or `0.1.0 (1), source, a1b2c3d-dirty`. Version and build come from `Updater.version` and `Updater.build` (`Updater.swift:71,76`), release-or-source from `Updater.shared.canInstall` (`:79`), and the commit from `LunaCommit`.
   - **`macos`:** `ProcessInfo.processInfo.operatingSystemVersionString`.
   - **`steps`:** `1. Open <url>\n2. ` with the address passed through `ControlRedactor.scrub` (`BrowserKit/Sources/LunaControl/ControlRedactor.swift:15`). The reporter sees it in the form and can delete it before posting.
-  - **`layout`** is a dropdown. The docs only promise text fields, so pass `layout=<Settings.chromeLayout.title>` and accept that it may be ignored (unverified).
+  - **`layout`** is a dropdown, and GitHub leaves it unfilled from the URL (seen in #238). It is not sent; the layout is at the end of the first context line instead (see below).
 - **One line in `CLAUDE.md`** under "Planning and issues", giving the trust rule above.
 
 ### Not in v1
@@ -54,7 +54,7 @@ A council reviewed a 12 h native-sheet plan, and the owner chose this route inst
 
 ### New (`make gen` after adding them)
 
-- **`Luna/Features/Report/ReportLink.swift`:** `enum ReportLink` with pure `bug(luna:macos:url:layout:) -> URL`, `static let idea: URL`, and `static func lunaLine(version:build:release:commit:) -> String`. Built (S1): values are percent-encoded with `&`, `=` and `+` escaped, because GitHub reads a bare `+` as a space.
+- **`Luna/Features/Report/ReportLink.swift`:** `enum ReportLink` with pure `bug(luna:macos:url:context:) -> URL`, `static let idea: URL`, and `static func lunaLine(version:build:release:commit:) -> String`. Built (S1): values are percent-encoded with `&`, `=` and `+` escaped, because GitHub reads a bare `+` as a space.
 - **`Luna/App/AppDelegate+Report.swift`:** `reportBug(_:)` and `suggestIdea(_:)`, which capture, set the pasteboard, open the tab and show the toast.
 - **`Tests/Report/ReportLinkTests.swift`.**
 
@@ -119,7 +119,7 @@ Where this section disagrees with the parts above, this section wins.
   - `Site:` the pop-out's switches for this site.
   - `Extensions:` the ones on in this Space.
   - `Hidden here:` the hidden-element selectors on this site.
-  - Layout stays in the `layout` dropdown.
+  - The layout ends the `Page:` line (`…, dark, Top bar layout`, or `Full screen layout`), because the first line is the one trimming never drops. GitHub ignores `layout=` for the dropdown (#238).
   - Page titles, hosts and selectors are user data. The GitHub form shows them before posting, and that is the review step.
   - Command history is titles only ("New Tab"). It never holds URLs, page titles or typed text. It lives in memory and is never written to disk.
 - **The link stays under 4,000 characters (`ReportLink.limit`).** Measured signed out on 2026-10-23:
@@ -294,7 +294,7 @@ Touched:
   - The fields and context lines arrive.
   - The `bug` label applies, including for Martin.
   - The issue reaches the board, or `label:bug` auto-add is set up.
-  - Note whether `layout` filled.
+  - Check that the `Page:` line names the layout.
 - **Length budget:** a debug link padded to 4,000 characters, signed in, opens the form. If it does not, lower `limit`.
 - **Fixing:** tell a fresh session "fix #N" and note what it was missing.
 
@@ -322,4 +322,5 @@ Where the build differs from the steps above:
   - A Settings ▸ Shortcuts row takes its command's title only inside a submenu; a top-level item keeps its own (Show Sidebar).
   - `RecentCommands` records only an action that `super.sendAction` delivered.
   - `aTimeoutIsTheCallers` allows 4 s, not 2: a full parallel run took 2.07 s.
+- **After #238.** `layout=` is no longer sent: GitHub left the dropdown as "No response". The first context line ends with the layout, and `testTheFirstContextLineNamesTheLayout` covers it.
 - **Flaky on this Mac during the runs, none touched by this change:** `ShortcutBindingsTests.testTheNewCommandsShipTheKeystrokesTheyWereGiven` fails every run on the owner's own shortcut overrides (`forceReloadPage`, `reader`) in the shared defaults; `ControlStageTests.testNoFocusOrWindowMoves` when the pointer moves during the run; `TopBarSpaceMorphTests.testAClickSwitchFadesTheOldTabsOut` (timing, 1 of 3 runs alone); `PopupEngineTests` once (18 s timeouts, green when rerun); `AccountSectionTests.testADisabledCheckIgnoresThePress` (an accessibility press) hung for over 9 minutes once in a full run; run alone it took 0.1 to 69 s with the `sendAction` override and 0.3 to 4 s without it, and 0.2 and 8 s in the two full runs before the override, so its timing varies on its own (not proven unrelated).

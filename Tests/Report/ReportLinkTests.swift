@@ -19,7 +19,7 @@ final class ReportLinkTests: XCTestCase {
 
     private func bug(_ page: String?) -> URL {
         ReportLink.bug(luna: "0.2.1 (57), release, a1b2c3d", macos: "Version 26.1 (Build 25B78)",
-                       url: page.flatMap(URL.init(string:)), layout: "Top bar")
+                       url: page.flatMap(URL.init(string:)))
     }
 
     func testABugFillsInTheFormsFields() throws {
@@ -30,8 +30,7 @@ final class ReportLinkTests: XCTestCase {
             "template": "bug_report.yml",
             "luna": "0.2.1 (57), release, a1b2c3d",
             "macos": "Version 26.1 (Build 25B78)",
-            "steps": "1. Open https://example.com/a%20b?x=1&y=2+3#top\n2. ",
-            "layout": "Top bar"
+            "steps": "1. Open https://example.com/a%20b?x=1&y=2+3#top\n2. "
         ])
     }
 
@@ -54,7 +53,7 @@ final class ReportLinkTests: XCTestCase {
 
     private func bug(_ page: String?, context: [String]) -> URL {
         ReportLink.bug(luna: "0.2.1 (57), release, a1b2c3d", macos: "Version 26.1 (Build 25B78)",
-                       url: page.flatMap(URL.init(string:)), layout: "Top bar", context: context)
+                       url: page.flatMap(URL.init(string:)), context: context)
     }
 
     func testTheContextFollowsTheSteps() throws {
@@ -82,6 +81,12 @@ final class ReportLinkTests: XCTestCase {
         let link = bug("https://example.com/" + String(repeating: "a", count: 10_000), context: ["Page: a"])
         XCTAssertLessThanOrEqual(link.absoluteString.count, ReportLink.limit)
         XCTAssertTrue(try XCTUnwrap(fields(link)["steps"]).hasPrefix("1. Open https://example.com/"))
+    }
+
+    /// GitHub leaves a dropdown unfilled from the URL (#238), so the layout
+    /// travels in the context's first line instead.
+    func testNoLinkSendsTheLayoutDropdown() {
+        XCTAssertFalse(bug("https://example.com/").absoluteString.contains("layout="))
     }
 
     /// A parameter the reporter has no permission for turns the page into a 404.
