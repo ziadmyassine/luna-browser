@@ -2603,7 +2603,8 @@ something happened, over the page, is one of these — never a panel, chip or ba
   password (`PageToast.savePassword`: the account and site as detail, Save and Never; leaving it
   unanswered is Not Now — it was a three-button chip in the window's corner until 2026-10-03), and
   §3.4b's folder links (`linksCopied`, `noLinksToPaste`, and `openLinks` with Open All for a paste
-  of more than 15).
+  of more than 15), and Help ▸ Report a Bug's `screenshotCopied` (what was copied, "⌘V to attach it"
+  as detail) and `screenRecordingNeeded` (Open Settings; no form opens).
 - **Not a toast:** a question that needs reading and more than two answers — Luna Control's
   approval card. That is a prompt, and keeps its own surface.
 

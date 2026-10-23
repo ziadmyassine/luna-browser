@@ -5,6 +5,10 @@ in a release go under Unreleased, grouped by date.
 
 ## Unreleased
 
+### 2026-10-23
+
+- **Report a bug or suggest an idea from Luna** (#237): Help ▸ Report a Bug opens GitHub's bug form in a tab, already filled in with Luna's version and the commit it was built from, macOS's version, the page you were on and what you did before (the last ten commands, the site's switches, the extensions on in the Space, the parts of the page you hid). Its submenu puts a picture on the clipboard to paste into the form: Whole Window (⇧⌘I), Page Only, Pick an Area… or No Screenshot. Password, card and one-time-code fields show as dots in all three. Whole Window and Pick an Area… need Screen Recording; Page Only does not. Help ▸ Suggest an Idea… opens the feature form. Both are dimmed in a private window, and nothing reaches GitHub until you post it.
+
 ### 2026-10-17
 
 - **A paused fullscreen video no longer turns black** (§3.6): WebKit builds its fullscreen window at no size and grows it to the screen, and the page, which Luna sizes by layout rules, stayed at no size inside it. A playing video is drawn on a layer of its own, so the black only showed once it was paused. The page is now sized by the fullscreen window while it is there, and by Luna's layout again when it comes back.

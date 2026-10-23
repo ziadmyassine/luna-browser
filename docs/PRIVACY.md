@@ -14,6 +14,9 @@ data leaves your Mac, and what turns it on.
 | **iCloud sync** | Your own iCloud account (CloudKit private database) | Only if you turn it on. Luna's developers have no server and cannot read it; sensitive fields use CloudKit's encrypted fields |
 | **Pinned tabs in Safari's Favorites** | Safari's own iCloud sync, through Safari's bookmarks | Only if you turn it on (Settings ▸ iCloud). It needs Full Disk Access to edit Safari's bookmarks file |
 | **Luna Control** | The AI app you connect (Claude, Codex, Cursor, VS Code) | Only if you turn it on (off by default). The app can read and act on your tabs, and asks you before sensitive steps. What that app does with the data is up to that app |
+| **A bug report** | GitHub (`github.com`), only if you post it | Help ▸ Report a Bug opens GitHub's issue form in a tab, filled in with Luna's and macOS's versions, the page's address (secrets hidden), title and zoom, the window's size, the site's switches, the extensions on in the Space, the parts of the page you hid, and the titles of your last ten commands. You see all of it in the form and can change it before posting. The command titles ("New Tab", "Reload") are kept in memory only, never on disk, and never include an address, a page title or what you typed |
+| **A bug report's screenshot** | Nowhere: it goes on the clipboard | Whole Window, Page Only and Pick an Area… copy a picture with password, card and one-time-code fields drawn as dots. It reaches GitHub only if you paste it into the form and post it |
+| **Screen Recording** | Nobody | Asked for only by Report a Bug's Whole Window and Pick an Area…, which use macOS's `screencapture`. Page Only never needs it |
 
 What stays on your Mac: history, tabs, Spaces and settings (a SQLite
 database in Luna's Application Support folder), and each Space's cookies and
