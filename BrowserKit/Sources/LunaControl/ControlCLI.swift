@@ -31,14 +31,15 @@ public enum ControlCLI {
     /// How long a config change may take before it is given up on. `claude
     /// mcp add` measured about a second; a tool that sits longer than this is
     /// waiting on something Luna cannot answer.
-    static let timeout: TimeInterval = 30
+    public static let timeout: TimeInterval = 30
 
     /// Runs the tool and returns what it printed. Throws with what it printed
-    /// to standard error when it exits non-zero or outlasts `timeout`.
+    /// to standard error when it exits non-zero or outlasts `timeout`, which
+    /// is a config change's unless the caller waits on something slower.
     ///
     /// The tool's own folder goes first on `PATH`: an npm-installed `claude`
     /// is a script that starts with `env node`, and node sits beside it.
-    public static func run(_ executable: URL, arguments: [String]) async throws -> String {
+    public static func run(_ executable: URL, arguments: [String], timeout: TimeInterval = timeout) async throws -> String {
         let process = Process()
         process.executableURL = executable
         process.arguments = arguments

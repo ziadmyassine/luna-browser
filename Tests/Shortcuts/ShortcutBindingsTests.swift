@@ -71,7 +71,8 @@ final class ShortcutBindingsTests: XCTestCase {
             (.forceReloadPage, "⌥⌘R"), (.reader, "⇧⌘R"), (.hideElements, "⇧⌘H"),
             (.closeAllTabs, "⇧⌘K"), (.cleanUpTabs, "⌥⌘K"),
             (.copyURL, "⇧⌘C"), (.copyMarkdown, "⌥⇧⌘C"), (.showHistory, "⌘Y"),
-            (.zoomIn, "⌘+"), (.zoomOut, "⌘-"), (.actualSize, "⌘0"), (.closeWindow, "⇧⌘W")
+            (.zoomIn, "⌘+"), (.zoomOut, "⌘-"), (.actualSize, "⌘0"), (.closeWindow, "⇧⌘W"),
+            (.reportBugWindow, "⇧⌘I")
         ]
         for (command, printed) in expected {
             XCTAssertEqual(KeyBindings.primary(for: command)?.display, printed, command.id)
@@ -235,6 +236,23 @@ final class MainMenuBindingTests: XCTestCase {
         for command in BrowserCommand.all where command.isCustomisable {
             XCTAssertTrue(listed.contains(command.title), "\(command.id) is not in any menu")
         }
+    }
+
+    /// A submenu item can wear a short title ("Whole Window" under Report a
+    /// Bug); its row is read alone, so it says the whole command. A row in a
+    /// top-level menu keeps the item's own title, which can carry state.
+    func testAShortcutRowNamesTheWholeCommand() throws {
+        MainMenu.rebuild(in: NSApplication.shared)
+        let bar = try XCTUnwrap(NSApp.mainMenu)
+        let sidebar = try XCTUnwrap(bar.items.compactMap(\.submenu).flatMap(\.items)
+            .first { $0.action == BrowserCommand.toggleSidebar.action })
+        sidebar.title = "Show Sidebar"
+        defer { MainMenu.rebuild(in: NSApplication.shared) }
+        let rows = ShortcutsSection.commands(in: bar)
+        let row = try XCTUnwrap(rows.first { $0.editableID == BrowserCommand.reportBugWindow.id })
+        XCTAssertEqual(row.title, BrowserCommand.reportBugWindow.title)
+        XCTAssertEqual(row.key, "⇧⌘I")
+        XCTAssertEqual(rows.first { $0.editableID == BrowserCommand.toggleSidebar.id }?.title, "Show Sidebar")
     }
 
     /// Hidden alternates must not show up as a second row for the same command.
