@@ -23,7 +23,7 @@ final class CommentNoteView: NSView, NSTextViewDelegate {
     /// Return or Escape: written, then the field goes.
     var onDone: (() -> Void)?
 
-    private(set) var textView = NSTextView()
+    private(set) var textView = CommentNoteView.makeTextView()
     private let placeholder = NSTextField(labelWithString: String(localized: "Add a note"))
     private let undo: UndoManager
     private var autosave: Task<Void, Never>?
@@ -58,7 +58,7 @@ final class CommentNoteView: NSView, NSTextViewDelegate {
         autosave?.cancel()
         let hadFocus = hasFocus
         textView.removeFromSuperview()
-        textView = NSTextView()
+        textView = Self.makeTextView()
         textView.delegate = self
         textView.drawsBackground = false
         textView.isRichText = false
@@ -71,6 +71,12 @@ final class CommentNoteView: NSView, NSTextViewDelegate {
         applyTokens()
         textChanged()
         if hadFocus { focus() }
+    }
+
+    /// TextKit 1, which `fittingHeight` measures with: asking a TextKit 2 view
+    /// for its layout manager swaps its whole text system underneath it.
+    private static func makeTextView() -> NSTextView {
+        NSTextView(usingTextLayoutManager: false)
     }
 
     var hasFocus: Bool { window?.firstResponder === textView }
