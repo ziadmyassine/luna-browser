@@ -21,7 +21,7 @@ final class LunaApplication: NSApplication {
     /// buttons all arrive here. Sidebar row clicks, swatches and swipes do not.
     override func sendAction(_ action: Selector, to target: Any?, from sender: Any?) -> Bool {
         let sent = super.sendAction(action, to: target, from: sender)
-        RecentCommands.note(action)
+        if sent { RecentCommands.note(action) }
         return sent
     }
 }

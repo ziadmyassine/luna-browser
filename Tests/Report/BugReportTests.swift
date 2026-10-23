@@ -63,6 +63,14 @@ final class BugReportTests: XCTestCase {
         XCTAssertEqual(RecentCommands.titles.count, 10)
     }
 
+    /// A command nothing handled did not happen. Search Settings is answered
+    /// only by a key Settings window, and the test host has none.
+    func testAnUnhandledCommandIsNotRemembered() {
+        let before = RecentCommands.titles
+        XCTAssertFalse(NSApp.sendAction(BrowserCommand.searchSettings.action, to: nil, from: nil))
+        XCTAssertEqual(RecentCommands.titles, before)
+    }
+
     func testAnythingElseIsNotRemembered() {
         let before = RecentCommands.titles
         NSApp.sendAction(#selector(Probe.notACommand(_:)), to: probe, from: nil)
@@ -106,8 +114,10 @@ final class BugReportTests: XCTestCase {
     }
 
     /// `screencapture` never runs: this stands in for it, and copies or not.
-    private func screenshot(canRecord: Bool = true, copies: Bool, during: (() async -> Void)? = nil) -> BugScreenshot {
-        BugScreenshot(pasteboard: pasteboard, canRecord: { canRecord }, run: { [self] tool, arguments in
+    private func screenshot(
+        canRecord: Bool = true, copies: Bool, onScreen: [WKWebView] = [], during: (() async -> Void)? = nil
+    ) -> BugScreenshot {
+        BugScreenshot(pasteboard: pasteboard, canRecord: { canRecord }, onScreen: { onScreen }, run: { [self] tool, arguments in
             XCTAssertEqual(tool.path(), "/usr/sbin/screencapture")
             ran.append(arguments)
             await during?()
@@ -139,17 +149,32 @@ final class BugReportTests: XCTestCase {
         XCTAssertEqual(ran, [["-l", "42", "-c", "-o", "-x"]])
     }
 
+    /// Every page on screen, not only the one in front: a window or an area
+    /// can take in another window's page.
     func testAWindowShotHidesSecretFields() async throws {
-        let webView = try await page()
+        let (front, other) = try await (page(), page())
         let security = "getComputedStyle(card).webkitTextSecurity"
-        var during: String?
-        let taken = await screenshot(copies: true) {
-            during = try? await webView.evaluateJavaScript(security) as? String
-        }.take(.window, window: 42, page: webView)
+        var during: [String?] = []
+        let taken = await screenshot(copies: true, onScreen: [other, front]) {
+            for view in [front, other] { during.append(try? await view.evaluateJavaScript(security) as? String) }
+        }.take(.window, window: 42, page: front)
         XCTAssertEqual(taken, .copied)
-        XCTAssertEqual(during, "disc", "the card number was in the picture")
-        let after = try await webView.evaluateJavaScript(security) as? String
-        XCTAssertEqual(after, "none", "the field was not put back")
+        XCTAssertEqual(during, ["disc", "disc"], "a card number was in the picture")
+        for view in [front, other] {
+            let after = try await view.evaluateJavaScript(security) as? String
+            XCTAssertEqual(after, "none", "a field was not put back")
+        }
+    }
+
+    /// What `onScreen` walks: every web view under a window's content.
+    func testTheWebViewsInAWindowAreFound() {
+        let content = NSView()
+        let nested = NSView()
+        let (first, second) = (WKWebView(), WKWebView())
+        content.addSubview(first)
+        content.addSubview(nested)
+        nested.addSubview(second)
+        XCTAssertEqual(BugScreenshot.webViews(in: content), [first, second])
     }
 
     /// Esc during the pick: nothing opens, and the clipboard keeps what it had.

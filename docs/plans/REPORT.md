@@ -315,4 +315,11 @@ Where the build differs from the steps above:
   - `reportContext(_ window: BrowserWindow, page: WKWebView?)` takes Luna's window, which has the session, the Space and the `NSWindow`.
   - Command titles: Report a Bug with a Window Screenshot, with a Page Screenshot, with an Area Screenshot…, without a Screenshot; Suggest an Idea….
   - Added `testTheCommandsDimInAPrivateWindow`. `reportContext` and the glue have no unit test; S9 covers them.
+- **After review.**
+  - The stamp's dirty check is `git status --porcelain -- . ':!Luna/App/Info.plist'`, so a new file not yet added marks the build dirty.
+  - A window or area shot masks every web view in every visible Luna window (`BugScreenshot.onScreen`), not only the reporting page; Luna has no split view, and this also covers other Luna windows an area reaches.
+  - After the shot the report checks its window is still open, and otherwise uses the front ordinary window, or drops the report.
+  - A Settings ▸ Shortcuts row takes its command's title only inside a submenu; a top-level item keeps its own (Show Sidebar).
+  - `RecentCommands` records only an action that `super.sendAction` delivered.
+  - `aTimeoutIsTheCallers` allows 4 s, not 2: a full parallel run took 2.07 s.
 - **Flaky on this Mac during the runs, none touched by this change:** `ShortcutBindingsTests.testTheNewCommandsShipTheKeystrokesTheyWereGiven` fails every run on the owner's own shortcut overrides (`forceReloadPage`, `reader`) in the shared defaults; `ControlStageTests.testNoFocusOrWindowMoves` when the pointer moves during the run; `TopBarSpaceMorphTests.testAClickSwitchFadesTheOldTabsOut` (timing, 1 of 3 runs alone); `PopupEngineTests` once (18 s timeouts, green when rerun); `AccountSectionTests.testADisabledCheckIgnoresThePress` (an accessibility press) hung for over 9 minutes once in a full run; run alone it took 0.1 to 69 s with the `sendAction` override and 0.3 to 4 s without it, and 0.2 and 8 s in the two full runs before the override, so its timing varies on its own (not proven unrelated).

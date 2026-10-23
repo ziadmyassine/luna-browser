@@ -100,10 +100,10 @@ targets:
         copy:
           destination: executables
     # Every source build reads `0.1.0 (1)`, so the built Info.plist (never the
-    # source one) names the commit, and `-dirty` when tracked files differ
-    # from it. Luna/App/Info.plist is left out of that check: release.yml
-    # stamps the version into it before building, and every release would
-    # otherwise read dirty. Before code signing, which Xcode runs last. The
+    # source one) names the commit, and `-dirty` when the tree differs from
+    # it, new files not yet added included. Luna/App/Info.plist is left out:
+    # release.yml stamps the version into it before building, and every
+    # release would otherwise read dirty. Before code signing, which Xcode runs last. The
     # plist is an input so the script waits for Xcode to write it: without
     # that the two raced, and the stamp was overwritten.
     postBuildScripts:
@@ -113,7 +113,7 @@ targets:
           - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
         script: |
           commit=$(git -C "$SRCROOT" rev-parse --short HEAD 2>/dev/null) || commit=unknown
-          if [ "$commit" != unknown ] && ! git -C "$SRCROOT" diff --quiet HEAD -- . ':!Luna/App/Info.plist'; then
+          if [ "$commit" != unknown ] && [ -n "$(git -C "$SRCROOT" status --porcelain -- . ':!Luna/App/Info.plist')" ]; then
             commit="$commit-dirty"
           fi
           plist="$TARGET_BUILD_DIR/$INFOPLIST_PATH"

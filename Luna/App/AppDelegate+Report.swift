@@ -74,19 +74,23 @@ extension AppDelegate {
             layout: layout, context: reportContext(window, page: page)
         )
         Task {
-            switch await BugScreenshot().take(shot, window: host.windowNumber, page: page) {
-            case .cancelled:
-                return
+            let taken = await BugScreenshot().take(shot, window: host.windowNumber, page: page)
+            // An area pick can take minutes, and the window may have closed
+            // meanwhile: then the front ordinary window, or nothing.
+            let target = windows.contains { $0 === window } ? window : front.flatMap { $0.isPrivate ? nil : $0 }
+            guard let target, taken != .cancelled else { return }
+            let toastHost = target.controller.window
+            switch taken {
             case .needsPermission:
                 PageToast.screenRecordingNeeded {
                     let pane = "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_ScreenCapture"
                     if let url = URL(string: pane) { NSWorkspace.shared.open(url) }
-                }.show(in: host)
+                }.show(in: toastHost)
             case .copied:
-                open([link], in: window)
-                PageToast.screenshotCopied(shot).show(in: host)
-            case .nothing:
-                open([link], in: window)
+                open([link], in: target)
+                PageToast.screenshotCopied(shot).show(in: toastHost)
+            case .nothing, .cancelled:
+                open([link], in: target)
             }
         }
     }
@@ -144,6 +148,11 @@ struct BugScreenshot {
     var pasteboard = NSPasteboard.general
     /// Asks once when the answer is no; macOS shows its prompt only the first time.
     var canRecord: () -> Bool = { CGPreflightScreenCaptureAccess() || CGRequestScreenCaptureAccess() }
+    /// Every page a window or area shot can take in: an area can reach
+    /// across Luna's windows, private ones included.
+    var onScreen: @MainActor () -> [WKWebView] = {
+        NSApp.windows.filter(\.isVisible).compactMap(\.contentView).flatMap { BugScreenshot.webViews(in: $0) }
+    }
     /// Five minutes: an area pick waits for the user.
     var run: @MainActor (URL, [String]) async throws -> Void = {
         _ = try await ControlCLI.run($0, arguments: $1, timeout: 300)
@@ -165,13 +174,26 @@ struct BugScreenshot {
             guard canRecord() else { return .needsPermission }
             let before = pasteboard.changeCount
             let arguments = shot == .window ? ["-l", "\(window)", "-c", "-o", "-x"] : ["-i", "-c", "-x"]
-            await ControlCapture.whileMasked(page) {
+            let pages = ([page].compactMap { $0 } + onScreen()).reduce(into: [WKWebView]()) { all, view in
+                if !all.contains(view) { all.append(view) }
+            }
+            await Self.masking(pages[...]) {
                 try? await run(URL(filePath: "/usr/sbin/screencapture"), arguments)
             }
             if pasteboard.changeCount != before { return .copied }
             // An area pick that copied nothing was Esc.
             return shot == .area ? .cancelled : .nothing
         }
+    }
+
+    static func webViews(in view: NSView) -> [WKWebView] {
+        view.subviews.flatMap { ($0 as? WKWebView).map { [$0] } ?? webViews(in: $0) }
+    }
+
+    /// `ControlCapture.whileMasked` around each page in turn.
+    private static func masking(_ pages: ArraySlice<WKWebView>, _ body: () async -> Void) async {
+        guard let first = pages.first else { return await body() }
+        await ControlCapture.whileMasked(first) { await masking(pages.dropFirst(), body) }
     }
 
     /// At most `pageSide` on the long side, and at most two pixels per CSS pixel.
