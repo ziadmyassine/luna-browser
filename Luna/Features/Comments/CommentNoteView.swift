@@ -34,7 +34,10 @@ final class CommentNoteView: NSView, NSTextViewDelegate {
         undo = undoManager
         super.init(frame: NSRect(x: 0, y: 0, width: Tokens.Metric.findBarWidth, height: Tokens.Metric.capsuleHeight))
         wantsLayer = true
-        Glass.apply(.popover, to: self, cornerRadius: Tokens.Metric.capsuleHeight / 2)
+        // Rimmed, and on the popover's shadow, because the plate takes the
+        // page's appearance and so its colour: over a white page the glass
+        // measured #FDFDFD, 1.01:1, and only the edge says where it ends.
+        Glass.apply(.popover, to: self, cornerRadius: Tokens.Metric.capsuleHeight / 2, rimmed: true)
         addSubview(placeholder)
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
@@ -130,6 +133,7 @@ final class CommentNoteView: NSView, NSTextViewDelegate {
 
     private func applyTokens() {
         let font = Tokens.TypeScale.urlPill
+        layer.map { Tokens.Shadow.popover.apply(to: $0, in: effectiveAppearance) }
         textView.font = font
         textView.textColor = Tokens.Text.primary
         textView.insertionPointColor = Tokens.Text.primary
