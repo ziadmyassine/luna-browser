@@ -5,7 +5,7 @@
 //  The unit-test host runs on a Mac somebody is using. It is an accessory app
 //  that never activates, and every window it orders in, the tests' own
 //  included, is moved off every screen on the way. `TestHostFocusTests` holds
-//  it to that.
+//  it to that. Its settings are its own, apart from that user's Luna.
 //
 
 import AppKit
@@ -46,6 +46,39 @@ extension AppDelegate {
         swap(#selector(NSWindow.setFrame(_:display:)), #selector(NSWindow.offScreenSetFrame(_:display:)))
         // Its own route: it does not pass through `order(_:relativeTo:)`.
         swap(#selector(NSWindow.orderFrontRegardless), #selector(NSWindow.offScreenOrderFrontRegardless))
+    }
+
+    /// Once, before anything reads a setting. The host is the real app, so
+    /// `UserDefaults.standard` is the user's own domain: their rebound
+    /// shortcuts reached the tests, and the tests' writes reached their Luna.
+    /// From here on `standard` is a suite emptied at each run, which does not
+    /// search the app's domain. `TestHostDefaultsTests` holds it to that.
+    static func isolateTestHostDefaults() {
+        UserDefaults.standard.removePersistentDomain(forName: UserDefaults.testHostSuite)
+        guard let real = class_getClassMethod(UserDefaults.self, #selector(getter: UserDefaults.standard)),
+              let isolated = class_getClassMethod(UserDefaults.self, #selector(UserDefaults.testHostStandard))
+        else { return }
+        method_exchangeImplementations(real, isolated)
+    }
+}
+
+extension UserDefaults {
+
+    /// The persistent domain `standard` keeps, for code that takes a domain
+    /// whole by name. The bundle identifier would be the user's own.
+    @MainActor static var standardDomain: String {
+        AppDelegate.isUnitTestHost ? testHostSuite : Bundle.main.bundleIdentifier ?? ""
+    }
+
+    fileprivate static let testHostSuite = "dev.novapps.luna.tests"
+    /// One instance, as `standard` is: observers match a notification's
+    /// object by identity. `UserDefaults` is documented thread-safe.
+    private nonisolated(unsafe) static let testHostDefaults = UserDefaults(suiteName: testHostSuite)
+
+    @objc fileprivate class func testHostStandard() -> UserDefaults {
+        // After the exchange this name is Foundation's original, should the
+        // suite ever fail to open.
+        testHostDefaults ?? testHostStandard()
     }
 }
 
