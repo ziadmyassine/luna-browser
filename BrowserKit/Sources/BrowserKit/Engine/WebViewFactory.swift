@@ -181,6 +181,25 @@ public enum WebViewFactory {
     /// Luna's own scripts run in their own worlds and are not affected.
     @MainActor public static var isPageJavaScriptDisabled = false
 
+    /// WebKit reads smart quotes, smart dashes and text replacement from these
+    /// keys in the app's defaults, and falls back to the system's "Use smart
+    /// quotes and dashes", which is on out of the box. Pages hold markup and
+    /// code, and some find text they inserted by matching it exactly: GitHub's
+    /// `<!-- Uploading "image.png"... -->` came back ending in `—>`, so the
+    /// image link never replaced it. Registered rather than set, so Edit ▸
+    /// Substitutions, which WebKit answers by writing the same keys, still
+    /// decides.
+    ///
+    /// Before the first web view of the process, any web view: WebKit reads the
+    /// keys once and ignores a registration made after (measured).
+    public static func registerSubstitutionDefaults() {
+        UserDefaults.standard.register(defaults: [
+            "WebAutomaticQuoteSubstitutionEnabled": false,
+            "WebAutomaticDashSubstitutionEnabled": false,
+            "WebAutomaticTextReplacementEnabled": false
+        ])
+    }
+
     // MARK: - Construction
 
     /// Creates a configured web view. Every Luna web view comes from here.

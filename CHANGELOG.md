@@ -5,6 +5,10 @@ in a release go under Unreleased, grouped by date.
 
 ## Unreleased
 
+### 2026-10-23
+
+- **A pasted image lands in a GitHub issue** (§4.1): pages took the system's "Use smart quotes and dashes", so text a page inserted had its `--` turned into `—`. GitHub marks an upload with `<!-- Uploading "image.png"... -->` and swaps that exact text for the image link, and with the dash changed the field said Uploading for good. Smart quotes, smart dashes and text replacement are now off in pages by default, and Edit ▸ Substitutions turns each back on, as in Safari.
+
 ### 2026-10-17
 
 - **A paused fullscreen video no longer turns black** (§3.6): WebKit builds its fullscreen window at no size and grows it to the screen, and the page, which Luna sizes by layout rules, stayed at no size inside it. A playing video is drawn on a layer of its own, so the black only showed once it was paused. The page is now sized by the fullscreen window while it is there, and by Luna's layout again when it comes back.
