@@ -242,7 +242,7 @@ enum MainMenu {
             [.separator()],
             items(.pictureInPicture), items(.muteAllTabs), items(.unmuteAllTabs),
             [.separator()],
-            items(.reader), items(.siteSettings), items(.hideElements),
+            items(.reader), items(.siteSettings), items(.hideElements), items(.commentOnPage), items(.exportComments),
             [.separator()],
             // §22.5: the list both layouts' Downloads buttons open. ⌘⌥L is
             // free in the §20.1 map and is what Safari uses.

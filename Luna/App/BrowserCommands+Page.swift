@@ -111,6 +111,26 @@ extension AppDelegate {
         session?.toggleHidingElements()
     }
 
+    // MARK: - Comments
+
+    /// `⇧⌘M`. Point at an element and write a note on it, for an agent to act on.
+    @objc func toggleCommenting(_ sender: Any?) {
+        guard let front, canComment(in: front.session) else { return }
+        let mode = front.comments ?? CommentMode()
+        mode.toggle()
+        front.comments = mode.isOn ? mode : nil
+    }
+
+    @objc func exportComments(_ sender: Any?) {
+        front?.comments?.export()
+    }
+
+    /// Not in a private window, where a draft on disk would break the promise;
+    /// not in Reader, whose markup is Luna's and not the site's.
+    private func canComment(in session: BrowserSession) -> Bool {
+        session.canUsePageTools && !session.isPrivate && !session.isReaderOn
+    }
+
     // MARK: - History (§6.4)
 
     /// `⌘Y`. The same pop-out both chrome layouts hang off a button, opened
@@ -184,6 +204,8 @@ extension AppDelegate {
         case #selector(toggleHidingElements(_:)):
             item.state = session.isPickingElements ? .on : .off
             return session.canUsePageTools
+        case #selector(toggleCommenting(_:)), #selector(exportComments(_:)):
+            return canComment(in: session)
         case #selector(printPage(_:)):
             return session.canPrint
         case #selector(downloadPDF(_:)):
