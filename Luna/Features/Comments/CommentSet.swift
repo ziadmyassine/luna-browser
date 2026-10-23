@@ -59,6 +59,8 @@ final class CommentSet {
     private(set) var comments: [Comment] = []
     /// Why the last write of `draft.json` failed, nil once one succeeds. The set in memory is intact either way.
     private(set) var saveError: (any Error)?
+    /// Where the last export left its step, if anywhere.
+    private weak var exportedOn: UndoManager?
 
     private var file: URL { folder.appending(path: "draft.json") }
 
@@ -99,16 +101,28 @@ final class CommentSet {
 
     /// Writes every origin's bundle, then clears the set as one step. A failed
     /// write throws before anything is cleared, so the draft survives it.
+    /// - Parameter outer: the window's list, where the Edit menu's ⌘Z looks;
+    ///   it gets a step that undoes this export here, for as long as this
+    ///   export is the last change.
     @discardableResult
-    func export(to root: URL = CommentBundle.folder, now: Date = .now) throws -> [String: URL] {
+    func export(to root: URL = CommentBundle.folder, now: Date = .now, undoingOn outer: UndoManager? = nil) throws
+        -> [String: URL] {
         guard !comments.isEmpty else { return [:] }
         let written = try CommentBundle.write(comments, images: folder, to: root, now: now)
         change("Export Comments", to: [])
+        outer?.registerUndo(withTarget: self) { set in
+            MainActor.assumeIsolated { set.undoManager.undo() }
+        }
+        outer?.setActionName(String(localized: "Export Comments"))
+        exportedOn = outer
         return written
     }
 
     /// The one way the set changes, so undo and redo are each the change back.
     private func change(_ name: String, to new: [Comment], undoable: Bool = true) {
+        // Past the export, undoing this list would undo this change instead,
+        // so the window's step for it goes; its own run is the one that stays.
+        if let outer = exportedOn, !outer.isUndoing { outer.removeAllActions(withTarget: self) }
         let old = comments
         comments = new
         save()

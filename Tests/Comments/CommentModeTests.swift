@@ -202,6 +202,26 @@ final class CommentModeTests: XCTestCase {
         XCTAssertEqual(set.comments, before)
     }
 
+    /// Export A, comment, export B: ⌘Z brings back B's comments, and the next
+    /// ⌘Z is the step before A, not A's export eating a keystroke for nothing.
+    func testCommandZUndoesOnlyItsOwnExport() async throws {
+        try await open(page())
+        var earlier = false
+        event { session.undoManager.registerUndo(withTarget: self) { _ in earlier = true } }
+        let set = try comments(["file"])
+        event { _ = delegate.exportComments(to: bundles, pasteboard: pasteboard) }
+        try add("file", to: set)
+        let second = set.comments
+        event { _ = delegate.exportComments(to: bundles, pasteboard: pasteboard) }
+
+        delegate.undo(nil)
+        XCTAssertEqual(set.comments, second)
+        delegate.undo(nil)
+
+        XCTAssertEqual(set.comments, second, "the first export's ⌘Z changed the set")
+        XCTAssertTrue(earlier, "the first export's ⌘Z was spent doing nothing")
+    }
+
     func testAFailedWriteKeepsTheSetAndTheDraft() async throws {
         try await open(page())
         let set = try comments(["file"])
@@ -258,6 +278,14 @@ final class CommentModeTests: XCTestCase {
             try Data("png".utf8).write(to: draft.appending(path: name))
         }
         set.add(comment)
+    }
+
+    /// One menu command's worth of the session's list, closed as the run loop would close it.
+    private func event(_ body: () -> Void) {
+        session.undoManager.groupsByEvent = false
+        session.undoManager.beginUndoGrouping()
+        body()
+        session.undoManager.endUndoGrouping()
     }
 
     private func bundle(_ origin: String) -> URL {

@@ -146,16 +146,13 @@ extension AppDelegate {
         let count = set.comments.filter { $0.origin == copied }.count
         let written: [String: URL]
         do {
-            written = try set.export(to: root)
+            written = try set.export(to: root, undoingOn: front.session.undoManager)
         } catch {
             return .commentsNotExported(error.localizedDescription)
         }
         if let file = written[copied] {
             pasteboard.clearContents()
             pasteboard.setString(CommentBundle.prompt(for: file), forType: .string)
-        }
-        front.session.registerUndo(String(localized: "Export Comments")) { _ in
-            if set.undoManager.undoActionName == "Export Comments" { set.undoManager.undo() }
         }
         let files = origins.compactMap { written[$0] }
         return .commentsExported(count, copied: copied, others: origins.filter { $0 != copied }) {
