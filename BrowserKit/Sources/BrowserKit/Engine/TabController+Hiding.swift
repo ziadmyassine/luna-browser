@@ -9,6 +9,61 @@ import WebKit
 /// nothing until someone asks for it — and both run in `.defaultClient`, where the
 /// page can neither see the picker nor post to it.
 
+/// What comment mode's picker reports about the element pressed. Every string
+/// was written by the page, so it is untrusted: one line each, whitespace
+/// collapsed and clipped in the picker, and never a form's value.
+public struct PageElement: Codable, Equatable, Sendable {
+    /// CSS pixels, relative to the viewport.
+    public struct Box: Codable, Equatable, Sendable {
+        public var x: Double
+        public var y: Double
+        public var width: Double
+        public var height: Double
+
+        public init(x: Double, y: Double, width: Double, height: Double) {
+            self.x = x
+            self.y = y
+            self.width = width
+            self.height = height
+        }
+    }
+
+    /// A hint computed on the live page, not an address. When nothing unique
+    /// was found it is the plain nth-of-type path, and `matches` says so.
+    public var selector: String
+    /// How many elements `selector` matched at the press: 1 unless the hint is ambiguous or resolves to nothing.
+    public var matches: Int
+    public var tag: String
+    public var role: String?
+    /// The element's visible words, at most 120 characters.
+    public var text: String
+    /// Its outerHTML with `value` attributes cut, at most 300 characters.
+    public var html: String
+    /// The nearest h1–h6 before it, at most 60 characters.
+    public var heading: String?
+    /// The nearest header, nav, main, aside, footer or role around it.
+    public var landmark: String?
+    /// What its neighbours are called, at most six.
+    public var siblings: [String]
+    public var box: Box
+
+    public init(
+        selector: String, matches: Int, tag: String, role: String?, text: String, html: String,
+        heading: String?, landmark: String?, siblings: [String], box: Box
+    ) {
+        self.selector = selector
+        self.matches = matches
+        self.tag = tag
+        self.role = role
+        self.text = text
+        self.html = html
+        self.heading = heading
+        self.landmark = landmark
+        self.siblings = siblings
+        self.box = box
+    }
+}
+
 /// A picker that is on, and who to tell what it picks.
 struct ElementPicking {
     let onPick: @MainActor (HiddenElements.Element) -> Void
