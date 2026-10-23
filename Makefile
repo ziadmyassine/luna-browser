@@ -5,8 +5,25 @@ XCODEBUILD := xcodebuild -project Luna.xcodeproj -scheme Luna -derivedDataPath D
 gen:
 	xcodegen generate
 
+# An ad-hoc signature's designated requirement is the build's cdhash, so to
+# macOS privacy every rebuild is a new app and loses its grants (Screen
+# Recording, for Report a Bug). Re-signed with a certificate, the requirement
+# names the certificate and survives rebuilds. Only when this Mac's keychain
+# has the identity: CI and a Mac without it stay ad-hoc. Any code-signing
+# certificate works: `export LUNA_SIGN_IDENTITY="Apple Development: …"`.
+# Re-signed here rather than through CODE_SIGN_IDENTITY, which xcodebuild also
+# applies to the package resource bundles, and those then demand a team.
+DEBUG_APP := DerivedData/Build/Products/Debug/Luna.app
+LUNA_SIGN_IDENTITY ?= Developer ID Application: NovApps ApS (FUUYR6KRSH)
+HAS_IDENTITY := $(shell security find-identity -v -p codesigning 2>/dev/null | grep -F '"$(LUNA_SIGN_IDENTITY)"')
+DEV_CODESIGN := codesign --force --timestamp=none --preserve-metadata=entitlements --sign "$(LUNA_SIGN_IDENTITY)"
+
 build:
 	$(XCODEBUILD) -configuration Debug build
+ifneq ($(HAS_IDENTITY),)
+	$(DEV_CODESIGN) $(DEBUG_APP)/Contents/MacOS/*
+	$(DEV_CODESIGN) $(DEBUG_APP)
+endif
 
 # `touch` + `lsregister` are not ceremony. Launch Services caches an app's
 # icon against its path, and a Debug build always has the same path — so a
@@ -16,15 +33,15 @@ build:
 LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 
 run: build
-	touch DerivedData/Build/Products/Debug/Luna.app
-	$(LSREGISTER) -f DerivedData/Build/Products/Debug/Luna.app
-	open DerivedData/Build/Products/Debug/Luna.app
+	touch $(DEBUG_APP)
+	$(LSREGISTER) -f $(DEBUG_APP)
+	open $(DEBUG_APP)
 
 # §31.1: a Developer ID build carrying the iCloud entitlements and the
-# provisioning profile that grants them. Opt in: `build`, `test` and CI stay
-# ad-hoc, because the certificate is on one Mac. The profile is kept out of
-# the repo (*.provisionprofile is ignored) at the path below. No sandbox
-# entitlement, on purpose: docs/SYNC.md.
+# provisioning profile that grants them. Opt in, because the certificate is on
+# one Mac; `build` signs with it too, but without those entitlements. The
+# profile is kept out of the repo (*.provisionprofile is ignored) at the path
+# below. No sandbox entitlement, on purpose: docs/SYNC.md.
 SIGNED_APP := DerivedData/Build/Products/Release/Luna.app
 IDENTITY := Developer ID Application: NovApps ApS (FUUYR6KRSH)
 
