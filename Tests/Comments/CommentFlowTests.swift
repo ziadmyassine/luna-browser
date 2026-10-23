@@ -255,14 +255,21 @@ final class CommentFlowTests: XCTestCase {
 
     private var set: CommentSet { delegate.commentSet! }
 
-    /// A press as the picker hears one, then the field it opens.
+    /// A press and its release as the picker hears them, then the field it opens.
     private func pick(x: String, y: String) async throws {
         let before = set.comments.count
-        _ = try await tab.webView?.evaluateJavaScript("""
-        document.dispatchEvent(new PointerEvent('pointerdown',
-          { bubbles: true, cancelable: true, clientX: \(x), clientY: \(y), button: 0 })); 1
-        """)
+        try await click(x: x, y: y)
         try await waitFor { self.set.comments.count > before && self.window.comments?.note != nil }
+    }
+
+    func click(x: String, y: String) async throws {
+        _ = try await tab.webView?.evaluateJavaScript("""
+        ['pointerdown', 'pointerup'].forEach(function (kind) {
+          document.dispatchEvent(new PointerEvent(kind,
+            { bubbles: true, cancelable: true, clientX: \(x), clientY: \(y), button: 0 }));
+        });
+        1
+        """)
     }
 
     /// The field, and the picked element's box on the same surface.
@@ -347,10 +354,7 @@ extension CommentFlowTests {
     func testAFailedCaptureSaysSoAndLeavesNoPicture() async throws {
         delegate.toggleCommenting(nil)
         window.comments?.frame = { _, _ in throw CocoaError(.fileWriteUnknown) }
-        _ = try await tab.webView?.evaluateJavaScript("""
-        document.dispatchEvent(new PointerEvent('pointerdown',
-          { bubbles: true, cancelable: true, clientX: 90, clientY: 80, button: 0 })); 1
-        """)
+        try await click(x: "90", y: "80")
         let surface = controller.controlSurface
         try await waitFor { surface.toast?.text == PageToast.commentNotCaptured.text }
         XCTAssertTrue(set.comments.isEmpty)

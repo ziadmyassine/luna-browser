@@ -26,6 +26,8 @@ extension TabController {
         var live = false, detail = false, host = null, box = null, tag = null, target = null, cursor = null;
         // Comment mode's walk: the element under the pointer, then each parent ↑ added.
         var trail = [];
+        // Comment mode's held press: where it went down and what it was on.
+        var press = null;
         var presses = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click',
                        'dblclick', 'auxclick', 'contextmenu', 'touchstart'];
         var known = { nav: 'Navigation', header: 'Header', footer: 'Footer', aside: 'Sidebar',
@@ -190,12 +192,20 @@ extension TabController {
           event.stopImmediatePropagation();
         }
 
+        // Hide picks at the press. Comment mode picks at the release, since
+        // a press that moves before it is a drag and not a pick.
         function onPress(event) {
           swallow(event);
-          if (event.type !== 'pointerdown' || event.button !== 0) { return; }
-          // A press with no move before it — a trackpad tap — has no target yet.
-          var el = target || under(event);
-          if (el) { pick(el); }
+          if (event.button !== 0) { return; }
+          if (event.type === 'pointerdown') {
+            // A press with no move before it — a trackpad tap — has no target yet.
+            var el = target || under(event);
+            if (detail) { press = { x: event.clientX, y: event.clientY, el: el }; } else if (el) { pick(el); }
+          } else if (event.type === 'pointerup' && press) {
+            var held = press;
+            press = null;
+            if (held.el) { pick(held.el); }
+          }
         }
 
         function pick(el) {
@@ -218,7 +228,7 @@ extension TabController {
         // while it has the keyboard, and after a pick the note field has it.
         // Returns whether there was an outline to walk.
         function walk(up) {
-          if (!detail || !target) { return false; }
+          if (!detail || !target || press) { return false; }
           var parent = target.parentElement;
           if (!up) {
             if (trail.length > 1) { trail.pop(); }
@@ -232,7 +242,7 @@ extension TabController {
 
         // Comment mode's Return, as `walk`.
         function commit() {
-          if (!detail || !target) { return false; }
+          if (!detail || !target || press) { return false; }
           pick(target);
           return true;
         }
@@ -259,6 +269,7 @@ extension TabController {
           live = false;
           target = null;
           trail = [];
+          press = null;
           if (cursor) { cursor.remove(); cursor = null; }
           window.removeEventListener('mousemove', onMove, true);
           window.removeEventListener('keydown', onKey, true);

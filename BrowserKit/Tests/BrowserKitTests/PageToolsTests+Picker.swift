@@ -237,11 +237,14 @@ extension PageToolsTests {
             as? [Double]
     }
 
-    /// A press where the pointer is, as the picker hears one.
+    /// A press and its release where the pointer is, as the picker hears them.
     func press(x: Double, y: Double) async throws {
         _ = try await page("""
-        document.dispatchEvent(new PointerEvent('pointerdown',
-          { bubbles: true, cancelable: true, clientX: \(x), clientY: \(y), button: 0 })); 1
+        ['pointerdown', 'pointerup'].forEach(function (kind) {
+          document.dispatchEvent(new PointerEvent(kind,
+            { bubbles: true, cancelable: true, clientX: \(x), clientY: \(y), button: 0 }));
+        });
+        1
         """)
     }
 }
