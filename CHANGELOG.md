@@ -5,6 +5,10 @@ in a release go under Unreleased, grouped by date.
 
 ## Unreleased
 
+### 2026-10-23
+
+- **Comment on a page for an agent** (View ▸ Comment on Page, ⇧⌘M): point at an element, ↑ and ↓ to pick its parent or go back, click or press Return, and write a note beside it. Each comment keeps a picture of the element, its text and markup, the elements around it, and the page's width, scroll and light or dark mode; secret fields are masked and the viewport picture is taken only on pages on this Mac. View ▸ Export Comments writes one folder per site under Luna's Application Support folder and copies one line to the clipboard that tells an agent to read the front page's site's comments. A toast says the prompt was copied, names any other site written, and Reveal shows the files in Finder. The comments are kept on disk until exported, Edit ▸ Undo brings back an export, and both commands are off in private windows.
+
 ### 2026-10-17
 
 - **A paused fullscreen video no longer turns black** (§3.6): WebKit builds its fullscreen window at no size and grows it to the screen, and the page, which Luna sizes by layout rules, stayed at no size inside it. A playing video is drawn on a layer of its own, so the black only showed once it was paused. The page is now sized by the fullscreen window while it is there, and by Luna's layout again when it comes back.
