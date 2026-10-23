@@ -6,6 +6,7 @@
 //  none, and undoable step by step. Every folder is a temporary one.
 //
 
+@testable import BrowserKit
 import XCTest
 @testable import Luna
 
@@ -97,6 +98,40 @@ final class CommentSetTests: XCTestCase {
 
         comments.setNote("", of: comment.id)
         XCTAssertEqual(comments.comments, [])
+    }
+
+    /// `draft.json` in the shape comment mode wrote before regions.
+    func testADraftFromBeforeRegionsStillLoads() throws {
+        let id = UUID().uuidString
+        let old = """
+        [{"id":"\(id)","note":"Drop the shadow","created":800000000,"origin":"localhost-3002",
+          "page":{"url":"http://localhost:3002/orders","viewportWidth":1440,"dark":true,"scrollX":0,"scrollY":312},
+          "element":{"selector":"button.btn","matches":1,"tag":"button","text":"New order",
+            "html":"<button class=\\"btn\\">New order</button>","heading":"Orders","landmark":"header",
+            "siblings":["Search orders"],"box":{"x":10,"y":20,"width":132,"height":36}},
+          "image":"\(id).png","context":null}]
+        """
+        try Data(old.utf8).write(to: draft.appending(path: "draft.json"))
+
+        let restored = set().comments
+        XCTAssertEqual(restored.map(\.note), ["Drop the shadow"])
+        XCTAssertEqual(restored.first?.kind, .element)
+        XCTAssertNil(restored.first?.region)
+    }
+
+    func testARegionCommentRoundTripsThroughTheDraft() throws {
+        var comment = try captured("Line the cards up")
+        comment.region = PageRegion(
+            box: .init(x: 60, y: 30, width: 430, height: 100),
+            contents: [.init(tag: "article", text: "Plan 2 Start", html: #"<article class="card">"#, selector: "article.card",
+                             box: .init(x: 140, y: 40, width: 100, height: 80))],
+            more: 3
+        )
+        set().add(comment)
+
+        let restored = set().comments
+        XCTAssertEqual(restored, [comment])
+        XCTAssertEqual(restored.first?.kind, .region)
     }
 
     func testClearingAfterExportIsOneUndoStep() throws {

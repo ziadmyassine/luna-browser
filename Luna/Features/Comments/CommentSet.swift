@@ -23,6 +23,13 @@ struct Comment: Codable, Identifiable, Equatable, Sendable {
     let image: String
     /// The viewport picture's file name, taken on local origins only.
     let context: String?
+    /// A drag's area, every string scrubbed at capture; `element` is then what
+    /// holds it. Optional, so a draft written before regions still decodes.
+    var region: PageRegion?
+
+    enum Kind: String, Codable, Sendable { case element, region }
+
+    var kind: Kind { region == nil ? .element : .region }
 }
 
 /// Scrubbed at capture. `dark` is `prefers-color-scheme`, not a site's own toggle.
