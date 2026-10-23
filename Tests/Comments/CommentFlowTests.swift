@@ -129,6 +129,18 @@ final class CommentFlowTests: XCTestCase {
         try await assertNoCommentViews()
     }
 
+    /// ⇧⌘M takes the page from Hide's picker rather than doing nothing.
+    func testCommentingStopsHidesPicker() async throws {
+        delegate.toggleHidingElements(nil)
+        XCTAssertTrue(tab.isPickingElements)
+        delegate.toggleCommenting(nil)
+        XCTAssertNotNil(window.comments)
+        XCTAssertFalse(tab.isPickingElements)
+        try await pick(x: "90", y: "80")
+        XCTAssertNotNil(window.comments, "Hide's picker ending took comment mode with it")
+        XCTAssertTrue(tab.isDescribingElements)
+    }
+
     // MARK: - The note field
 
     func testAPickOpensTheFieldBesideTheBox() async throws {
@@ -239,19 +251,56 @@ final class CommentFlowTests: XCTestCase {
         XCTAssertEqual(set.comments.map(\.note), ["Make it blue", ""])
     }
 
-    /// ⇧⌘M takes the page from Hide's picker rather than doing nothing.
-    func testCommentingStopsHidesPicker() async throws {
-        delegate.toggleHidingElements(nil)
-        XCTAssertTrue(tab.isPickingElements)
-        delegate.toggleCommenting(nil)
-        XCTAssertNotNil(window.comments)
-        XCTAssertFalse(tab.isPickingElements)
-        try await pick(x: "90", y: "80")
-        XCTAssertNotNil(window.comments, "Hide's picker ending took comment mode with it")
-        XCTAssertTrue(tab.isDescribingElements)
+    // MARK: - Support
+
+    private var set: CommentSet { delegate.commentSet! }
+
+    /// A press as the picker hears one, then the field it opens.
+    private func pick(x: String, y: String) async throws {
+        let before = set.comments.count
+        _ = try await tab.webView?.evaluateJavaScript("""
+        document.dispatchEvent(new PointerEvent('pointerdown',
+          { bubbles: true, cancelable: true, clientX: \(x), clientY: \(y), button: 0 })); 1
+        """)
+        try await waitFor { self.set.comments.count > before && self.window.comments?.note != nil }
     }
 
-    // MARK: - Capture
+    /// The field, and the picked element's box on the same surface.
+    private func fieldAndBox(x: String, y: String) async throws -> (NSView, CGRect) {
+        delegate.toggleCommenting(nil)
+        try await pick(x: x, y: y)
+        let field = try XCTUnwrap(window.comments?.note)
+        let box = try XCTUnwrap(set.comments.last?.element.box)
+        let webView = try XCTUnwrap(tab.webView)
+        let y = webView.isFlipped ? box.y : webView.bounds.height - box.y - box.height
+        let rect = controller.controlSurface.convert(
+            CGRect(x: box.x, y: y, width: box.width, height: box.height), from: webView
+        )
+        return (field, rect)
+    }
+
+    private func pixels(of name: String) throws -> (width: Int, height: Int) {
+        let url = set.folder.appending(path: name)
+        let source = try XCTUnwrap(CGImageSourceCreateWithURL(url as CFURL, nil))
+        let image = try XCTUnwrap(CGImageSourceCreateImageAtIndex(source, 0, nil))
+        return (image.width, image.height)
+    }
+
+    private func assertNoCommentViews() async throws {
+        let surface = controller.controlSurface
+        try await waitFor { !surface.subviews.contains { $0 is CommentNoteView } }
+    }
+
+    private func waitFor(_ condition: @escaping () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {
+        for _ in 0 ..< 100 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertTrue(condition(), "timed out", file: file, line: line)
+    }
+}
+
+// MARK: - Capture
+
+// Outside the class body only for SwiftLint's `type_body_length`.
+extension CommentFlowTests {
 
     func testTheCropIsTheBoxPaddedAtTheDisplayScale() async throws {
         delegate.toggleCommenting(nil)
@@ -307,50 +356,5 @@ final class CommentFlowTests: XCTestCase {
         XCTAssertTrue(set.comments.isEmpty)
         let files = (try? FileManager.default.contentsOfDirectory(atPath: set.folder.path)) ?? []
         XCTAssertEqual(files.filter { $0.hasSuffix(".png") }, [])
-    }
-
-    // MARK: - Support
-
-    private var set: CommentSet { delegate.commentSet! }
-
-    /// A press as the picker hears one, then the field it opens.
-    private func pick(x: String, y: String) async throws {
-        let before = set.comments.count
-        _ = try await tab.webView?.evaluateJavaScript("""
-        document.dispatchEvent(new PointerEvent('pointerdown',
-          { bubbles: true, cancelable: true, clientX: \(x), clientY: \(y), button: 0 })); 1
-        """)
-        try await waitFor { self.set.comments.count > before && self.window.comments?.note != nil }
-    }
-
-    /// The field, and the picked element's box on the same surface.
-    private func fieldAndBox(x: String, y: String) async throws -> (NSView, CGRect) {
-        delegate.toggleCommenting(nil)
-        try await pick(x: x, y: y)
-        let field = try XCTUnwrap(window.comments?.note)
-        let box = try XCTUnwrap(set.comments.last?.element.box)
-        let webView = try XCTUnwrap(tab.webView)
-        let y = webView.isFlipped ? box.y : webView.bounds.height - box.y - box.height
-        let rect = controller.controlSurface.convert(
-            CGRect(x: box.x, y: y, width: box.width, height: box.height), from: webView
-        )
-        return (field, rect)
-    }
-
-    private func pixels(of name: String) throws -> (width: Int, height: Int) {
-        let url = set.folder.appending(path: name)
-        let source = try XCTUnwrap(CGImageSourceCreateWithURL(url as CFURL, nil))
-        let image = try XCTUnwrap(CGImageSourceCreateImageAtIndex(source, 0, nil))
-        return (image.width, image.height)
-    }
-
-    private func assertNoCommentViews() async throws {
-        let surface = controller.controlSurface
-        try await waitFor { !surface.subviews.contains { $0 is CommentNoteView } }
-    }
-
-    private func waitFor(_ condition: @escaping () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {
-        for _ in 0 ..< 100 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
-        XCTAssertTrue(condition(), "timed out", file: file, line: line)
     }
 }
