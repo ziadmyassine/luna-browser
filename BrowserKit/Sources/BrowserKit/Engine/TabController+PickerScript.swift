@@ -9,6 +9,12 @@ extension TabController {
     /// page's own stylesheets cannot reach it and the internal pages' palette
     /// can, with `:root` read as the shadow host.
     ///
+    /// The outline and its label are black inside a white halo, not palette
+    /// ink: the palette follows Luna's appearance and the page does not, so
+    /// in a dark Luna the ink was white on a white page (measured 1.0:1). One
+    /// of black and white clears 4.58:1 against any opaque colour, so one of
+    /// the two rings always reads.
+    ///
     /// Every kind of press is swallowed, not only `click`: pages act on
     /// `pointerdown` and `mousedown` and are gone before a click completes.
     ///
@@ -38,13 +44,13 @@ extension TabController {
           var style = document.createElement('style');
           style.textContent = palette.replace(/:root/g, ':host') +
             '.box{position:fixed;display:none;box-sizing:border-box;pointer-events:none;' +
-            'border:2px solid var(--luna-text-primary);background:var(--luna-surface-selected);' +
+            'border:2px solid #000;box-shadow:0 0 0 2px #fff;background:var(--luna-surface-selected);' +
             'border-radius:var(--luna-row-radius);transition-property:left,top,width,height;' +
             'transition-duration:var(--luna-motion-hover);transition-timing-function:ease-out}' +
             '.tag{position:absolute;left:-2px;max-width:320px;overflow:hidden;text-overflow:ellipsis;' +
             'white-space:nowrap;padding:0 8px;border-radius:var(--luna-row-radius);' +
             'font:500 var(--luna-size-label)/20px -apple-system,BlinkMacSystemFont,sans-serif;' +
-            'color:var(--luna-surface-base);background:var(--luna-text-primary)}' +
+            'color:#fff;background:#000;box-shadow:0 0 0 2px #fff}' +
             '@media (prefers-reduced-motion: reduce){.box{transition:none}}';
           box = document.createElement('div');
           box.className = 'box';
@@ -257,7 +263,15 @@ extension TabController {
           return [box.style.left, box.style.top, box.style.width, box.style.height].map(parseFloat);
         }
 
-        return { on: on, off: off, outline: outline };
+        // The outline's and its label's computed colours, for the same reason.
+        function look() {
+          if (!box) { return null; }
+          var b = getComputedStyle(box), t = getComputedStyle(tag);
+          return { border: b.borderTopColor, shadow: b.boxShadow, fill: b.backgroundColor,
+                   tagInk: t.color, tagFill: t.backgroundColor, tagShadow: t.boxShadow };
+        }
+
+        return { on: on, off: off, outline: outline, look: look };
       })();
     }
     """
