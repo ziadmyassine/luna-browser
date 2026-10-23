@@ -65,13 +65,49 @@ public struct PageElement: Codable, Equatable, Sendable {
     }
 }
 
+/// What comment mode's drag reports: the rectangle, and the outermost drawn
+/// elements wholly inside it. Strings are the page's, as in `PageElement`.
+public struct PageRegion: Codable, Equatable, Sendable {
+    public struct Item: Codable, Equatable, Sendable {
+        public var tag: String
+        /// At most 120 characters, as `PageElement.text`.
+        public var text: String
+        /// At most 300 characters with `value` attributes cut, as `PageElement.html`.
+        public var html: String
+        public var selector: String
+        public var box: PageElement.Box
+
+        public init(tag: String, text: String, html: String, selector: String, box: PageElement.Box) {
+            self.tag = tag
+            self.text = text
+            self.html = html
+            self.selector = selector
+            self.box = box
+        }
+    }
+
+    /// CSS pixels, relative to the viewport, cut to it.
+    public var box: PageElement.Box
+    /// In document order, at most 20.
+    public var contents: [Item]
+    /// How many more were inside and are not listed.
+    public var more: Int
+
+    public init(box: PageElement.Box, contents: [Item], more: Int) {
+        self.box = box
+        self.contents = contents
+        self.more = more
+    }
+}
+
 /// A picker that is on, and who to tell what it picks.
 struct ElementPicking {
     enum Mode {
         /// Hide Something…: a selector to file against the site.
         case hiding(@MainActor (HiddenElements.Element) -> Void)
-        /// Comment mode: a description of the element, kept even when no selector finds it again.
-        case describing(@MainActor (PageElement) -> Void)
+        /// Comment mode: a description of the element, kept even when no selector finds it again;
+        /// a drag's region with the element that holds it.
+        case describing(@MainActor (PageElement) -> Void, region: (@MainActor (PageRegion, PageElement) -> Void)?)
     }
 
     let mode: Mode
@@ -133,13 +169,15 @@ extension TabController {
         startPicker(ElementPicking(mode: .hiding(onPick), onEnd: onEnd))
     }
 
-    /// Comment mode's picker: as `startPickingElements`, but every press is
-    /// described, and kept even when its selector is not unique.
+    /// Comment mode's picker: as `startPickingElements`, but every click is
+    /// described, and kept even when its selector is not unique. A drag goes
+    /// to `onRegion`, with the element that holds the whole area.
     public func startDescribingElements(
         onPick: @escaping @MainActor (PageElement) -> Void,
+        onRegion: (@MainActor (PageRegion, PageElement) -> Void)? = nil,
         onEnd: @escaping @MainActor () -> Void
     ) {
-        startPicker(ElementPicking(mode: .describing(onPick), onEnd: onEnd))
+        startPicker(ElementPicking(mode: .describing(onPick, region: onRegion), onEnd: onEnd))
     }
 
     private func startPicker(_ requested: ElementPicking) {
@@ -182,14 +220,24 @@ extension TabController {
         case let .hiding(onPick):
             guard let selector = body["selector"] as? String, !selector.isEmpty else { return }
             onPick(HiddenElements.Element(selector: selector, label: body["label"] as? String ?? selector))
-        case let .describing(onPick):
-            // The body's keys are `PageElement`'s own, so it decodes as it stands.
-            guard let data = try? JSONSerialization.data(withJSONObject: body),
-                  let element = try? JSONDecoder().decode(PageElement.self, from: data) else { return }
-            onPick(element)
+        case let .describing(onPick, onRegion):
+            // The body's keys are the types' own, so it decodes as it stands.
+            guard let data = try? JSONSerialization.data(withJSONObject: body) else { return }
+            if body["region"] != nil {
+                guard let drag = try? JSONDecoder().decode(Drag.self, from: data) else { return }
+                onRegion?(drag.region, drag.element)
+            } else if let element = try? JSONDecoder().decode(PageElement.self, from: data) {
+                onPick(element)
+            }
         case nil:
             break
         }
+    }
+
+    /// A drag's message: the area, and the element that holds it.
+    private struct Drag: Decodable {
+        let region: PageRegion
+        let element: PageElement
     }
 
     /// Re-dresses the page on screen after its site's list changed, and swaps the

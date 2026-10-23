@@ -199,7 +199,10 @@ extension PageToolsTests {
     // MARK: - Support
 
     /// Picks land here from the picker's callback.
-    final class Picks { var all: [PageElement] = [] }
+    final class Picks {
+        var all: [PageElement] = []
+        var regions: [(PageRegion, PageElement)] = []
+    }
 
     private func describeSidebar() async throws -> Picks {
         try await load(Self.sidebar)

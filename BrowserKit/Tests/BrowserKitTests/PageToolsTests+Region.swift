@@ -120,12 +120,58 @@ extension PageToolsTests {
         XCTAssertTrue(controller.isDescribingElements)
     }
 
+    // MARK: - Collect and post
+
+    func testADragListsExactlyTheCardsInside() async throws {
+        let picks = try await describeCards()
+        try await drag(from: (60, 30), to: (490, 130))
+        for _ in 0 ..< 50 where picks.regions.isEmpty { try await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertEqual(picks.regions.count, 1)
+        let (region, container) = try XCTUnwrap(picks.regions.first)
+
+        XCTAssertEqual(region.contents.map(\.selector), (2 ... 4).map { "#plans > article:nth-of-type(\($0))" })
+        XCTAssertEqual(region.contents.map(\.tag), ["article", "article", "article"])
+        XCTAssertEqual(region.contents.map(\.text), ["Plan 2 Start", "Plan 3 Start", "Plan 4 Start"])
+        XCTAssertEqual(region.contents.first?.box, PageElement.Box(x: 140, y: 40, width: 100, height: 80))
+        XCTAssertFalse(region.contents.contains { $0.html.contains("value=") }, "a form value reached the region")
+        XCTAssertTrue(region.contents[0].html.hasPrefix(#"<article class="card" data-plan="p2""#), region.contents[0].html)
+        XCTAssertEqual(region.more, 0)
+        XCTAssertEqual(region.box, PageElement.Box(x: 60, y: 30, width: 430, height: 100))
+        XCTAssertEqual(container.tag, "section")
+        XCTAssertEqual(container.selector, "#plans")
+        XCTAssertEqual(picks.all.count, 0, "the drag was also taken for a click")
+    }
+
+    func testTheListStopsAtTwentyAndCountsTheRest() async throws {
+        let tiles = (1 ... 30).map { #"<span data-n="\#($0)" style="display:inline-block;width:20px;height:20px"></span>"# }
+        try await load(#"<body style="margin:0"><div style="padding:10px;width:400px">\#(tiles.joined())</div></body>"#)
+        let picks = Picks()
+        controller.startDescribingElements { picks.all.append($0) } onRegion: { picks.regions.append(($0, $1)) } onEnd: {}
+        try await Task.sleep(for: .milliseconds(100))
+        try await drag(from: (5, 5), to: (700, 200))
+        for _ in 0 ..< 50 where picks.regions.isEmpty { try await Task.sleep(for: .milliseconds(20)) }
+        let region = try XCTUnwrap(picks.regions.first?.0)
+
+        XCTAssertEqual(region.contents.count, 20)
+        XCTAssertEqual(region.more, 10)
+        XCTAssertEqual(region.contents.last?.html, #"<span data-n="20" style="display:inline-block;width:20px;height:20px"></span>"#)
+    }
+
+    /// A rectangle under 6 CSS px on a side is a slip, not an area.
+    func testAThinDragPostsNothing() async throws {
+        let picks = try await describeCards()
+        try await drag(from: (60, 30), to: (490, 33))
+        try await Task.sleep(for: .milliseconds(200))
+        XCTAssertEqual(picks.regions.count, 0, "a thin drag posted a region")
+        XCTAssertEqual(picks.all.count, 0, "a thin drag picked an element")
+    }
+
     // MARK: - Support
 
     private func describeCards() async throws -> Picks {
         try await load(Self.cards)
         let picks = Picks()
-        controller.startDescribingElements { picks.all.append($0) } onEnd: {}
+        controller.startDescribingElements { picks.all.append($0) } onRegion: { picks.regions.append(($0, $1)) } onEnd: {}
         try await Task.sleep(for: .milliseconds(100))
         return picks
     }
@@ -142,6 +188,14 @@ extension PageToolsTests {
         });
         1
         """)
+    }
+
+    /// A press, a move halfway and to the end, and the release there.
+    private func drag(from start: (Double, Double), to end: (Double, Double)) async throws {
+        try await pointer("pointerdown", x: start.0, y: start.1)
+        try await pointer("pointermove", x: (start.0 + end.0) / 2, y: (start.1 + end.1) / 2)
+        try await pointer("pointermove", x: end.0, y: end.1)
+        try await pointer("pointerup", x: end.0, y: end.1)
     }
 
     private func regionOutline() async throws -> [Double]? {

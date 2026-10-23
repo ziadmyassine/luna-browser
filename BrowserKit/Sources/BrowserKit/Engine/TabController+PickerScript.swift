@@ -95,8 +95,16 @@ extension TabController {
 
         function line(text) { return (text || '').replace(/\\s+/g, ' ').trim(); }
 
-        // Read for an agent, so every string is the page's: one line, clipped,
-        // and the value attribute cut so a form's contents never leave.
+        // Its words and markup, one line each and clipped, with the value attribute
+        // cut so a form's contents never leave.
+        function part(el) {
+          return {
+            text: clip(line(el.innerText), 120),
+            html: clip(line(el.outerHTML.replace(/\\svalue="[^"]*"/g, '')), 300)
+          };
+        }
+
+        // Read for an agent, so every string is the page's: one line, clipped.
         function describe(el, selector, matches) {
           var headings = document.querySelectorAll('h1,h2,h3,h4,h5,h6'), heading = null;
           for (var i = 0; i < headings.length; i++) {
@@ -112,13 +120,12 @@ extension TabController {
           var siblings = !el.parentElement ? [] : Array.prototype.filter.call(el.parentElement.children, function (c) {
             return c !== el && c !== host && c.getClientRects().length > 0;
           }).slice(0, 6).map(function (c) { return line(said(c) || clip(line(c.innerText), 40) || name(c)); });
-          var r = el.getBoundingClientRect();
+          var r = el.getBoundingClientRect(), words = part(el);
           return {
             selector: selector, matches: matches, tag: el.tagName.toLowerCase(),
             // WebKit has no `computedRole`; the tag stands for the implicit one.
             role: el.getAttribute('role') || null,
-            text: clip(line(el.innerText), 120),
-            html: clip(line(el.outerHTML.replace(/\\svalue="[^"]*"/g, '')), 300),
+            text: words.text, html: words.html,
             heading: heading ? clip(line(heading.innerText), 60) : null,
             landmark: landmark, siblings: siblings,
             box: { x: r.x, y: r.y, width: r.width, height: r.height }
@@ -213,10 +220,63 @@ extension TabController {
             var el = target || under(event);
             if (detail) { press = { x: event.clientX, y: event.clientY, el: el, drawn: false }; } else if (el) { pick(el); }
           } else if (event.type === 'pointerup' && press) {
-            var held = press.el, drew = press.drawn || dragged(event);
+            var held = press.el, drew = press.drawn || dragged(event), r = spanned(event);
             rest();
-            if (!drew && held) { pick(held); }
+            // A rectangle under 6 on a side is a slip, and posts nothing.
+            if (!drew) {
+              if (held) { pick(held); }
+            } else if (r.width >= 6 && r.height >= 6) {
+              area(r);
+            }
           }
+        }
+
+        function within(b, r) {
+          return b.left >= r.x && b.top >= r.y && b.right <= r.x + r.width && b.bottom <= r.y + r.height;
+        }
+
+        // The outermost drawn elements wholly inside `r`, in one pass in document
+        // order: an element's descendants follow it, so one inside the last found
+        // is skipped. No client rects measures as zero width.
+        function inside(r) {
+          var all = document.body ? document.body.getElementsByTagName('*') : [], found = [], last = null;
+          for (var i = 0; i < all.length; i++) {
+            var el = all[i];
+            if (last && last.contains(el)) { continue; }
+            var b = el.getBoundingClientRect();
+            if (!b.width || !b.height || !within(b, r) || getComputedStyle(el).visibility !== 'visible') { continue; }
+            last = el;
+            found.push({ el: el, box: { x: b.x, y: b.y, width: b.width, height: b.height } });
+          }
+          return found;
+        }
+
+        // What holds the whole area: what the elements inside share, walked up
+        // until it covers the rectangle, and never past the body.
+        function holder(found, r) {
+          var el = found.length ? found[0].el : document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+          for (var i = 1; el && i < found.length; i++) {
+            while (el && !el.contains(found[i].el)) { el = el.parentElement; }
+          }
+          while (el && el !== document.body) {
+            var b = el.getBoundingClientRect();
+            if (b.left <= r.x && b.top <= r.y && b.right >= r.x + r.width && b.bottom >= r.y + r.height) { break; }
+            el = el.parentElement;
+          }
+          return el && document.body.contains(el) ? el : document.body;
+        }
+
+        // The first 20 are listed and the rest only counted, so a drag over a
+        // whole page still posts a few kilobytes.
+        function area(r) {
+          var found = inside(r), container = holder(found, r), selector = selectorFor(container);
+          var contents = found.slice(0, 20).map(function (f) {
+            var words = part(f.el);
+            return { tag: f.el.tagName.toLowerCase(), text: words.text, html: words.html,
+                     selector: selectorFor(f.el), box: f.box };
+          });
+          post({ region: { box: r, contents: contents, more: Math.max(0, found.length - 20) },
+                 element: describe(container, selector, count(selector)) });
         }
 
         // 6 CSS px on either axis, twice WebKit's drag hysteresis: a jittery press stays a click.
