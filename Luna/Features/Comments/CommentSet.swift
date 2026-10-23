@@ -40,3 +40,94 @@ extension Comment {
         URL.applicationSupportDirectory.appending(path: Bundle.main.bundleIdentifier ?? "dev.novapps.luna")
     }
 }
+
+/// The comments not yet exported, for every window: in memory while comment
+/// mode runs, and in `draft.json` after each change so a crash or a relaunch
+/// loses none. The draft sits outside `Comments/`, where no slug can collide
+/// with it and an agent's read rule does not reach.
+///
+/// Each change is one step on `undoManager`, which the note field owns so ⌘Z
+/// there never reaches the window's list. The pictures stay in the draft until
+/// the set is made afresh, because an undone delete or export needs them back.
+@MainActor
+final class CommentSet {
+
+    static var draftFolder: URL { Comment.support.appending(path: "Comment Draft", directoryHint: .isDirectory) }
+
+    let folder: URL
+    let undoManager: UndoManager
+    private(set) var comments: [Comment] = []
+    /// Why the last write of `draft.json` failed, nil once one succeeds. The set in memory is intact either way.
+    private(set) var saveError: (any Error)?
+
+    private var file: URL { folder.appending(path: "draft.json") }
+
+    init(folder: URL = CommentSet.draftFolder, undoManager: UndoManager = UndoManager()) {
+        self.folder = folder
+        self.undoManager = undoManager
+        if let data = try? Data(contentsOf: file), let saved = try? JSONDecoder().decode([Comment].self, from: data) {
+            comments = saved
+        }
+        sweep()
+    }
+
+    func add(_ comment: Comment) {
+        change("Add Comment", to: comments + [comment])
+    }
+
+    /// An empty note deletes the comment, as clearing the field does.
+    func setNote(_ note: String, of id: UUID) {
+        guard !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return delete(id) }
+        guard let index = comments.firstIndex(where: { $0.id == id }), comments[index].note != note else { return }
+        var edited = comments
+        edited[index].note = note
+        change("Edit Comment", to: edited)
+    }
+
+    func delete(_ id: UUID) {
+        guard comments.contains(where: { $0.id == id }) else { return }
+        change("Delete Comment", to: comments.filter { $0.id != id })
+    }
+
+    /// Writes every origin's bundle, then clears the set as one step. A failed
+    /// write throws before anything is cleared, so the draft survives it.
+    @discardableResult
+    func export(to root: URL = CommentBundle.folder, now: Date = .now) throws -> [String: URL] {
+        guard !comments.isEmpty else { return [:] }
+        let written = try CommentBundle.write(comments, images: folder, to: root, now: now)
+        change("Export Comments", to: [])
+        return written
+    }
+
+    /// The one way the set changes, so undo and redo are each the change back.
+    private func change(_ name: String, to new: [Comment]) {
+        let old = comments
+        undoManager.beginUndoGrouping()
+        undoManager.registerUndo(withTarget: self) { set in
+            MainActor.assumeIsolated { set.change(name, to: old) }
+        }
+        undoManager.setActionName(name)
+        undoManager.endUndoGrouping()
+        comments = new
+        save()
+    }
+
+    private func save() {
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try JSONEncoder().encode(comments).write(to: file, options: .atomic)
+            saveError = nil
+        } catch {
+            saveError = error
+        }
+    }
+
+    /// A new set has no undo history, so a picture no comment names can never come back.
+    private func sweep() {
+        let named = Set(comments.flatMap { [$0.image, $0.context].compactMap(\.self) })
+        let files = FileManager.default
+        for name in (try? files.contentsOfDirectory(atPath: folder.path)) ?? [] where name.hasSuffix(".png") && !named.contains(name) {
+            try? files.removeItem(at: folder.appending(path: name))
+        }
+    }
+}
