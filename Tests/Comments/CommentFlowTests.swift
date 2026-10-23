@@ -20,12 +20,12 @@ import XCTest
 @MainActor
 final class CommentFlowTests: XCTestCase {
 
-    private var directory: URL!
+    var directory: URL!
     private var session: BrowserSession!
-    private var controller: BrowserWindowController!
-    private var window: BrowserWindow!
-    private var delegate: AppDelegate!
-    private var tab: TabController!
+    var controller: BrowserWindowController!
+    var window: BrowserWindow!
+    var delegate: AppDelegate!
+    var tab: TabController!
 
     /// One button by the leading edge, one against the trailing edge, and a
     /// `div` whose path goes through `foreignObject`, which no selector finds again.
@@ -253,7 +253,7 @@ final class CommentFlowTests: XCTestCase {
 
     // MARK: - Support
 
-    private var set: CommentSet { delegate.commentSet! }
+    var set: CommentSet { delegate.commentSet! }
 
     /// A press and its release as the picker hears them, then the field it opens.
     private func pick(x: String, y: String) async throws {
@@ -286,7 +286,7 @@ final class CommentFlowTests: XCTestCase {
         return (field, rect)
     }
 
-    private func pixels(of name: String) throws -> (width: Int, height: Int) {
+    func pixels(of name: String) throws -> (width: Int, height: Int) {
         let url = set.folder.appending(path: name)
         let source = try XCTUnwrap(CGImageSourceCreateWithURL(url as CFURL, nil))
         let image = try XCTUnwrap(CGImageSourceCreateImageAtIndex(source, 0, nil))
@@ -298,7 +298,7 @@ final class CommentFlowTests: XCTestCase {
         try await waitFor { !surface.subviews.contains { $0 is CommentNoteView } }
     }
 
-    private func waitFor(_ condition: @escaping () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {
+    func waitFor(_ condition: @escaping () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {
         for _ in 0 ..< 100 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
         XCTAssertTrue(condition(), "timed out", file: file, line: line)
     }

@@ -2,8 +2,8 @@
 //  CommentMode.swift
 //  Luna
 //
-//  ⇧⌘M's comment mode, one per window: point at an element, write a note on
-//  it, and export the notes as a bundle an agent can read. Made when it is
+//  ⇧⌘M's comment mode, one per window: point at an element or drag over an
+//  area, write a note on it, and export the notes as a bundle an agent can read. Made when it is
 //  entered and dropped when it ends, so nothing is resident while the mode is
 //  off. `docs/plans/COMMENT-MODE.md` is the brief; this is its Flow 1–4.
 //
@@ -62,6 +62,8 @@ final class CommentMode: WindowScoped {
         controller.stopPickingElements()
         controller.startDescribingElements { [weak self] element in
             self?.picked(element)
+        } onRegion: { [weak self] region, container in
+            self?.picked(container, region: region)
         } onEnd: { [weak self] in
             self?.leave()
         }
@@ -120,12 +122,13 @@ final class CommentMode: WindowScoped {
 
     // MARK: - A pick
 
-    private func picked(_ element: PageElement) {
+    /// - Parameter region: a drag's area, of which `element` is the container.
+    private func picked(_ element: PageElement, region: PageRegion? = nil) {
         commitNote()
         let previous = capturing
         capturing = Task { [weak self] in
             await previous?.value
-            await self?.capture(element)
+            await self?.capture(element, region: region)
         }
     }
 
@@ -133,21 +136,22 @@ final class CommentMode: WindowScoped {
     /// then the comment and its field. A pick that cannot be pictured is not
     /// kept, since a comment without its crop would point the agent at
     /// nothing; the toast says so, and no picture of it is left behind.
-    private func capture(_ element: PageElement) async {
+    /// A region is cropped exactly as drawn, an element with room around it.
+    private func capture(_ element: PageElement, region: PageRegion?) async {
         guard !ended, let tabID, let webView = session.controller(for: tabID)?.webView, let url = webView.url,
               let origin = CommentBundle.slug(for: url) else { return }
         let id = UUID()
         let image = "\(id.uuidString).png"
+        let box = region?.box ?? element.box
+        let cropped = Self.crop(box, padding: region == nil ? Self.cropPadding : 0)
         var context: String?
         let page: PageState
         do {
             try FileManager.default.createDirectory(at: set.folder, withIntermediateDirectories: true)
-            let crop = try await ControlCapture.image(
-                of: webView, scale: scale(for: element.box, in: webView), region: Self.cropRegion(element.box)
-            )
+            let crop = try await ControlCapture.image(of: webView, scale: scale(for: cropped, in: webView), region: cropped)
             try write(crop, to: image)
             if isLocal(url) {
-                let centre = CGPoint(x: element.box.x + element.box.width / 2, y: element.box.y + element.box.height / 2)
+                let centre = CGPoint(x: box.x + box.width / 2, y: box.y + box.height / 2)
                 let name = "\(id.uuidString)-context.png"
                 try write(await frame(webView, [centre]), to: name)
                 context = name
@@ -157,28 +161,26 @@ final class CommentMode: WindowScoped {
             for name in [image, context].compactMap(\.self) {
                 try? FileManager.default.removeItem(at: set.folder.appending(path: name))
             }
-            if !ended { PageToast.commentNotCaptured.show(in: surface.window) }
+            if !ended { (region == nil ? PageToast.commentNotCaptured : .areaNotCaptured).show(in: surface.window) }
             return
         }
         guard !ended else { return }
         set.add(Comment(
             id: id, note: "", created: .now, origin: origin, page: page, element: element.cleaned,
-            image: image, context: context
+            image: image, context: context, region: region?.cleaned
         ))
-        showNote(for: id, beside: element.box, in: webView)
+        showNote(for: id, beside: box, in: webView)
     }
 
-    private static func cropRegion(_ box: PageElement.Box) -> ControlCommand.Region {
+    private static func crop(_ box: PageElement.Box, padding: Double) -> ControlCommand.Region {
         ControlCommand.Region(
-            x: box.x - cropPadding, y: box.y - cropPadding,
-            width: box.width + 2 * cropPadding, height: box.height + 2 * cropPadding
+            x: box.x - padding, y: box.y - padding, width: box.width + 2 * padding, height: box.height + 2 * padding
         )
     }
 
     /// The display's pixels per CSS pixel, unless that makes the long side too long.
-    private func scale(for box: PageElement.Box, in webView: WKWebView) -> Double {
+    private func scale(for region: ControlCommand.Region, in webView: WKWebView) -> Double {
         let display = Double(webView.window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1)
-        let region = Self.cropRegion(box)
         return min(display, Self.cropLongSide / max(region.width, region.height, 1))
     }
 
