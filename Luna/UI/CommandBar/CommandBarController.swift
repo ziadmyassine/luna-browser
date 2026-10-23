@@ -33,7 +33,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
     private let adaptive: AdaptiveHistory
 
     private let resultsView = CommandBarResultsView(frame: .zero)
-    private var panel: CommandBarPanel?
+    private(set) var panel: CommandBarPanel?
     private var mode: CommandBarMode = .newTab
     /// The pill the open bar is standing in, if it grew out of one. Held so
     /// dismissal can give it back — see `present(_:in:from:)`.
@@ -138,6 +138,10 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
         panel.onOpened = { [weak self] in self?.showDeferredRows() }
         panel.field.inputDelegate = self
         root.addSubview(panel, positioned: .above, relativeTo: nil)
+        // After it is in the window, which is the appearance the page's
+        // colour is read against. Set once: the bar is modal over one page.
+        let page = activeTabID.flatMap { session.controller(for: $0) }
+        panel.takeAppearance(fromPage: page.flatMap(FindController.colourUnder))
         self.panel = panel
 
         // Before `begin`: the selected-suffix machinery needs the field editor,

@@ -7,6 +7,7 @@ in a release go under Unreleased, grouped by date.
 
 ### 2026-10-23
 
+- **The Command Bar can be read over a white page in a dark window** (§9.1): its glass went light over a white site while its text stayed white, so the address and the results were white on white. The bar now takes light or dark from the page under it when it opens, as the find field and the page bar already do.
 - **A pasted image lands in a GitHub issue** (§4.1): pages took the system's "Use smart quotes and dashes", so text a page inserted had its `--` turned into `—`. GitHub marks an upload with `<!-- Uploading "image.png"... -->` and swaps that exact text for the image link, and with the dash changed the field said Uploading for good. Smart quotes, smart dashes and text replacement are now off in pages by default, and Edit ▸ Substitutions turns each back on, as in Safari.
 
 ### 2026-10-17
