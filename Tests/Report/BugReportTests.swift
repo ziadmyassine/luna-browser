@@ -19,6 +19,8 @@ private final class Probe: NSObject {
     @objc func newTab(_ sender: Any?) {}
     @objc func closeTab(_ sender: Any?) {}
     @objc func notACommand(_ sender: Any?) {}
+    @objc func reportBugPage(_ sender: Any?) {}
+    @objc func suggestIdea(_ sender: Any?) {}
 }
 
 @MainActor
@@ -68,6 +70,15 @@ final class BugReportTests: XCTestCase {
     func testAnUnhandledCommandIsNotRemembered() {
         let before = RecentCommands.titles
         XCTAssertFalse(NSApp.sendAction(BrowserCommand.searchSettings.action, to: nil, from: nil))
+        XCTAssertEqual(RecentCommands.titles, before)
+    }
+
+    /// A report's "Before this:" is what led to the bug, not earlier reports.
+    func testReportsAreNotRemembered() {
+        NSApp.sendAction(#selector(Probe.newTab(_:)), to: probe, from: nil)
+        let before = RecentCommands.titles
+        NSApp.sendAction(#selector(Probe.reportBugPage(_:)), to: probe, from: nil)
+        NSApp.sendAction(#selector(Probe.suggestIdea(_:)), to: probe, from: nil)
         XCTAssertEqual(RecentCommands.titles, before)
     }
 

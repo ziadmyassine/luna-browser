@@ -39,8 +39,11 @@ enum RecentCommands {
         #selector(AppDelegate.goToSidebarItem(_:)): "Go to Tab"
     ]
 
+    /// A report's own commands are left out: its "Before this:" is what led
+    /// to the bug, not the reports before it.
     static func note(_ action: Selector) {
-        guard let title = BrowserCommand.all.first(where: { $0.action == action })?.title ?? extras[action] else { return }
+        guard !AppDelegate.reportActions.contains(action),
+              let title = BrowserCommand.all.first(where: { $0.action == action })?.title ?? extras[action] else { return }
         titles = (titles + [title]).suffix(10)
     }
 }
