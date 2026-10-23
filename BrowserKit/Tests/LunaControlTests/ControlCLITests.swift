@@ -42,4 +42,12 @@ struct ControlCLITests {
             try await ControlCLI.run(tool, arguments: ["-c", "exit 3"])
         }
     }
+
+    @Test func aTimeoutIsTheCallers() async throws {
+        let start = Date()
+        await #expect(throws: ControlCLI.RunError.self) {
+            try await ControlCLI.run(URL(filePath: "/bin/sh"), arguments: ["-c", "sleep 5"], timeout: 0.2)
+        }
+        #expect(Date().timeIntervalSince(start) < 2)
+    }
 }
