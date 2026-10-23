@@ -53,13 +53,13 @@ final class LunaWindow: NSWindow {
 
 extension LunaWindow {
 
-    /// One Escape ends hiding mode, wherever the keyboard is. The picker hears
+    /// One Escape ends hiding or comment mode, wherever the keyboard is. The picker hears
     /// Escape in the page, and only while the page has focus; from the sidebar
     /// or a pop-out it came here instead and, in fullscreen, was taken for the
     /// first of the two presses that leave.
     /// - Returns: whether it did.
     static func escapeEndsHiding(in session: BrowserSession) -> Bool {
-        guard session.isPickingElements else { return false }
+        guard session.isPickingElements || session.isDescribingElements else { return false }
         session.activeController?.stopPickingElements()
         return true
     }

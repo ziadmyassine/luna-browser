@@ -115,10 +115,13 @@ extension AppDelegate {
 
     /// `⇧⌘M`. Point at an element and write a note on it, for an agent to act on.
     @objc func toggleCommenting(_ sender: Any?) {
-        guard let front, canComment(in: front.session) else { return }
-        let mode = front.comments ?? CommentMode()
-        mode.toggle()
-        front.comments = mode.isOn ? mode : nil
+        guard let front else { return }
+        if let mode = front.comments { return mode.leave() }
+        guard canComment(in: front.session) else { return }
+        let set = commentSet ?? CommentSet()
+        commentSet = set
+        let mode = CommentMode(window: front, set: set)
+        if mode.enter() { front.comments = mode }
     }
 
     @objc func exportComments(_ sender: Any?) {
@@ -203,7 +206,7 @@ extension AppDelegate {
             return session.canUsePageTools
         case #selector(toggleHidingElements(_:)):
             item.state = session.isPickingElements ? .on : .off
-            return session.canUsePageTools
+            return session.canUsePageTools && !session.isDescribingElements
         case #selector(toggleCommenting(_:)), #selector(exportComments(_:)):
             return canComment(in: session)
         case #selector(printPage(_:)):

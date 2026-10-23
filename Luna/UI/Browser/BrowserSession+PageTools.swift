@@ -24,6 +24,7 @@ extension BrowserSession {
 
     var isReaderOn: Bool { activeController?.isReaderOn ?? false }
     var isPickingElements: Bool { activeController?.isPickingElements ?? false }
+    var isDescribingElements: Bool { activeController?.isDescribingElements ?? false }
 
     // MARK: - Reader
 
@@ -43,7 +44,8 @@ extension BrowserSession {
     func toggleHidingElements() {
         guard let controller = activeController else { return }
         guard !controller.isPickingElements else { return controller.stopPickingElements() }
-        guard canUsePageTools, !controller.isReaderOn else { return }
+        // Comment mode's picker holds the page, and ⇧⌘H is not how it ends.
+        guard canUsePageTools, !controller.isReaderOn, !controller.isDescribingElements else { return }
         let host = activeURL?.host(percentEncoded: false)
         controller.startPickingElements { [weak self] element in
             self?.hide(element, onHost: host)

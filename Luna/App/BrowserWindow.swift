@@ -194,6 +194,7 @@ final class BrowserWindow {
         loadLineObservations = []
         historyPanel = nil
         find = nil
+        comments?.leave()
         commandBar = nil
         tabSwitcher?.cancel()
         tabSwitcher = nil
