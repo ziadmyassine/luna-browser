@@ -2,7 +2,7 @@
 //  CommentModeTests.swift
 //  LunaTests
 //
-//  Comment mode's two commands, View ▸ Comment on Page and Export Comments:
+//  Comment mode's two commands, Review ▸ Comment on Page and Export Comments:
 //  when they are offered, that neither reaches the Command Bar, and what an
 //  export writes, copies and says.
 //
@@ -58,12 +58,20 @@ final class CommentModeTests: XCTestCase {
         }
     }
 
-    func testBothAreInTheViewMenuAfterHideSomething() throws {
+    func testBothAreAloneInAReviewMenuAfterView() throws {
         MainMenu.rebuild(in: NSApplication.shared)
-        let view = try XCTUnwrap(NSApp.mainMenu?.items.first { $0.title == "View" }?.submenu)
-        let hide = try XCTUnwrap(view.items.firstIndex { $0.action == BrowserCommand.hideElements.action })
-        XCTAssertEqual(view.items[hide + 1].action, BrowserCommand.commentOnPage.action)
-        XCTAssertEqual(view.items[hide + 2].action, BrowserCommand.exportComments.action)
+        let bar = try XCTUnwrap(NSApp.mainMenu?.items)
+        let view = try XCTUnwrap(bar.firstIndex { $0.title == "View" })
+        XCTAssertEqual(bar[view + 1].title, "Review")
+        let review = try XCTUnwrap(bar[view + 1].submenu)
+        XCTAssertEqual(review.items.map(\.action), commands.map(\.action))
+        XCTAssertEqual(review.items.first?.keyEquivalent, "m")
+        XCTAssertEqual(review.items.first?.keyEquivalentModifierMask, [.shift, .command])
+        let viewItems = try XCTUnwrap(bar[view].submenu).items.map(\.action)
+        XCTAssertTrue(viewItems.contains(BrowserCommand.hideElements.action), "Hide Something… left View")
+        XCTAssertFalse(commands.contains { viewItems.contains($0.action) }, "View still lists a comment command")
+        // The menu's own items, not stand-ins: the delegate validates them where they are.
+        XCTAssertEqual(review.items.map { delegate.validateMenuItem($0) }, [false, false])
     }
 
     // MARK: - Offered

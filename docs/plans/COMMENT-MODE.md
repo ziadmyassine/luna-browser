@@ -39,7 +39,7 @@ width). So each comment says which element, what not to touch, and the state.
 
 ### v1
 
-- **⇧⌘M enters and exits** (`commentOnPage`, View menu after Hide Something…).
+- **⇧⌘M enters and exits** (`commentOnPage`, first in the Review menu, after View).
   The only M bindings are ⌘M Minimize and ⌃M Mute Site (`BrowserCommand.swift:299`, `:347`).
 - **Pick.** The outline follows the pointer as in Hide. ↑ walks to the parent,
   ↓ walks back toward the element first outlined, and the outline follows. This
@@ -56,8 +56,8 @@ width). So each comment says which element, what not to touch, and the state.
   many elements that path matched. Hide keeps its current behaviour.
 - **Its own picker flag.** Comment mode is not `isPickingElements`, so Hide
   Something… is unticked and disabled and ⇧⌘H cannot end it. Esc ends either.
-- **Export Comments** (`exportComments`, no key, View menu after Comment on
-  Page): export needs a trigger and a menu item is the cheapest. Neither command
+- **Export Comments** (`exportComments`, no key, Review menu after Comment
+  on Page): export needs a trigger and a menu item is the cheapest. Neither command
   gets a `symbol:`, so neither reaches the Command Bar (`commandBarEntries`
   skips commands without one, `BrowserCommand.swift:388-390`).
 - **One bundle per origin**, overwriting the last; a toast says it was written, or why not.

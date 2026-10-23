@@ -40,7 +40,8 @@ From `BrowserCommand.all`, plus the app menu and the numbered families.
 | App | ⌘, Settings · ⌘H Hide · ⌥⌘H Hide Others · ⌘Q Quit · ⌘? Luna Help |
 | File | ⌘T New Tab · ⌘N New Window · ⇧⌘N Private Window · ⌘L Open Location · ⌘O Open File · ⌘W Close Tab · ⇧⌘K Close All Tabs · ⌥⌘K Clean Up Tabs · ⇧⌘T Reopen Last Archived Tab · ⇧⌘W Close Window |
 | Edit | ⌘Z ⇧⌘Z ⌘X ⌘C ⌘V ⌘A · ⌘F Find · ⌘G / ⇧⌘G Find Next / Previous · Use Selection for Find (no key) · ⇧⌘C Copy URL · ⌥⇧⌘C Copy URL as Markdown |
-| View | ⌘S Hide Sidebar · ⌘E Show Agent · ⌘D Add to Favorites · ⌘R Reload · ⌥⌘R Force Refresh · ⌘. Stop · ⌘+ / ⌘= / ⌘- / ⌘0 Zoom · ⇧⌘P Picture in Picture · ⇧⌘R Reader · ⇧⌘H Hide Something · ⇧⌘M Comment on Page · Export Comments (no key) · ⌥⌘L Downloads · ⌘1…⌘9 Sidebar items |
+| View | ⌘S Hide Sidebar · ⌘E Show Agent · ⌘D Add to Favorites · ⌘R Reload · ⌥⌘R Force Refresh · ⌘. Stop · ⌘+ / ⌘= / ⌘- / ⌘0 Zoom · ⇧⌘P Picture in Picture · ⇧⌘R Reader · ⇧⌘H Hide Something · ⌥⌘L Downloads · ⌘1…⌘9 Sidebar items |
+| Review | ⇧⌘M Comment on Page · Export Comments (no key) |
 | History | ⌘[ Back · ⌘] Forward · ⌘Y Show History |
 | Develop | ⌥⌘I Web Inspector · ⌥⌘C JavaScript Console · ⌥⌘U Page Source · ⌥⌘E Empty Caches |
 | Window | ⌘M Minimize · ⌥⌘← / ⌥⌘→ (and ⇧⌘[ / ⇧⌘]) Previous / Next Tab · ⌃⌥← / ⌃⌥→ Previous / Next Space |
