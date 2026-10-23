@@ -225,6 +225,20 @@ final class CommentFlowTests: XCTestCase {
         XCTAssertEqual(set.comments.map(\.note), ["Make it blue"])
     }
 
+    /// Words typed while the next pick is still being pictured belong to the note they were typed in.
+    func testTypingDuringTheNextCaptureStaysWithTheFirstNote() async throws {
+        delegate.toggleCommenting(nil)
+        try await pick(x: "90", y: "80")
+        let note = try XCTUnwrap(window.comments?.note)
+        note.textView.insertText("Make it", replacementRange: NSRange(location: NSNotFound, length: 0))
+        window.comments?.frame = { webView, marks in
+            note.textView.insertText(" blue", replacementRange: NSRange(location: NSNotFound, length: 0))
+            return try await ControlCapture.frame(of: webView, marks: marks)
+        }
+        try await pick(x: "innerWidth - 58", y: "80")
+        XCTAssertEqual(set.comments.map(\.note), ["Make it blue", ""])
+    }
+
     // MARK: - Capture
 
     func testTheCropIsTheBoxPaddedAtTheDisplayScale() async throws {

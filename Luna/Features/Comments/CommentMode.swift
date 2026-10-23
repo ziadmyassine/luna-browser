@@ -175,7 +175,11 @@ final class CommentMode: WindowScoped {
         let target = surface.convert(Self.rect(box, in: webView), from: webView)
         let arriving = note == nil
         let field = note ?? makeNote()
-        if !arriving { field.startNote() }
+        if !arriving {
+            // Words typed while this pick was captured are still the last comment's.
+            commitNote()
+            field.startNote()
+        }
         editing = id
         if let controller = tabID.flatMap({ session.controller(for: $0) }) {
             field.setPageColour(FindController.colourUnder(controller))
