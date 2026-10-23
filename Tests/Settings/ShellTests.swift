@@ -19,7 +19,7 @@ import XCTest
 @MainActor
 final class SettingsDefaultsTests: XCTestCase {
 
-    private let domain = Bundle.main.bundleIdentifier ?? "dev.novapps.luna"
+    private var domain: String { UserDefaults.standardDomain }
 
     /// §6's table is the one place a key is declared, so a key that is not in
     /// `keys` does not get restored — and the spelling of the three existing
@@ -59,8 +59,8 @@ final class SettingsDefaultsTests: XCTestCase {
 
     /// §3.9's "Restore all settings to defaults", as a loop over the table.
     ///
-    /// The whole stored domain is snapshotted and put back, so running the
-    /// tests does not reset the developer's own settings.
+    /// The whole stored domain is snapshotted and put back, so the tests after
+    /// it start from the same settings.
     func testRestoreAllReachesEveryKeyInTheTable() {
         let defaults = UserDefaults.standard
         let snapshot = defaults.persistentDomain(forName: domain)
@@ -315,11 +315,9 @@ final class SettingsWindowTests: XCTestCase {
         )
         // Not an equality against `contentSize`. `windowFrameAutosaveName` is
         // set on this window on purpose (§1: it comes back the size you left
-        // it), and the test host shares the real `dev.novapps.luna` defaults
-        // domain — so it opens at whatever frame is saved there. This failed at
-        // 887 × 552 for that reason, not for a regression in any section's
-        // layout. Only the first window in a process gets the restore, which
-        // made it order-dependent as well.
+        // it), so it opens at whatever frame an earlier test left saved. Only
+        // the first window in a process gets the restore, which makes it
+        // order-dependent as well.
         //
         // What is spec'd is the declared size and the floor.
         XCTAssertEqual(SettingsMetrics.contentSize, CGSize(width: 720, height: 600))
