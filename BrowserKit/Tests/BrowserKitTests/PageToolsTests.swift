@@ -8,7 +8,7 @@ import XCTest
 final class PageToolsTests: XCTestCase {
 
     private var host: Host!
-    private var controller: TabController!
+    var controller: TabController!
 
     override func setUp() async throws {
         host = Host()
@@ -273,7 +273,7 @@ final class PageToolsTests: XCTestCase {
 
     // MARK: - Support
 
-    private func load(_ html: String, host: String = "example.invalid") async throws {
+    func load(_ html: String, host: String = "example.invalid") async throws {
         let view = try XCTUnwrap(controller.webView)
         view.loadHTMLString(html, baseURL: URL(string: "https://\(host)/\(UUID().uuidString)"))
         try await settle()
@@ -292,7 +292,7 @@ final class PageToolsTests: XCTestCase {
         }
     }
 
-    private func page(_ script: String) async throws -> Any? {
+    func page(_ script: String) async throws -> Any? {
         try await controller.webView?.evaluateJavaScript(script)
     }
 
