@@ -12,7 +12,8 @@ extension TabController {
     /// Above this many lines the backdrop is plain rows: highlighting the
     /// whole file again on every pause would cost more than the colour is worth.
     static let highlightedLineLimit = 5_000
-    static let autosaveDelay = Duration.seconds(1)
+    /// Also the pause after which comment mode's note field saves.
+    public static let autosaveDelay = Duration.seconds(1)
 
     /// Edit's own undo list while Edit is showing, which the web view hands
     /// WebKit and answers ⌘Z from. The window's list also holds closed tabs

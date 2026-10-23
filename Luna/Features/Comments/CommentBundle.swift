@@ -157,24 +157,16 @@ enum CommentBundle {
         /// Scrubbed again and collapsed to single lines here, whatever capture did: a
         /// newline the page wrote must not start a heading or a note of its own.
         init(_ comment: Comment, number: Int) {
-            let clean = { (text: String) in
-                ControlRedactor.scrub(text.split(whereSeparator: \.isWhitespace).joined(separator: " "))
-            }
             let raw = comment.element
-            let element = PageElement(
-                selector: clean(raw.selector), matches: raw.matches, tag: clean(raw.tag), role: raw.role.map(clean),
-                text: clean(raw.text), html: clean(raw.html), heading: raw.heading.map(clean),
-                landmark: raw.landmark.map(clean), siblings: raw.siblings.map(clean), box: raw.box
-            )
             let page = comment.page
             self.number = number
             note = comment.note
             image = String(format: "%02d.png", number)
             context = comment.context == nil ? nil : String(format: "%02d-context.png", number)
             created = comment.created
-            self.page = PageState(url: clean(page.url), viewportWidth: page.viewportWidth, dark: page.dark,
+            self.page = PageState(url: CommentBundle.clean(page.url), viewportWidth: page.viewportWidth, dark: page.dark,
                                   scrollX: page.scrollX, scrollY: page.scrollY)
-            self.element = element
+            element = raw.cleaned
             let strings = [raw.selector, raw.tag, raw.text, raw.html, page.url]
                 + [raw.role, raw.heading, raw.landmark].compactMap(\.self) + raw.siblings
             flagged = strings.contains(where: ControlUntrusted.addressesAgent)
@@ -202,6 +194,27 @@ enum CommentBundle {
         var scope = "change only what each comment names; leave everything else on the page as it is"
         var captured = "hover and focus state are not captured; secret fields are masked, other on-screen data is not redacted"
         let comments: [Entry]
+    }
+}
+
+extension CommentBundle {
+
+    /// What every string the page wrote becomes, at capture and again at export:
+    /// one line, with secrets hidden.
+    static func clean(_ text: String) -> String {
+        ControlRedactor.scrub(text.split(whereSeparator: \.isWhitespace).joined(separator: " "))
+    }
+}
+
+extension PageElement {
+
+    var cleaned: PageElement {
+        let clean = CommentBundle.clean
+        return PageElement(
+            selector: clean(selector), matches: matches, tag: clean(tag), role: role.map(clean),
+            text: clean(text), html: clean(html), heading: heading.map(clean),
+            landmark: landmark.map(clean), siblings: siblings.map(clean), box: box
+        )
     }
 }
 
