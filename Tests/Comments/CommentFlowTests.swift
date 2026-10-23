@@ -358,3 +358,130 @@ extension CommentFlowTests {
         XCTAssertEqual(files.filter { $0.hasSuffix(".png") }, [])
     }
 }
+
+// MARK: - Keys
+
+// ↑, ↓ and Return reach the picker from wherever the window's keyboard is,
+// so they are sent the way AppKit sends a key, not dispatched in the page.
+extension CommentFlowTests {
+
+    /// `elementFromPoint` only ever gives the innermost leaf, so a container is
+    /// reached by walking up from it. The page records every key it hears.
+    private static let sidebar = """
+    <!doctype html><meta charset=utf-8>
+    <body style="margin:0">
+    <aside style="width:400px">
+      <div class="sub-sidebar" style="padding:20px">
+        <nav style="padding:10px">
+          <a href="/a" style="display:block;height:30px">Alpha</a>
+          <a href="/b" style="display:block;height:30px">Beta</a>
+        </nav>
+      </div>
+    </aside>
+    <p id="other" style="height:50px">Elsewhere</p>
+    <script>window.keys = []; addEventListener('keydown', e => keys.push(e.key))</script>
+    </body>
+    """
+
+    func testEnteringGivesThePageTheKeyboard() async throws {
+        try await loadSidebar()
+        delegate.toggleCommenting(nil)
+        XCTAssertTrue(controller.window?.firstResponder === tab.webView, "\(String(describing: controller.window?.firstResponder))")
+    }
+
+    func testUpWalksFromAnEmptyNote() async throws {
+        try await loadSidebar()
+        delegate.toggleCommenting(nil)
+        try await pick(x: "50", y: "45")
+        let note = try XCTUnwrap(window.comments?.note)
+        XCTAssertTrue(note.hasFocus)
+        try await hover(x: 50, y: 45)
+        try await send(126)
+        try await assertOutline(on: "nav", "↑ from the empty note did not walk")
+
+        // The empty note's comment goes as the next one is made.
+        try await send(36)
+        try await waitFor { self.set.comments.last?.element.tag == "nav" }
+        XCTAssertEqual(set.comments.map(\.element.tag), ["nav"], "Return did not commit the walked outline")
+        let keys = try await tab.webView?.evaluateJavaScript("window.keys") as? [String]
+        XCTAssertEqual(keys, [], "the page heard the walk")
+    }
+
+    func testUpWalksFromTheChrome() async throws {
+        try await loadSidebar()
+        delegate.toggleCommenting(nil)
+        // The test window builds no sidebar, so a view standing for its list takes the keyboard.
+        let chrome = Focusable()
+        controller.window?.contentView?.addSubview(chrome)
+        XCTAssertTrue(try XCTUnwrap(controller.window).makeFirstResponder(chrome))
+        try await hover(x: 50, y: 45)
+        try await send(126)
+        try await assertOutline(on: "nav", "↑ from the sidebar did not walk")
+    }
+
+    func testATypedNoteKeepsItsArrows() async throws {
+        try await loadSidebar()
+        delegate.toggleCommenting(nil)
+        try await pick(x: "50", y: "45")
+        let note = try XCTUnwrap(window.comments?.note)
+        note.textView.insertText("Make it blue", replacementRange: NSRange(location: NSNotFound, length: 0))
+        try await hover(x: 50, y: 45)
+        try await send(126)
+        try await Task.sleep(for: .milliseconds(200))
+        try await assertOutline(on: "a[href='/a']", "↑ in a typed note walked the outline")
+        XCTAssertEqual(note.textView.selectedRange().location, 0, "the caret did not move up")
+    }
+
+    // MARK: Support
+
+    private func loadSidebar() async throws {
+        let url = directory.appending(path: "sidebar.html")
+        try Self.sidebar.write(to: url, atomically: true, encoding: .utf8)
+        tab.load(url)
+        try await waitFor { self.tab.state.url == url && !self.tab.state.isLoading }
+        try await Task.sleep(for: .milliseconds(100))
+    }
+
+    /// A key as AppKit hands one to the key window. Through the window rather
+    /// than `NSApp`, which gives it to the key window, and this one never is.
+    private func send(_ keyCode: UInt16) async throws {
+        let characters = [126: "\u{F700}", 125: "\u{F701}", 36: "\r"][Int(keyCode)] ?? ""
+        let event = try XCTUnwrap(NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: keyCode == 36 ? [] : [.numericPad, .function],
+            timestamp: 0, windowNumber: controller.window?.windowNumber ?? 0, context: nil,
+            characters: characters, charactersIgnoringModifiers: characters, isARepeat: false, keyCode: keyCode
+        ))
+        controller.window?.sendEvent(event)
+        try await Task.sleep(for: .milliseconds(50))
+    }
+
+    private func hover(x: Double, y: Double) async throws {
+        _ = try await tab.webView?.evaluateJavaScript("dispatchEvent(new MouseEvent('mousemove', { clientX: \(x), clientY: \(y) })); 1")
+    }
+
+    /// The outline settles on `selector`'s box; the walk is answered asynchronously.
+    private func assertOutline(on selector: String, _ message: String, line: UInt = #line) async throws {
+        var outlined: [Double]?, wanted: [Double]?
+        for _ in 0 ..< 25 {
+            outlined = try await outline()
+            wanted = try await rect(of: selector)
+            if outlined == wanted { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertEqual(outlined, wanted, message, line: line)
+    }
+
+    private func outline() async throws -> [Double]? {
+        try await tab.webView?.evaluateJavaScript("window.__lunaPicker.outline()", in: nil, contentWorld: .defaultClient) as? [Double]
+    }
+
+    private func rect(of selector: String) async throws -> [Double]? {
+        try await tab.webView?.evaluateJavaScript("""
+        var r = document.querySelector("\(selector)").getBoundingClientRect(); [r.x, r.y, r.width, r.height]
+        """) as? [Double]
+    }
+
+    private final class Focusable: NSView {
+        override var acceptsFirstResponder: Bool { true }
+    }
+}

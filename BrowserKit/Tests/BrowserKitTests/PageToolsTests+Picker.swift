@@ -115,35 +115,33 @@ extension PageToolsTests {
         let leaf = try await rect(of: "a[href='/a']")
         let onLeaf = try await outline()
         XCTAssertEqual(onLeaf, leaf)
-        try await key("ArrowUp")
-        try await key("ArrowUp")
+        try await walk("walk(true)")
+        try await walk("walk(true)")
         let container = try await rect(of: ".sub-sidebar")
         let walked = try await outline()
         XCTAssertEqual(walked, container)
 
-        try await key("Enter")
+        try await walk("commit()")
         for _ in 0 ..< 50 where picked.all.isEmpty { try await Task.sleep(for: .milliseconds(20)) }
         XCTAssertEqual(picked.all.map(\.selector), ["div.sub-sidebar"])
-        let keys = try await page("window.keys") as? [String]
-        XCTAssertEqual(keys, [], "the page heard the walk")
     }
 
     func testDownWalksBackTowardTheLeaf() async throws {
         let picked = try await describeSidebar()
         try await hover(x: 50, y: 45)
-        try await key("ArrowUp")
-        try await key("ArrowUp")
-        try await key("ArrowDown")
+        try await walk("walk(true)")
+        try await walk("walk(true)")
+        try await walk("walk(false)")
         let nav = try await rect(of: "nav")
         let walked = try await outline()
         XCTAssertEqual(walked, nav)
-        try await key("ArrowDown")
-        try await key("ArrowDown")
+        try await walk("walk(false)")
+        try await walk("walk(false)")
         let leaf = try await rect(of: "a[href='/a']")
         let back = try await outline()
         XCTAssertEqual(back, leaf, "down walked past the element first outlined")
 
-        try await key("Enter")
+        try await walk("commit()")
         for _ in 0 ..< 50 where picked.all.isEmpty { try await Task.sleep(for: .milliseconds(20)) }
         XCTAssertEqual(picked.all.map(\.tag), ["a"])
     }
@@ -151,7 +149,7 @@ extension PageToolsTests {
     func testMovingThePointerReleasesTheWalk() async throws {
         _ = try await describeSidebar()
         try await hover(x: 50, y: 45)
-        try await key("ArrowUp")
+        try await walk("walk(true)")
         try await hover(x: 60, y: 50)
         let nav = try await rect(of: "nav")
         let locked = try await outline()
@@ -162,6 +160,14 @@ extension PageToolsTests {
         XCTAssertEqual(released, other)
     }
 
+    /// Nothing outlined, nothing walked: Swift hands the key on when told so.
+    func testAWalkWithNothingOutlinedSaysSo() async throws {
+        _ = try await describeSidebar()
+        let walked = try await walk("walk(true)")
+        let committed = try await walk("commit()")
+        XCTAssertEqual([walked, committed], [false, false])
+    }
+
     func testHideIgnoresTheArrows() async throws {
         try await load(Self.sidebar)
         controller.startPickingElements { _ in } onEnd: {}
@@ -169,6 +175,9 @@ extension PageToolsTests {
         try await hover(x: 50, y: 45)
         try await key("ArrowUp")
         try await key("Enter")
+        let walked = try await walk("walk(true)")
+        let committed = try await walk("commit()")
+        XCTAssertEqual([walked, committed], [false, false], "Hide walked, or committed")
         let leaf = try await rect(of: "a[href='/a']")
         let outlined = try await outline()
         XCTAssertEqual(outlined, leaf, "Hide walked, or committed on Enter")
@@ -206,6 +215,14 @@ extension PageToolsTests {
 
     private func key(_ name: String) async throws {
         _ = try await page("document.dispatchEvent(new KeyboardEvent('keydown', { key: '\(name)', bubbles: true })); 1")
+    }
+
+    /// Comment mode's walk, called in the picker's world as Swift calls it.
+    @discardableResult
+    private func walk(_ call: String) async throws -> Bool {
+        try await controller.webView?.callAsyncJavaScript(
+            "return window.__lunaPicker.\(call)", arguments: [:], in: nil, contentWorld: .defaultClient
+        ) as? Bool ?? false
     }
 
     private func rect(of selector: String) async throws -> [Double]? {

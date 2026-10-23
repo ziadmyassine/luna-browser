@@ -67,6 +67,8 @@ final class CommentMode: WindowScoped {
         }
         guard controller.isDescribingElements else { return false }
         observation = session.addChangeObserver { [weak self] in self?.followSelection() }
+        (surface.window as? LunaWindow)?.keyDownFilter = { [weak self] in self?.walk(by: $0) ?? false }
+        focusPage()
         return true
     }
 
@@ -76,6 +78,7 @@ final class CommentMode: WindowScoped {
         ended = true
         capturing?.cancel()
         observation = nil
+        (surface.window as? LunaWindow)?.keyDownFilter = nil
         closeNote(focusingPage: false)
         tabID.flatMap { session.controller(for: $0) }?.stopDescribingElements()
         if window?.comments === self { window?.comments = nil }
@@ -83,6 +86,36 @@ final class CommentMode: WindowScoped {
 
     private func followSelection() {
         if activeTabID != tabID { leave() }
+    }
+
+    // MARK: - Keys
+
+    /// ↑ and ↓ walk the outline and Return picks it, wherever the keyboard
+    /// is, except in a note with words in it, where they move the caret and
+    /// commit the note, and in any other field of Luna's. A key the picker
+    /// had no outline for goes on to whoever had the keyboard.
+    /// - Returns: whether the key was taken.
+    private func walk(by event: NSEvent) -> Bool {
+        guard event.modifierFlags.isDisjoint(with: [.command, .option, .control, .shift]),
+              let window = surface.window, let webView = tabID.flatMap({ session.controller(for: $0)?.webView })
+        else { return false }
+        let call: String
+        switch event.keyCode {
+        case 126: call = "walk(true)"
+        case 125: call = "walk(false)"
+        case 36, 76: call = "commit()"
+        default: return false
+        }
+        let responder = window.firstResponder
+        if let text = responder as? NSTextView, text !== note?.textView || !text.string.isEmpty { return false }
+        Task { [weak responder] in
+            let used = try? await webView.callAsyncJavaScript(
+                "return window.__lunaPicker ? window.__lunaPicker.\(call) : false",
+                arguments: [:], in: nil, contentWorld: .defaultClient
+            ) as? Bool
+            if used != true, let responder, window.firstResponder === responder { responder.keyDown(with: event) }
+        }
+        return true
     }
 
     // MARK: - A pick

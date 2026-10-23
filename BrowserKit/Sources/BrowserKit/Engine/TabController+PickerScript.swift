@@ -207,23 +207,34 @@ extension TabController {
           box.style.display = 'none';
         }
 
+        // Every other key is the page's.
         function onKey(event) {
-          if (event.key === 'Escape') {
-            swallow(event);
-            return off();
-          }
-          // Hide leaves every other key to the page.
-          if (!detail || !target || ['ArrowUp', 'ArrowDown', 'Enter'].indexOf(event.key) < 0) { return; }
+          if (event.key !== 'Escape') { return; }
           swallow(event);
-          if (event.key === 'Enter') { return pick(target); }
+          off();
+        }
+
+        // Comment mode's ↑ and ↓, called from Swift: the page hears keys only
+        // while it has the keyboard, and after a pick the note field has it.
+        // Returns whether there was an outline to walk.
+        function walk(up) {
+          if (!detail || !target) { return false; }
           var parent = target.parentElement;
-          if (event.key === 'ArrowDown') {
+          if (!up) {
             if (trail.length > 1) { trail.pop(); }
           } else if (parent && parent !== document.body && parent !== document.documentElement) {
             trail.push(parent);
           }
           target = trail[trail.length - 1];
           show(target);
+          return true;
+        }
+
+        // Comment mode's Return, as `walk`.
+        function commit() {
+          if (!detail || !target) { return false; }
+          pick(target);
+          return true;
         }
 
         function on(palette, options) {
@@ -271,7 +282,7 @@ extension TabController {
                    tagInk: t.color, tagFill: t.backgroundColor, tagShadow: t.boxShadow };
         }
 
-        return { on: on, off: off, outline: outline, look: look };
+        return { on: on, off: off, walk: walk, commit: commit, outline: outline, look: look };
       })();
     }
     """

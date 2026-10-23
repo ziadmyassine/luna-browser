@@ -25,6 +25,15 @@ final class LunaWindow: NSWindow {
 
     private var escape = DoubleEscape()
 
+    /// Asked about every key before the first responder is, and true takes it.
+    /// Comment mode's walk, which must work wherever the keyboard is.
+    var keyDownFilter: ((NSEvent) -> Bool)?
+
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .keyDown, keyDownFilter?(event) == true { return }
+        super.sendEvent(event)
+    }
+
     /// A page may not take the keyboard from a field in Luna's chrome — see
     /// `LunaWebView+Focus.swift`.
     override func makeFirstResponder(_ responder: NSResponder?) -> Bool {
