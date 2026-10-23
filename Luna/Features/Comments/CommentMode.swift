@@ -67,8 +67,6 @@ final class CommentMode: WindowScoped {
         return true
     }
 
-    func export() {}
-
     /// Every way out comes here, the picker's own Escape included, once.
     func leave() {
         guard !ended else { return }
@@ -222,7 +220,7 @@ final class CommentMode: WindowScoped {
         set.setNote(note.text, of: editing)
     }
 
-    private func closeNote(focusingPage: Bool) {
+    func closeNote(focusingPage: Bool) {
         guard let field = note else { return }
         commitNote()
         let hadFocus = field.hasFocus

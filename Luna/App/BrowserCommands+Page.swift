@@ -124,8 +124,43 @@ extension AppDelegate {
         if mode.enter() { front.comments = mode }
     }
 
+    /// Works with the mode off too: the set is app-wide and outlives it.
     @objc func exportComments(_ sender: Any?) {
-        front?.comments?.export()
+        exportComments()?.show(in: front?.controller.window)
+    }
+
+    /// Every site's bundle, and one prompt on the clipboard: the front page's
+    /// site, or the first commented one when the front page has none. The set
+    /// is cleared only once every bundle is written, and ⌘Z brings it back.
+    /// - Returns: the toast to show, or nil when there was nothing to export.
+    func exportComments(to root: URL = CommentBundle.folder, pasteboard: NSPasteboard = .general) -> PageToast? {
+        guard let front else { return nil }
+        // An open note holds text the set has not been given yet.
+        for window in windows { window.comments?.closeNote(focusingPage: true) }
+        let set = commentSet ?? CommentSet()
+        commentSet = set
+        let origins = set.comments.map(\.origin).uniqued()
+        guard let first = origins.first else { return nil }
+        let here = front.session.activeURL.flatMap(CommentBundle.slug(for:))
+        let copied = origins.first { $0 == here } ?? first
+        let count = set.comments.filter { $0.origin == copied }.count
+        let written: [String: URL]
+        do {
+            written = try set.export(to: root)
+        } catch {
+            return .commentsNotExported(error.localizedDescription)
+        }
+        if let file = written[copied] {
+            pasteboard.clearContents()
+            pasteboard.setString(CommentBundle.prompt(for: file), forType: .string)
+        }
+        front.session.registerUndo(String(localized: "Export Comments")) { _ in
+            if set.undoManager.undoActionName == "Export Comments" { set.undoManager.undo() }
+        }
+        let files = origins.compactMap { written[$0] }
+        return .commentsExported(count, copied: copied, others: origins.filter { $0 != copied }) {
+            NSWorkspace.shared.activateFileViewerSelecting(files)
+        }
     }
 
     /// Not in a private window, where a draft on disk would break the promise;
