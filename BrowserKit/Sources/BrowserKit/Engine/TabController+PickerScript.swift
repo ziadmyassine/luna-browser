@@ -29,6 +29,8 @@ extension TabController {
         var trail = [];
         // Comment mode's held press: where it went down and what it was on.
         var press = null;
+        // The selection marker, and the box it marks in document coordinates.
+        var spot = null, pinned = null;
         // `dragstart` and `selectstart` too: links and images drag by default, and
         // a drag of the page's own would take the pointer before comment mode's release.
         var presses = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click',
@@ -58,13 +60,22 @@ extension TabController {
             'color:#fff;background:#000;box-shadow:0 0 0 2px #fff}' +
             // A drag's rectangle: square as the crop is, and instant, as it follows the pointer.
             '.box.drag{border-radius:0;transition:none}.box.drag .tag{display:none}' +
+            // The selection: square as the crop is, and dashed where the hover is solid,
+            // black dashes on a white line so it reads on any page. No fill, so what
+            // was picked shows as it is while the note is written about it; no
+            // transition, so it stays on the page as it scrolls.
+            '.spot{position:fixed;display:none;box-sizing:border-box;pointer-events:none;' +
+            'border:2px solid #fff;outline:2px dashed #000;outline-offset:-2px}' +
             '@media (prefers-reduced-motion: reduce){.box{transition:none}}';
           box = document.createElement('div');
           box.className = 'box';
           tag = document.createElement('div');
           tag.className = 'tag';
           box.appendChild(tag);
+          spot = document.createElement('div');
+          spot.className = 'spot';
           root.appendChild(style);
+          root.appendChild(spot);
           root.appendChild(box);
           document.documentElement.appendChild(host);
         }
@@ -231,77 +242,7 @@ extension TabController {
           }
         }
 
-        function within(b, r) {
-          return b.left >= r.x && b.top >= r.y && b.right <= r.x + r.width && b.bottom <= r.y + r.height;
-        }
-
-        // The outermost drawn elements wholly inside `r`, in one pass in document
-        // order: an element's descendants follow it, so one inside the last found
-        // is skipped. No client rects measures as zero width.
-        function inside(r) {
-          var all = document.body ? document.body.getElementsByTagName('*') : [], found = [], last = null;
-          for (var i = 0; i < all.length; i++) {
-            var el = all[i];
-            if (last && last.contains(el)) { continue; }
-            var b = el.getBoundingClientRect();
-            if (!b.width || !b.height || !within(b, r) || getComputedStyle(el).visibility !== 'visible') { continue; }
-            last = el;
-            found.push({ el: el, box: { x: b.x, y: b.y, width: b.width, height: b.height } });
-          }
-          return found;
-        }
-
-        // What holds the whole area: what the elements inside share, walked up
-        // until it covers the rectangle, and never past the body.
-        function holder(found, r) {
-          var el = found.length ? found[0].el : document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
-          for (var i = 1; el && i < found.length; i++) {
-            while (el && !el.contains(found[i].el)) { el = el.parentElement; }
-          }
-          while (el && el !== document.body) {
-            var b = el.getBoundingClientRect();
-            if (b.left <= r.x && b.top <= r.y && b.right >= r.x + r.width && b.bottom >= r.y + r.height) { break; }
-            el = el.parentElement;
-          }
-          return el && document.body.contains(el) ? el : document.body;
-        }
-
-        // The first 20 are listed and the rest only counted, so a drag over a
-        // whole page still posts a few kilobytes.
-        function area(r) {
-          var found = inside(r), container = holder(found, r), selector = selectorFor(container);
-          var contents = found.slice(0, 20).map(function (f) {
-            var words = part(f.el);
-            return { tag: f.el.tagName.toLowerCase(), text: words.text, html: words.html,
-                     selector: selectorFor(f.el), box: f.box };
-          });
-          post({ region: { box: r, contents: contents, more: Math.max(0, found.length - 20) },
-                 element: describe(container, selector, count(selector)) });
-        }
-
-        // 6 CSS px on either axis, twice WebKit's drag hysteresis: a jittery press stays a click.
-        function dragged(event) {
-          return Math.abs(event.clientX - press.x) >= 6 || Math.abs(event.clientY - press.y) >= 6;
-        }
-
-        // From the press to the pointer, cut to the viewport as the crop is.
-        function spanned(event) {
-          var left = Math.max(0, Math.min(press.x, event.clientX)), top = Math.max(0, Math.min(press.y, event.clientY));
-          var right = Math.min(innerWidth, Math.max(press.x, event.clientX));
-          var bottom = Math.min(innerHeight, Math.max(press.y, event.clientY));
-          return { x: left, y: top, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
-        }
-
-        // `pointermove`, not `mousemove`: a cancelled `pointerdown` stops the
-        // mouse events while the button is held (Pointer Events, "compatibility
-        // mouse events").
-        function onDrag(event) {
-          if (!press || !(press.drawn || dragged(event))) { return; }
-          press.drawn = true;
-          box.classList.add('drag');
-          place(spanned(event));
-        }
-
+        \(pickerDragScript)
         // A drag cancelled, or a pick made: nothing held, nothing outlined.
         function rest() {
           press = null;
@@ -312,11 +253,14 @@ extension TabController {
 
         function onScroll() {
           if (press) { rest(); }
+          stick();
         }
 
         function pick(el) {
           var selector = selectorFor(el), matches = count(selector);
           if (!selector || (!detail && matches !== 1)) { return; }
+          // The next pick is pictured as soon as it posts.
+          unmark();
           post(detail ? describe(el, selector, matches) : { selector: selector, label: name(el) });
           rest();
         }
@@ -376,6 +320,7 @@ extension TabController {
           target = null;
           trail = [];
           press = null;
+          pinned = null;
           if (cursor) { cursor.remove(); cursor = null; }
           window.removeEventListener('mousemove', onMove, true);
           window.removeEventListener('pointermove', onDrag, true);
@@ -393,6 +338,12 @@ extension TabController {
           return [box.style.left, box.style.top, box.style.width, box.style.height].map(parseFloat);
         }
 
+        // Where the selection marker is, as `outline`.
+        function marked() {
+          if (!spot || spot.style.display !== 'block') { return []; }
+          return [spot.style.left, spot.style.top, spot.style.width, spot.style.height].map(parseFloat);
+        }
+
         // The outline's and its label's computed colours, for the same reason.
         function look() {
           if (!box) { return null; }
@@ -402,7 +353,31 @@ extension TabController {
                    tagInk: t.color, tagFill: t.backgroundColor, tagShadow: t.boxShadow };
         }
 
-        return { on: on, off: off, walk: walk, commit: commit, outline: outline, look: look };
+        // Comment mode's selection while its note is open, called from Swift
+        // once both pictures are taken: shown any earlier, it would be in them.
+        // Kept in document coordinates, so the page scrolls under it and it stays put.
+        function mark(r) {
+          if (!detail || !spot) { return; }
+          pinned = { x: r.x + scrollX, y: r.y + scrollY, width: r.width, height: r.height };
+          stick();
+        }
+
+        function unmark() {
+          pinned = null;
+          if (spot) { spot.style.display = 'none'; }
+        }
+
+        function stick() {
+          if (!pinned) { return; }
+          spot.style.display = 'block';
+          spot.style.left = (pinned.x - scrollX) + 'px';
+          spot.style.top = (pinned.y - scrollY) + 'px';
+          spot.style.width = pinned.width + 'px';
+          spot.style.height = pinned.height + 'px';
+        }
+
+        return { on: on, off: off, walk: walk, commit: commit, mark: mark, unmark: unmark,
+                 outline: outline, marked: marked, look: look };
       })();
     }
     """
