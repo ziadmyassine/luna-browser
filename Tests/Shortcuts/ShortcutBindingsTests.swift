@@ -70,7 +70,7 @@ final class ShortcutBindingsTests: XCTestCase {
     /// Each of these commands ships with its keystroke already bound.
     func testTheNewCommandsShipTheKeystrokesTheyWereGiven() {
         let expected: [(BrowserCommand, String)] = [
-            (.forceReloadPage, "⌥⌘R"), (.reader, "⇧⌘R"), (.hideElements, "⇧⌘H"),
+            (.forceReloadPage, "⌥⌘R"), (.reader, "⇧⌘R"), (.hideElements, "⇧⌘H"), (.commentOnPage, "⇧⌘M"),
             (.closeAllTabs, "⇧⌘K"), (.cleanUpTabs, "⌥⌘K"),
             (.copyURL, "⇧⌘C"), (.copyMarkdown, "⌥⇧⌘C"), (.showHistory, "⌘Y"),
             (.zoomIn, "⌘+"), (.zoomOut, "⌘-"), (.actualSize, "⌘0"), (.closeWindow, "⇧⌘W")
