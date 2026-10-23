@@ -242,8 +242,12 @@ extension AppDelegate {
         case #selector(toggleHidingElements(_:)):
             item.state = session.isPickingElements ? .on : .off
             return session.canUsePageTools && !session.isDescribingElements
-        case #selector(toggleCommenting(_:)), #selector(exportComments(_:)):
+        case #selector(toggleCommenting(_:)):
             return canComment(in: session)
+        // The set is app-wide, so the page in front has no say. A private
+        // window stays out of comment mode's files altogether.
+        case #selector(exportComments(_:)):
+            return !session.isPrivate && !(commentSet?.comments ?? CommentSet.saved()).isEmpty
         case #selector(printPage(_:)):
             return session.canPrint
         case #selector(downloadPDF(_:)):

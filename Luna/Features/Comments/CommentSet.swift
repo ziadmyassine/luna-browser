@@ -65,10 +65,15 @@ final class CommentSet {
     init(folder: URL = CommentSet.draftFolder, undoManager: UndoManager = UndoManager()) {
         self.folder = folder
         self.undoManager = undoManager
-        if let data = try? Data(contentsOf: file), let saved = try? JSONDecoder().decode([Comment].self, from: data) {
-            comments = saved
-        }
+        comments = Self.saved(in: folder)
         sweep()
+    }
+
+    /// The draft as last written, read without making a set: Export asks
+    /// before anything has made one this launch.
+    static func saved(in folder: URL = draftFolder) -> [Comment] {
+        guard let data = try? Data(contentsOf: folder.appending(path: "draft.json")) else { return [] }
+        return (try? JSONDecoder().decode([Comment].self, from: data)) ?? []
     }
 
     func add(_ comment: Comment) {

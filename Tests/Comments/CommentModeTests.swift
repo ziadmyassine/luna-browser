@@ -70,13 +70,22 @@ final class CommentModeTests: XCTestCase {
 
     /// The positive case first, so the refusals below are refusals and not a
     /// command that is never offered at all.
-    func testBothAreOfferedOnALivePage() async throws {
+    func testBothAreOfferedOnALivePageWithComments() async throws {
         try await open(page())
+        try comments(["file"])
         XCTAssertEqual(offered(), [true, true])
     }
 
-    func testBothDimWithNoLivePage() {
-        XCTAssertEqual(offered(), [false, false])
+    /// Export follows the app-wide set, not the page in front.
+    func testExportDimsWithNoComments() async throws {
+        try await open(page())
+        try comments([])
+        XCTAssertEqual(offered(), [true, false])
+    }
+
+    func testOnlyExportIsOfferedWithNoLivePage() throws {
+        try comments(["file"])
+        XCTAssertEqual(offered(), [false, true])
     }
 
     /// A draft on disk would break the private window's promise.
@@ -92,19 +101,21 @@ final class CommentModeTests: XCTestCase {
             hidden.tearDown()
         }
         try await open(page(), in: hidden)
+        try comments(["file"])
         XCTAssertEqual(offered(), [false, false])
     }
 
-    /// Reader's markup is Luna's, not the site's.
-    func testBothDimInReader() async throws {
+    /// Reader's markup is Luna's, not the site's; what was said elsewhere still exports.
+    func testOnlyExportIsOfferedInReader() async throws {
         let controller = try await open(page())
+        try comments(["file"])
         let answer = await withCheckedContinuation { done in controller.toggleReader { done.resume(returning: $0) } }
         XCTAssertEqual(answer, .on)
-        XCTAssertEqual(offered(), [false, false])
+        XCTAssertEqual(offered(), [false, true])
     }
 
     /// WebKit's PDF viewer runs no script, so there is nothing to pick.
-    func testBothDimOnAPDF() async throws {
+    func testOnlyExportIsOfferedOnAPDF() async throws {
         let pdf = directory.appending(path: "one.pdf")
         var box = CGRect(x: 0, y: 0, width: 200, height: 200)
         let context = try XCTUnwrap(CGContext(pdf as CFURL, mediaBox: &box, nil))
@@ -112,8 +123,9 @@ final class CommentModeTests: XCTestCase {
         context.endPDFPage()
         context.closePDF()
         let controller = try await open(pdf)
+        try comments(["file"])
         XCTAssertTrue(controller.state.isPDF)
-        XCTAssertEqual(offered(), [false, false])
+        XCTAssertEqual(offered(), [false, true])
     }
 
     // MARK: - Nothing while off
@@ -122,7 +134,7 @@ final class CommentModeTests: XCTestCase {
     /// page; and once it ends, no mode and no outline are left behind.
     func testNothingOfCommentModeExistsBeforeEnteringOrAfterLeaving() async throws {
         let controller = try await open(page())
-        XCTAssertEqual(offered(), [true, true])
+        XCTAssertEqual(offered().first, true)
         XCTAssertNil(delegate.commentSet, "the set was made before ⇧⌘M")
         XCTAssertNil(window.comments)
         XCTAssertFalse(controller.isDescribingElements)
@@ -234,15 +246,18 @@ final class CommentModeTests: XCTestCase {
         undo.groupsByEvent = false
         let set = CommentSet(folder: draft, undoManager: undo)
         try FileManager.default.createDirectory(at: draft, withIntermediateDirectories: true)
-        for origin in origins {
-            let comment = Comment.fixture(origin: origin)
-            for name in [comment.image, comment.context].compactMap(\.self) {
-                try Data("png".utf8).write(to: draft.appending(path: name))
-            }
-            set.add(comment)
-        }
+        for origin in origins { try add(origin, to: set) }
         delegate.commentSet = set
         return set
+    }
+
+    /// One captured comment, its pictures already in the draft.
+    private func add(_ origin: String, to set: CommentSet) throws {
+        let comment = Comment.fixture(origin: origin)
+        for name in [comment.image, comment.context].compactMap(\.self) {
+            try Data("png".utf8).write(to: draft.appending(path: name))
+        }
+        set.add(comment)
     }
 
     private func bundle(_ origin: String) -> URL {
