@@ -324,7 +324,7 @@ struct BrowserCommand: Identifiable {
         goBack, goForward, showHistory, clearHistory,
         showWebInspector, showJavaScriptConsole, showPageSource, startElementSelection, disableJavaScript, emptyCaches,
         previousTab, nextTab, previousSpace, nextSpace, minimize, searchSettings,
-        showWelcome
+        showWelcome, reportBugWindow, reportBugPage, reportBugArea, reportBugNoScreenshot, suggestIdea
     ]
 
     static func command(id: String) -> BrowserCommand? { all.first { $0.id == id } }

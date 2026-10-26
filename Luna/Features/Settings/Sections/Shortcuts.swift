@@ -60,18 +60,21 @@ final class ShortcutsSection: SettingsSection {
     static func commands(in menu: NSMenu) -> [Command] {
         menu.items.flatMap { top -> [Command] in
             guard let submenu = top.submenu else { return [] }
-            return leaves(of: submenu, under: top.title)
+            return leaves(of: submenu, under: top.title, nested: false)
         }
     }
 
-    private static func leaves(of menu: NSMenu, under title: String) -> [Command] {
+    private static func leaves(of menu: NSMenu, under title: String, nested: Bool) -> [Command] {
         menu.items.flatMap { item -> [Command] in
-            if let submenu = item.submenu { return leaves(of: submenu, under: title) }
+            if let submenu = item.submenu { return leaves(of: submenu, under: title, nested: true) }
             guard !item.isSeparatorItem, !item.isHidden, !item.title.isEmpty else { return [] }
             let editable = command(for: item).flatMap { $0.isCustomisable ? $0 : nil }
+            // A submenu's short title ("Whole Window") read alone says too
+            // little, so its row takes the command's whole one. A top-level
+            // item keeps its own, which can carry state (Show Sidebar).
             return [Command(
                 menu: title,
-                title: item.title,
+                title: nested ? editable?.title ?? item.title : item.title,
                 key: keyEquivalent(of: item),
                 editableID: editable?.id,
                 fixedReason: editable == nil ? reason(for: item) : nil

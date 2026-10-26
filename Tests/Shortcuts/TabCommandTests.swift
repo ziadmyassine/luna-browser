@@ -18,7 +18,7 @@ import XCTest
 @MainActor
 final class TabCommandTests: XCTestCase {
 
-    private let domain = Bundle.main.bundleIdentifier ?? "dev.novapps.luna"
+    private var domain: String { UserDefaults.standardDomain }
     private var snapshot: [String: Any]?
     private var directory: URL!
     private var session: BrowserSession!

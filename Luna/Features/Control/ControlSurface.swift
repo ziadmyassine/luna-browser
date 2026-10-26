@@ -46,11 +46,7 @@ final class ControlSurfaceView: NSView {
     /// it vanished into a white site. Over a white page the sheet and the
     /// capsule are light glass with dark text.
     func setPageColour(_ colour: NSColor?) {
-        let behind = colour ?? Tokens.Surface.base
-        let dark = behind.wantsLightInk(in: (superview ?? self).effectiveAppearance)
-        let wanted = NSAppearance(named: dark ? .darkAqua : .aqua)
-        guard appearance?.name != wanted?.name else { return }
-        appearance = wanted
+        takeAppearance(fromPage: colour)
     }
 
     private(set) var sheet: NSView?

@@ -153,6 +153,35 @@ struct PageToast: Equatable {
         PageToast(symbol: "square.and.arrow.up", text: String(localized: "Bookmarks exported"), detail: file)
     }
 
+    /// Report a Bug: the form is open and the picture waits to be pasted into it.
+    static func screenshotCopied(_ shot: BugShot) -> PageToast {
+        let attach = String(localized: "⌘V to attach it")
+        return switch shot {
+        case .window: PageToast(symbol: "camera.viewfinder", text: String(localized: "Window screenshot copied"), detail: attach)
+        case .page:
+            PageToast(
+                symbol: "camera.viewfinder", text: String(localized: "Page screenshot copied"),
+                detail: String(localized: "⌘V to attach it. Luna’s bar isn’t in it")
+            )
+        case .area, .none: PageToast(symbol: "camera.viewfinder", text: String(localized: "Screenshot copied"), detail: attach)
+        }
+    }
+
+    /// Report a Bug's Whole Window or Pick an Area without Screen Recording.
+    /// No form opens: the reporter picks again once it is on, or Page Only.
+    static func screenRecordingNeeded(open: @escaping @MainActor () -> Void) -> PageToast {
+        PageToast(
+            symbol: "exclamationmark.triangle",
+            text: String(localized: "Screen Recording is off for Luna"),
+            detail: String(localized: "Turn it on, or use Page Only"),
+            actions: [Action(
+                title: String(localized: "Open Settings"),
+                label: String(localized: "Open Screen Recording in System Settings"),
+                run: open
+            )]
+        )
+    }
+
     static func bookmarksNotExported(_ file: String) -> PageToast {
         PageToast(symbol: "exclamationmark.triangle", text: String(localized: "Couldn’t save bookmarks"), detail: file)
     }

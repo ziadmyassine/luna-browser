@@ -6,8 +6,8 @@
 //  window, the search field in the Settings window. One menu item owns the
 //  key and the window that is key decides what it does.
 //
-//  Every test that rebuilds the menu bar puts the stored shortcuts back; the
-//  test host is the real app.
+//  Every test that rebuilds the menu bar puts the stored shortcuts back, so
+//  the next test's menu wears what Luna ships.
 //
 
 import AppKit
@@ -17,7 +17,7 @@ import XCTest
 @MainActor
 final class FindCommandTests: XCTestCase {
 
-    private let domain = Bundle.main.bundleIdentifier ?? "dev.novapps.luna"
+    private var domain: String { UserDefaults.standardDomain }
     private var snapshot: [String: Any]?
 
     override func setUp() {

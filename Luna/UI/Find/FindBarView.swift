@@ -171,11 +171,7 @@ final class FindBarView: NSView, NSTextFieldDelegate {
     /// site. Set on the capsule rather than read from the layer, which is only
     /// told for the window Luna Control is watching.
     func setPageColour(_ colour: NSColor?) {
-        let behind = colour ?? Tokens.Surface.base
-        let dark = behind.wantsLightInk(in: (superview ?? self).effectiveAppearance)
-        let wanted = NSAppearance(named: dark ? .darkAqua : .aqua)
-        guard appearance?.name != wanted?.name else { return }
-        appearance = wanted
+        takeAppearance(fromPage: colour)
     }
 
     // MARK: - Focus

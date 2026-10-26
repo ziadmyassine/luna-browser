@@ -212,6 +212,13 @@ enum MainMenu {
             [submenu(menu("Find", flatten([
                 items(.find), items(.findNext), items(.findPrevious), [.separator()], items(.useSelectionForFind)
             ])))],
+            // Safari's three, off by default in pages (`WebViewFactory.substitutionsOff`).
+            // The focused web view or text field answers and ticks them.
+            [submenu(menu("Substitutions", [
+                plain("Smart Quotes", #selector(NSTextView.toggleAutomaticQuoteSubstitution(_:))),
+                plain("Smart Dashes", #selector(NSTextView.toggleAutomaticDashSubstitution(_:))),
+                plain("Text Replacement", #selector(NSTextView.toggleAutomaticTextReplacement(_:)))
+            ]))],
             [.separator()],
             // §11.2's two: the address the user is looking at, plain or wrapped
             // in the link syntax every notes app in the dock understands.
@@ -337,9 +344,18 @@ enum MainMenu {
     /// AppKit puts its search field at the top, and with no Help Book it
     /// searches the menus.
     private static func helpMenu() -> NSMenu {
-        // §30.17's first run, which is also where the import and the theme are
-        // offered side by side.
-        menu("Help", items(.showWelcome) + [.separator(), plain("\(appName) Help", #selector(AppDelegate.showLunaHelp(_:)), "?")])
+        // Report a Bug's four wear short titles that say only what differs;
+        // Edit ▸ Find is the precedent for a command with a key in a submenu.
+        let bug = [
+            (BrowserCommand.reportBugWindow, "Whole Window"), (.reportBugPage, "Page Only"),
+            (.reportBugArea, "Pick an Area…"), (.reportBugNoScreenshot, "No Screenshot")
+        ].flatMap { command, title in items(command).map { $0.title = title; return $0 } }
+        return menu("Help", flatten([
+            // §30.17's first run, which is also where the import and the theme
+            // are offered side by side.
+            items(.showWelcome), [submenu(menu("Report a Bug", bug))], items(.suggestIdea),
+            [.separator(), plain("\(appName) Help", #selector(AppDelegate.showLunaHelp(_:)), "?")]
+        ]))
     }
 
     // MARK: - Construction

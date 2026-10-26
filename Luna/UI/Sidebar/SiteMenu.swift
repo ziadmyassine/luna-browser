@@ -110,8 +110,9 @@ enum SiteMenu {
         }
     }
 
-    /// This site's switches, in the order the pop-out shows them.
-    private static func toggles(host: String) -> [SiteSettingsContent.Toggle] {
+    /// This site's switches, in the order the pop-out shows them. A bug
+    /// report lists them too (`AppDelegate.reportContext`).
+    static func toggles(host: String) -> [SiteSettingsContent.Toggle] {
         [
             blocking(host: host),
             permission(

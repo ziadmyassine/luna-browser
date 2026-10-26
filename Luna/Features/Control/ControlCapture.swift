@@ -58,16 +58,7 @@ enum ControlCapture {
         configuration.afterScreenUpdates = true
         configuration.rect = CGRect(x: css.minX * zoom, y: css.minY * zoom, width: css.width * zoom, height: css.height * zoom)
         configuration.snapshotWidth = NSNumber(value: width)
-        // A page this cannot run in — a PDF, an image — has no fields to hide.
-        _ = try? await webView.callAsyncJavaScript(ControlScripts.maskSecrets, arguments: ["args": [:]], in: nil, contentWorld: world)
-        let snapshot: NSImage
-        do {
-            snapshot = try await webView.takeSnapshot(configuration: configuration)
-        } catch {
-            await unmask(webView)
-            throw error
-        }
-        await unmask(webView)
+        let snapshot = try await whileMasked(webView) { try await webView.takeSnapshot(configuration: configuration) }
         guard let source = snapshot.cgImage(forProposedRect: nil, context: nil, hints: nil),
               let context = context(width: width, height: height) else {
             throw ControlError("The screenshot could not be drawn.")
@@ -119,6 +110,23 @@ enum ControlCapture {
         let each = [gif: [kCGImagePropertyGIFDelayTime as String: frameDelay]] as CFDictionary
         for frame in frames { CGImageDestinationAddImage(destination, frame, each) }
         guard CGImageDestinationFinalize(destination) else { throw ControlError("The recording could not be written.") }
+    }
+
+    /// Runs `body` with `webView`'s secret fields drawn as dots, and puts
+    /// them back whether or not it throws. Any picture of a page goes through
+    /// here: this one's snapshot, and a bug report's window or area shot.
+    static func whileMasked<T, E: Error>(_ webView: WKWebView?, _ body: () async throws(E) -> T) async throws(E) -> T {
+        guard let webView else { return try await body() }
+        // A page this cannot run in — a PDF, an image — has no fields to hide.
+        _ = try? await webView.callAsyncJavaScript(ControlScripts.maskSecrets, arguments: ["args": [:]], in: nil, contentWorld: world)
+        do {
+            let value = try await body()
+            await unmask(webView)
+            return value
+        } catch {
+            await unmask(webView)
+            throw error
+        }
     }
 
     private static func unmask(_ webView: WKWebView) async {
