@@ -30,6 +30,28 @@ generated and not committed. The other targets:
 
 A direct `xcodebuild` must pass `-derivedDataPath DerivedData`.
 
+### Signing and macOS permissions
+
+`make build` and `make run` re-sign the Debug app with
+`Developer ID Application: NovApps ApS (FUUYR6KRSH)` when your keychain has it.
+The signature then identifies the app by its team rather than by a hash of this
+build, so a permission macOS asks for (Screen Recording, for Help ▸ Report a
+Bug ▸ Whole Window and Pick an Area) is granted once and not after every build.
+
+Without that certificate the build is signed ad-hoc and works the same, except
+that macOS treats every rebuild as a new app and asks again. To avoid that, sign
+with a certificate you do have:
+
+```sh
+security find-identity -v -p codesigning   # lists the identities you can use
+export LUNA_SIGN_IDENTITY="Apple Development: Your Name (ABCDE12345)"
+```
+
+Put the `export` in your shell profile. After the first signed build, grant the
+permission once more and remove the old Luna entry from the list in System
+Settings ▸ Privacy & Security; it belongs to the ad-hoc build. `make test` and
+CI build ad-hoc, which is fine: nothing they run asks for a permission.
+
 ## How work is tracked
 
 Everything to do is a GitHub issue, and every issue is on the
