@@ -59,7 +59,10 @@ public enum ControlCLI {
             process.terminationHandler = { continuation.resume(returning: $0.terminationStatus) }
             do {
                 try process.run()
-                DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
+                // Its own queue, not `global()`: a private serial queue gets a
+                // thread even when the global pool's are all blocked. On CI's
+                // three cores a 0.2 s timeout once went unfired for 10 s.
+                DispatchQueue(label: "ControlCLI.timeout").asyncAfter(deadline: .now() + timeout) {
                     if process.isRunning { process.terminate() }
                 }
             } catch {
