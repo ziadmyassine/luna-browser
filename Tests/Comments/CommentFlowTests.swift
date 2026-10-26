@@ -393,7 +393,8 @@ extension CommentFlowTests {
         XCTAssertTrue(controller.window?.firstResponder === tab.webView, "\(String(describing: controller.window?.firstResponder))")
     }
 
-    func testUpWalksFromAnEmptyNote() async throws {
+    /// While a note is open the picker rests: ↑ goes to the note, not the outline.
+    func testUpInAnOpenNoteWalksNothing() async throws {
         try await loadSidebar()
         delegate.toggleCommenting(nil)
         try await pick(x: "50", y: "45")
@@ -401,14 +402,11 @@ extension CommentFlowTests {
         XCTAssertTrue(note.hasFocus)
         try await hover(x: 50, y: 45)
         try await send(126)
-        try await assertOutline(on: "nav", "↑ from the empty note did not walk")
-
-        // The empty note's comment goes as the next one is made.
-        try await send(36)
-        try await waitFor { self.set.comments.last?.element.tag == "nav" }
-        XCTAssertEqual(set.comments.map(\.element.tag), ["nav"], "Return did not commit the walked outline")
+        try await Task.sleep(for: .milliseconds(200))
+        let outlined = try await outline()
+        XCTAssertEqual(outlined, [], "↑ in an open note walked the outline")
         let keys = try await tab.webView?.evaluateJavaScript("window.keys") as? [String]
-        XCTAssertEqual(keys, [], "the page heard the walk")
+        XCTAssertEqual(keys, [], "the page heard the key")
     }
 
     func testUpWalksFromTheChrome() async throws {
@@ -432,7 +430,8 @@ extension CommentFlowTests {
         try await hover(x: 50, y: 45)
         try await send(126)
         try await Task.sleep(for: .milliseconds(200))
-        try await assertOutline(on: "a[href='/a']", "↑ in a typed note walked the outline")
+        let outlined = try await outline()
+        XCTAssertEqual(outlined, [], "↑ in a typed note walked the outline")
         XCTAssertEqual(note.textView.selectedRange().location, 0, "the caret did not move up")
     }
 
