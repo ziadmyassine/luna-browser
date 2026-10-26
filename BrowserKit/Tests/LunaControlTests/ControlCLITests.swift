@@ -46,10 +46,11 @@ struct ControlCLITests {
     @Test func aTimeoutIsTheCallers() async throws {
         let start = Date()
         await #expect(throws: ControlCLI.RunError.self) {
-            try await ControlCLI.run(URL(filePath: "/bin/sh"), arguments: ["-c", "sleep 5"], timeout: 0.2)
+            try await ControlCLI.run(URL(filePath: "/bin/sh"), arguments: ["-c", "sleep 60"], timeout: 0.2)
         }
-        // Well short of the 5 s sleep; not tighter, as a full parallel run
-        // took 2.07 s to start, time out and reap the process.
-        #expect(Date().timeIntervalSince(start) < 4)
+        // The line between the caller's 0.2 s and the 30 s default, with room
+        // for a loaded machine: on the CI runner's parallel run the kill landed
+        // more than 5 s late, after a 5 s sleep had already ended — hence 60.
+        #expect(Date().timeIntervalSince(start) < 20)
     }
 }
