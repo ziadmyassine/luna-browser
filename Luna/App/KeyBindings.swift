@@ -34,13 +34,17 @@ enum KeyBindings {
 
     private static func key(_ command: BrowserCommand) -> String { prefix + command.id }
 
+    /// Where overrides live. Tests swap in an empty suite: the test host is the
+    /// real app, and `.standard` there is the developer's own Luna.
+    static var store: UserDefaults = .standard
+
     // MARK: - Reading
 
     /// Every keystroke that fires `command`: the printed one first, then the
     /// alternates. An override replaces the list entirely (see
     /// `BrowserCommand`'s header).
     static func bindings(for command: BrowserCommand) -> [KeyBinding] {
-        guard let stored = UserDefaults.standard.string(forKey: key(command)) else { return command.defaults }
+        guard let stored = store.string(forKey: key(command)) else { return command.defaults }
         guard stored != cleared else { return [] }
         return KeyBinding(stored: stored).map { [$0] } ?? command.defaults
     }
@@ -51,7 +55,7 @@ enum KeyBindings {
     /// Whether this row has been moved off what Luna ships — the only thing the
     /// Reset affordance keys off.
     static func isCustomised(_ command: BrowserCommand) -> Bool {
-        UserDefaults.standard.string(forKey: key(command)) != nil
+        store.string(forKey: key(command)) != nil
     }
 
     static var hasAnyCustomisation: Bool {
@@ -66,19 +70,19 @@ enum KeyBindings {
     /// to do about the answer.
     static func set(_ binding: KeyBinding?, for command: BrowserCommand) {
         guard command.isCustomisable else { return }
-        UserDefaults.standard.set(binding?.stored ?? cleared, forKey: key(command))
+        store.set(binding?.stored ?? cleared, forKey: key(command))
         announce()
     }
 
     /// Back to what Luna ships, alternates and all.
     static func reset(_ command: BrowserCommand) {
-        UserDefaults.standard.removeObject(forKey: key(command))
+        store.removeObject(forKey: key(command))
         announce()
     }
 
     static func resetAll() {
         for command in BrowserCommand.all {
-            UserDefaults.standard.removeObject(forKey: key(command))
+            store.removeObject(forKey: key(command))
         }
         announce()
     }

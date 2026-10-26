@@ -5,8 +5,8 @@
 //  §3.6's store and the menu it drives: overrides, conflicts, and the invariant
 //  that Luna does not ship two commands on one keystroke.
 //
-//  Every test that writes a binding puts the whole stored domain back, so an
-//  override left behind here does not become the next test's starting point.
+//  Every test runs against an empty, throwaway suite, so an override one test
+//  sets is never the next one's starting point.
 //
 
 import AppKit
@@ -16,16 +16,16 @@ import XCTest
 @MainActor
 final class ShortcutBindingsTests: XCTestCase {
 
-    private var domain: String { UserDefaults.standardDomain }
-    private var snapshot: [String: Any]?
+    private let suite = "dev.novapps.luna.tests.shortcuts.\(UUID().uuidString)"
 
     override func setUp() {
         super.setUp()
-        snapshot = UserDefaults.standard.persistentDomain(forName: domain)
+        KeyBindings.store = UserDefaults(suiteName: suite) ?? .standard
     }
 
     override func tearDown() {
-        UserDefaults.standard.setPersistentDomain(snapshot ?? [:], forName: domain)
+        KeyBindings.store.removePersistentDomain(forName: suite)
+        KeyBindings.store = .standard
         super.tearDown()
     }
 
@@ -65,7 +65,9 @@ final class ShortcutBindingsTests: XCTestCase {
         }
     }
 
-    /// Each of these commands ships with its keystroke already bound.
+    /// Each of these commands ships with its keystroke already bound. Read off
+    /// the table, not `KeyBindings`: what ships is not what a user stored, and
+    /// the override below fails the test if that is ever confused again.
     func testTheNewCommandsShipTheKeystrokesTheyWereGiven() {
         let expected: [(BrowserCommand, String)] = [
             (.forceReloadPage, "⌥⌘R"), (.reader, "⇧⌘R"), (.hideElements, "⇧⌘H"), (.commentOnPage, "⇧⌘M"),
@@ -74,8 +76,9 @@ final class ShortcutBindingsTests: XCTestCase {
             (.zoomIn, "⌘+"), (.zoomOut, "⌘-"), (.actualSize, "⌘0"), (.closeWindow, "⇧⌘W"),
             (.reportBugWindow, "⇧⌘I")
         ]
+        KeyBindings.set(KeyBinding("j", [.command, .option]), for: .forceReloadPage)
         for (command, printed) in expected {
-            XCTAssertEqual(KeyBindings.primary(for: command)?.display, printed, command.id)
+            XCTAssertEqual(command.defaults.first?.display, printed, command.id)
         }
     }
 
