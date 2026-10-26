@@ -44,7 +44,7 @@ enum MainMenu {
         // Develop sits where Safari puts it, just before Window.
         let develop = DevelopMenu.isShown ? [submenu(developMenu())] : []
         for item in [submenu(appMenu()), submenu(fileMenu()), submenu(editMenu()),
-                     submenu(viewMenu()), submenu(historyMenu()), spaces]
+                     submenu(viewMenu()), submenu(reviewMenu()), submenu(historyMenu()), spaces]
             + develop + [submenu(window), submenu(help)] {
             main.addItem(item)
         }
@@ -255,6 +255,13 @@ enum MainMenu {
             // free in the §20.1 map and is what Safari uses.
             items(.showDownloads)
         ]))
+    }
+
+    /// Comment mode's two commands, which are about handing a page to an
+    /// agent rather than viewing it. Hide Something… stays in View: it
+    /// changes what the page shows.
+    private static func reviewMenu() -> NSMenu {
+        menu("Review", flatten([items(.commentOnPage), items(.exportComments)]))
     }
 
     private static func historyMenu() -> NSMenu {

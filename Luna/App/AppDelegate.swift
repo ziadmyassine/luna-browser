@@ -104,6 +104,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Web links handed over before the first window could take them, and nil
     /// from then on — see `AppDelegate+OpenURLs.swift`.
     var linksBeforeLaunch: [URL]? = []
+    /// Comment mode's comments, one set for every window, read from the draft
+    /// the first time ⇧⌘M or Export Comments is used.
+    var commentSet: CommentSet?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         LaunchTrace.mark("appkit")

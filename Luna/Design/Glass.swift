@@ -74,12 +74,13 @@ enum Glass {
         _ style: Style,
         to view: NSView,
         cornerRadius: CGFloat = 0,
-        cornerCurve: CALayerCornerCurve = .continuous
+        cornerCurve: CALayerCornerCurve = .continuous,
+        rimmed: Bool = false
     ) -> NSView {
         for existing in view.subviews where existing is GlassBackingView {
             existing.removeFromSuperview()
         }
-        let backing = backing(style, cornerRadius: cornerRadius, cornerCurve: cornerCurve)
+        let backing = backing(style, cornerRadius: cornerRadius, cornerCurve: cornerCurve, rimmed: rimmed)
         backing.frame = view.bounds
         // The mask is enough for the backing: its margins are zero, so the
         // constraints AppKit derives read "fill" whatever size it starts at.

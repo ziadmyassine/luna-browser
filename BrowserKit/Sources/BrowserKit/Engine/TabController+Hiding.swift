@@ -9,9 +9,108 @@ import WebKit
 /// nothing until someone asks for it — and both run in `.defaultClient`, where the
 /// page can neither see the picker nor post to it.
 
+/// What comment mode's picker reports about the element pressed. Every string
+/// was written by the page, so it is untrusted: one line each, whitespace
+/// collapsed and clipped in the picker, and never a form's value.
+public struct PageElement: Codable, Equatable, Sendable {
+    /// CSS pixels, relative to the viewport.
+    public struct Box: Codable, Equatable, Sendable {
+        public var x: Double
+        public var y: Double
+        public var width: Double
+        public var height: Double
+
+        public init(x: Double, y: Double, width: Double, height: Double) {
+            self.x = x
+            self.y = y
+            self.width = width
+            self.height = height
+        }
+    }
+
+    /// A hint computed on the live page, not an address. When nothing unique
+    /// was found it is the plain nth-of-type path, and `matches` says so.
+    public var selector: String
+    /// How many elements `selector` matched at the press: 1 unless the hint is ambiguous or resolves to nothing.
+    public var matches: Int
+    public var tag: String
+    /// The role attribute, nil without one: the tag stands for an implicit role.
+    public var role: String?
+    /// The element's visible words, at most 120 characters.
+    public var text: String
+    /// Its outerHTML with `value` attributes cut, at most 300 characters.
+    public var html: String
+    /// The nearest h1–h6 before it, at most 60 characters.
+    public var heading: String?
+    /// The nearest header, nav, main, aside, footer or role around it.
+    public var landmark: String?
+    /// What its neighbours are called, at most six.
+    public var siblings: [String]
+    public var box: Box
+
+    public init(
+        selector: String, matches: Int, tag: String, role: String?, text: String, html: String,
+        heading: String?, landmark: String?, siblings: [String], box: Box
+    ) {
+        self.selector = selector
+        self.matches = matches
+        self.tag = tag
+        self.role = role
+        self.text = text
+        self.html = html
+        self.heading = heading
+        self.landmark = landmark
+        self.siblings = siblings
+        self.box = box
+    }
+}
+
+/// What comment mode's drag reports: the rectangle, and the outermost drawn
+/// elements wholly inside it. Strings are the page's, as in `PageElement`.
+public struct PageRegion: Codable, Equatable, Sendable {
+    public struct Item: Codable, Equatable, Sendable {
+        public var tag: String
+        /// At most 120 characters, as `PageElement.text`.
+        public var text: String
+        /// At most 300 characters with `value` attributes cut, as `PageElement.html`.
+        public var html: String
+        public var selector: String
+        public var box: PageElement.Box
+
+        public init(tag: String, text: String, html: String, selector: String, box: PageElement.Box) {
+            self.tag = tag
+            self.text = text
+            self.html = html
+            self.selector = selector
+            self.box = box
+        }
+    }
+
+    /// CSS pixels, relative to the viewport, cut to it.
+    public var box: PageElement.Box
+    /// In document order, at most 20.
+    public var contents: [Item]
+    /// How many more were inside and are not listed.
+    public var more: Int
+
+    public init(box: PageElement.Box, contents: [Item], more: Int) {
+        self.box = box
+        self.contents = contents
+        self.more = more
+    }
+}
+
 /// A picker that is on, and who to tell what it picks.
 struct ElementPicking {
-    let onPick: @MainActor (HiddenElements.Element) -> Void
+    enum Mode {
+        /// Hide Something…: a selector to file against the site.
+        case hiding(@MainActor (HiddenElements.Element) -> Void)
+        /// Comment mode: a description of the element, kept even when no selector finds it again;
+        /// a drag's region with the element that holds it.
+        case describing(@MainActor (PageElement) -> Void, region: (@MainActor (PageRegion, PageElement) -> Void)?)
+    }
+
+    let mode: Mode
     let onEnd: @MainActor () -> Void
 }
 
@@ -50,7 +149,15 @@ extension TabController {
         hiddenElements.css(forHost: host) != hiddenStyleInstalled
     }
 
-    public var isPickingElements: Bool { picking != nil }
+    /// Hide Something…'s picker. Comment mode's is `isDescribingElements`, so
+    /// one cannot be mistaken for, or ended as, the other.
+    public var isPickingElements: Bool {
+        if case .hiding = picking?.mode { true } else { false }
+    }
+
+    public var isDescribingElements: Bool {
+        if case .describing = picking?.mode { true } else { false }
+    }
 
     /// Turns the picker on. Every element clicked is handed to `onPick` until the
     /// user presses Escape, the page goes away, or `stopPickingElements()`; then
@@ -59,19 +166,42 @@ extension TabController {
         onPick: @escaping @MainActor (HiddenElements.Element) -> Void,
         onEnd: @escaping @MainActor () -> Void
     ) {
+        startPicker(ElementPicking(mode: .hiding(onPick), onEnd: onEnd))
+    }
+
+    /// Comment mode's picker: as `startPickingElements`, but every click is
+    /// described, and kept even when its selector is not unique. A drag goes
+    /// to `onRegion`, with the element that holds the whole area.
+    public func startDescribingElements(
+        onPick: @escaping @MainActor (PageElement) -> Void,
+        onRegion: (@MainActor (PageRegion, PageElement) -> Void)? = nil,
+        onEnd: @escaping @MainActor () -> Void
+    ) {
+        startPicker(ElementPicking(mode: .describing(onPick, region: onRegion), onEnd: onEnd))
+    }
+
+    private func startPicker(_ requested: ElementPicking) {
         guard let webView, picking == nil else { return }
-        picking = ElementPicking(onPick: onPick, onEnd: onEnd)
+        picking = requested
+        let detail: Bool
+        if case .describing = requested.mode { detail = true } else { detail = false }
         webView.callAsyncJavaScript(
-            Self.pickerScript + "\nwindow.__lunaPicker.on(palette);",
-            arguments: ["palette": InternalPages.palette],
+            Self.pickerScript + "\nwindow.__lunaPicker.on(palette, options);",
+            arguments: ["palette": InternalPages.palette, "options": ["detail": detail]],
             in: nil,
             in: .defaultClient
         )
     }
 
+    /// Ends comment mode's picker and leaves Hide's alone.
+    public func stopDescribingElements() {
+        if isDescribingElements { stopPickingElements() }
+    }
+
+    /// Ends whichever picker is on: a tab left or put into Reader must not keep a crosshair.
     public func stopPickingElements() {
         guard picking != nil else { return }
-        webView?.evaluateJavaScript("window.__lunaPicker && window.__lunaPicker.off();", in: nil, in: .defaultClient)
+        webView?.evaluateJavaScript("window.__lunaPicker && window.__lunaPicker.off(true);", in: nil, in: .defaultClient)
         endPicking()
     }
 
@@ -85,12 +215,29 @@ extension TabController {
     /// selector of its own must not get one hidden on the page around it.
     func handlePickMessage(_ message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame, let body = message.body as? [String: Any] else { return }
-        if body["off"] as? Bool == true {
-            endPicking()
-        } else if let selector = body["selector"] as? String, !selector.isEmpty {
-            let label = body["label"] as? String ?? selector
-            picking?.onPick(HiddenElements.Element(selector: selector, label: label))
+        if body["off"] as? Bool == true { return endPicking() }
+        switch picking?.mode {
+        case let .hiding(onPick):
+            guard let selector = body["selector"] as? String, !selector.isEmpty else { return }
+            onPick(HiddenElements.Element(selector: selector, label: body["label"] as? String ?? selector))
+        case let .describing(onPick, onRegion):
+            // The body's keys are the types' own, so it decodes as it stands.
+            guard let data = try? JSONSerialization.data(withJSONObject: body) else { return }
+            if body["region"] != nil {
+                guard let drag = try? JSONDecoder().decode(Drag.self, from: data) else { return }
+                onRegion?(drag.region, drag.element)
+            } else if let element = try? JSONDecoder().decode(PageElement.self, from: data) {
+                onPick(element)
+            }
+        case nil:
+            break
         }
+    }
+
+    /// A drag's message: the area, and the element that holds it.
+    private struct Drag: Decodable {
+        let region: PageRegion
+        let element: PageElement
     }
 
     /// Re-dresses the page on screen after its site's list changed, and swaps the
@@ -129,188 +276,5 @@ extension TabController {
       (document.head || document.documentElement).appendChild(sheet);
     }
     sheet.textContent = css;
-    """
-
-    /// The pointing mode. Its outline is drawn in a closed shadow root, so the
-    /// page's own stylesheets cannot reach it and the internal pages' palette
-    /// can, with `:root` read as the shadow host.
-    ///
-    /// Every kind of press is swallowed, not only `click`: pages act on
-    /// `pointerdown` and `mousedown` and are gone before a click completes.
-    static let pickerScript = """
-    if (!window.__lunaPicker) {
-      window.__lunaPicker = (function () {
-        var live = false, host = null, box = null, tag = null, target = null, cursor = null;
-        var presses = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click',
-                       'dblclick', 'auxclick', 'contextmenu', 'touchstart'];
-        var known = { nav: 'Navigation', header: 'Header', footer: 'Footer', aside: 'Sidebar',
-                      form: 'Form', dialog: 'Dialog', video: 'Video', img: 'Image', picture: 'Image',
-                      button: 'Button', iframe: 'Embed', figure: 'Figure', table: 'Table' };
-
-        function post(body) {
-          try { window.webkit.messageHandlers.lunaPick.postMessage(body); } catch (e) {}
-        }
-
-        function build(palette) {
-          if (host && host.isConnected) { return; }
-          host = document.createElement('luna-picker');
-          host.style.cssText = 'all:initial;position:fixed;inset:0;pointer-events:none;z-index:2147483647';
-          var root = host.attachShadow({ mode: 'closed' });
-          var style = document.createElement('style');
-          style.textContent = palette.replace(/:root/g, ':host') +
-            '.box{position:fixed;display:none;box-sizing:border-box;pointer-events:none;' +
-            'border:2px solid var(--luna-text-primary);background:var(--luna-surface-selected);' +
-            'border-radius:var(--luna-row-radius);transition-property:left,top,width,height;' +
-            'transition-duration:var(--luna-motion-hover);transition-timing-function:ease-out}' +
-            '.tag{position:absolute;left:-2px;max-width:320px;overflow:hidden;text-overflow:ellipsis;' +
-            'white-space:nowrap;padding:0 8px;border-radius:var(--luna-row-radius);' +
-            'font:500 var(--luna-size-label)/20px -apple-system,BlinkMacSystemFont,sans-serif;' +
-            'color:var(--luna-surface-base);background:var(--luna-text-primary)}' +
-            '@media (prefers-reduced-motion: reduce){.box{transition:none}}';
-          box = document.createElement('div');
-          box.className = 'box';
-          tag = document.createElement('div');
-          tag.className = 'tag';
-          box.appendChild(tag);
-          root.appendChild(style);
-          root.appendChild(box);
-          document.documentElement.appendChild(host);
-        }
-
-        function clip(text, n) { return text.length > n ? text.slice(0, n - 1) + '…' : text; }
-
-        // What a person would call it: its own label, then its kind, then its words.
-        function name(el) {
-          var said = el.getAttribute('aria-label') || el.getAttribute('title') || el.getAttribute('alt');
-          if (said && said.trim()) { return clip(said.trim(), 40); }
-          var kind = el.tagName.toLowerCase();
-          if (known[kind]) { return known[kind]; }
-          var role = el.getAttribute('role');
-          if (role) { return role.charAt(0).toUpperCase() + role.slice(1); }
-          var words = (el.innerText || '').trim().replace(/\\s+/g, ' ');
-          return words ? clip(words, 40) : kind;
-        }
-
-        function unique(selector) {
-          try { return document.querySelectorAll(selector).length === 1; } catch (e) { return false; }
-        }
-
-        // A class written by a person, not one a build tool hashed and will
-        // rename on the next deploy.
-        function steady(word) {
-          return /^[a-zA-Z][\\w-]{2,29}$/.test(word) && !/\\d{3,}/.test(word) &&
-                 !/^(css|sc|jsx|emotion|svelte|styles?)-/.test(word);
-        }
-
-        function selectorFor(el) {
-          var kind = el.tagName.toLowerCase();
-          if (el.id && steady(el.id) && unique('#' + CSS.escape(el.id))) { return '#' + CSS.escape(el.id); }
-          var hooks = ['data-testid', 'data-test', 'data-qa', 'aria-label', 'role', 'name'];
-          for (var i = 0; i < hooks.length; i++) {
-            var value = el.getAttribute(hooks[i]);
-            if (!value) { continue; }
-            var byHook = kind + '[' + hooks[i] + '="' + CSS.escape(value) + '"]';
-            if (unique(byHook)) { return byHook; }
-          }
-          var classes = typeof el.className === 'string' ? el.className.trim().split(/\\s+/).filter(steady) : [];
-          if (classes.length) {
-            var byClass = kind + '.' + classes.map(CSS.escape).join('.');
-            if (unique(byClass)) { return byClass; }
-          }
-          // A path, anchored on the nearest ancestor with a name of its own.
-          var parts = [], node = el;
-          while (node && node.nodeType === 1 && node !== document.documentElement) {
-            if (node !== el && node.id && steady(node.id) && unique('#' + CSS.escape(node.id))) {
-              parts.unshift('#' + CSS.escape(node.id));
-              break;
-            }
-            var tag = node.tagName.toLowerCase(), parent = node.parentElement;
-            if (!parent) { parts.unshift(tag); break; }
-            var same = Array.prototype.filter.call(parent.children, function (c) { return c.tagName === node.tagName; });
-            parts.unshift(same.length > 1 ? tag + ':nth-of-type(' + (same.indexOf(node) + 1) + ')' : tag);
-            node = parent;
-          }
-          return parts.join(' > ');
-        }
-
-        function under(event) {
-          var el = document.elementFromPoint(event.clientX, event.clientY);
-          if (!el || el === host || el === document.documentElement || el === document.body) { return null; }
-          return el;
-        }
-
-        function show(el) {
-          var r = el.getBoundingClientRect();
-          box.style.display = 'block';
-          box.style.left = r.left + 'px';
-          box.style.top = r.top + 'px';
-          box.style.width = r.width + 'px';
-          box.style.height = r.height + 'px';
-          tag.textContent = name(el);
-          // Above the outline when there is room, tucked inside it at the top of the window.
-          tag.style.top = r.top >= 26 ? '-24px' : '2px';
-        }
-
-        function onMove(event) {
-          var el = under(event);
-          if (!el) { return; }
-          target = el;
-          show(el);
-        }
-
-        function swallow(event) {
-          event.preventDefault();
-          event.stopPropagation();
-          event.stopImmediatePropagation();
-        }
-
-        function onPress(event) {
-          swallow(event);
-          if (event.type !== 'pointerdown' || event.button !== 0) { return; }
-          // A press with no move before it — a trackpad tap — has no target yet.
-          var el = target || under(event);
-          if (!el) { return; }
-          var selector = selectorFor(el);
-          if (!selector || !unique(selector)) { return; }
-          post({ selector: selector, label: name(el) });
-          target = null;
-          box.style.display = 'none';
-        }
-
-        function onKey(event) {
-          if (event.key !== 'Escape') { return; }
-          swallow(event);
-          off();
-        }
-
-        function on(palette) {
-          if (live) { return; }
-          live = true;
-          build(palette);
-          // Every element, not the root alone: a link's own pointer and the
-          // text beam would otherwise win wherever the page sets one.
-          cursor = document.createElement('style');
-          cursor.textContent = '*, *::before, *::after { cursor: crosshair !important; }';
-          document.documentElement.appendChild(cursor);
-          window.addEventListener('mousemove', onMove, true);
-          window.addEventListener('keydown', onKey, true);
-          presses.forEach(function (kind) { window.addEventListener(kind, onPress, true); });
-        }
-
-        function off() {
-          if (!live) { return; }
-          live = false;
-          target = null;
-          if (cursor) { cursor.remove(); cursor = null; }
-          window.removeEventListener('mousemove', onMove, true);
-          window.removeEventListener('keydown', onKey, true);
-          presses.forEach(function (kind) { window.removeEventListener(kind, onPress, true); });
-          if (host) { host.remove(); host = null; }
-          post({ off: true });
-        }
-
-        return { on: on, off: off };
-      })();
-    }
     """
 }

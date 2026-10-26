@@ -111,6 +111,61 @@ extension AppDelegate {
         session?.toggleHidingElements()
     }
 
+    // MARK: - Comments
+
+    /// `⇧⌘M`. Point at an element and write a note on it, for an agent to act on.
+    @objc func toggleCommenting(_ sender: Any?) {
+        guard let front else { return }
+        if let mode = front.comments { return mode.leave() }
+        guard canComment(in: front.session) else { return }
+        let set = commentSet ?? CommentSet()
+        commentSet = set
+        let mode = CommentMode(window: front, set: set)
+        if mode.enter() { front.comments = mode }
+    }
+
+    /// Works with the mode off too: the set is app-wide and outlives it.
+    @objc func exportComments(_ sender: Any?) {
+        exportComments()?.show(in: front?.controller.window)
+    }
+
+    /// Every site's bundle, and one prompt on the clipboard: the front page's
+    /// site, or the first commented one when the front page has none. The set
+    /// is cleared only once every bundle is written, and ⌘Z brings it back.
+    /// - Returns: the toast to show, or nil when there was nothing to export.
+    func exportComments(to root: URL = CommentBundle.folder, pasteboard: NSPasteboard = .general) -> PageToast? {
+        guard let front else { return nil }
+        // An open note holds text the set has not been given yet.
+        for window in windows { window.comments?.closeNote(focusingPage: true, undoable: false) }
+        let set = commentSet ?? CommentSet()
+        commentSet = set
+        let origins = set.comments.map(\.origin).uniqued()
+        guard let first = origins.first else { return nil }
+        let here = front.session.activeURL.flatMap(CommentBundle.slug(for:))
+        let copied = origins.first { $0 == here } ?? first
+        let count = set.comments.filter { $0.origin == copied }.count
+        let written: [String: URL]
+        do {
+            written = try set.export(to: root, undoingOn: front.session.undoManager)
+        } catch {
+            return .commentsNotExported(error.localizedDescription)
+        }
+        if let file = written[copied] {
+            pasteboard.clearContents()
+            pasteboard.setString(CommentBundle.prompt(for: file), forType: .string)
+        }
+        let files = origins.compactMap { written[$0] }
+        return .commentsExported(count, copied: copied, others: origins.filter { $0 != copied }) {
+            NSWorkspace.shared.activateFileViewerSelecting(files)
+        }
+    }
+
+    /// Not in a private window, where a draft on disk would break the promise;
+    /// not in Reader, whose markup is Luna's and not the site's.
+    private func canComment(in session: BrowserSession) -> Bool {
+        session.canUsePageTools && !session.isPrivate && !session.isReaderOn
+    }
+
     // MARK: - History (§6.4)
 
     /// `⌘Y`. The same pop-out both chrome layouts hang off a button, opened
@@ -183,7 +238,13 @@ extension AppDelegate {
             return session.canUsePageTools
         case #selector(toggleHidingElements(_:)):
             item.state = session.isPickingElements ? .on : .off
-            return session.canUsePageTools
+            return session.canUsePageTools && !session.isDescribingElements
+        case #selector(toggleCommenting(_:)):
+            return canComment(in: session)
+        // The set is app-wide, so the page in front has no say. A private
+        // window stays out of comment mode's files altogether.
+        case #selector(exportComments(_:)):
+            return !session.isPrivate && !(commentSet?.comments ?? CommentSet.saved()).isEmpty
         case #selector(printPage(_:)):
             return session.canPrint
         case #selector(downloadPDF(_:)):

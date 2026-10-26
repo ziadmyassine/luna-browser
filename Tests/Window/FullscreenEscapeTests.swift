@@ -65,6 +65,20 @@ final class FullscreenEscapeTests: XCTestCase {
         XCTAssertFalse(LunaWindow.escapeEndsHiding(in: session), "an Escape with nothing to end was swallowed")
     }
 
+    /// Comment mode's picker is not Hide's, and the same one Escape ends it.
+    func testEscapeEndsCommentModeToo() async throws {
+        let directory = URL.temporaryDirectory.appending(path: "luna-tests-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let session = try await BrowserSession.restored(store: BrowserStore(path: directory.appending(path: "luna.sqlite")))
+        _ = session.newTab(url: URL(string: "https://example.com/"))
+        var ended = false
+        session.activeController?.startDescribingElements { _ in } onEnd: { ended = true }
+        XCTAssertTrue(session.isDescribingElements, "the picker did not start")
+        XCTAssertTrue(LunaWindow.escapeEndsHiding(in: session))
+        XCTAssertFalse(session.isDescribingElements, "one Escape left comment mode running")
+        XCTAssertTrue(ended)
+    }
+
     /// Out of fullscreen Escape is AppKit's as before.
     func testOutOfFullscreenEscapeIsLeftAlone() {
         let window = LunaWindow(

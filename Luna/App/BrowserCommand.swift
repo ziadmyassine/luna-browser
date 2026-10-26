@@ -319,7 +319,8 @@ struct BrowserCommand: Identifiable {
         undo, redo, cut, copy, paste, selectAll, find, findNext, findPrevious, useSelectionForFind,
         copyURL, copyMarkdown,
         toggleSidebar, toggleAgent, toggleFavorite, reloadPage, forceReloadPage, stopLoading, openBlockedPopup,
-        zoomIn, zoomOut, actualSize, pictureInPicture, muteAllTabs, unmuteAllTabs, reader, siteSettings, hideElements, showDownloads,
+        zoomIn, zoomOut, actualSize, pictureInPicture, muteAllTabs, unmuteAllTabs, reader, siteSettings, hideElements,
+        commentOnPage, exportComments, showDownloads,
         goBack, goForward, showHistory, clearHistory,
         showWebInspector, showJavaScriptConsole, showPageSource, startElementSelection, disableJavaScript, emptyCaches,
         previousTab, nextTab, previousSpace, nextSpace, minimize, searchSettings,
@@ -365,6 +366,20 @@ extension BrowserCommand {
     static let showWelcome = BrowserCommand(
         "showWelcome", "Welcome to Luna", #selector(AppDelegate.showWelcome(_:)),
         symbol: "hand.wave", keywords: ["onboarding", "first run", "setup", "import", "theme"]
+    )
+}
+
+// MARK: - Comment mode
+
+extension BrowserCommand {
+
+    /// Neither has a symbol, so neither reaches the Command Bar.
+    static let commentOnPage = BrowserCommand(
+        "commentOnPage", "Comment on Page", #selector(AppDelegate.toggleCommenting(_:)),
+        [KeyBinding("m", [.command, .shift])]
+    )
+    static let exportComments = BrowserCommand(
+        "exportComments", "Export Comments", #selector(AppDelegate.exportComments(_:))
     )
 }
 

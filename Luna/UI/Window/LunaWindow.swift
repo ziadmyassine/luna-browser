@@ -25,6 +25,15 @@ final class LunaWindow: NSWindow {
 
     private var escape = DoubleEscape()
 
+    /// Asked about every key before the first responder is, and true takes it.
+    /// Comment mode's walk, which must work wherever the keyboard is.
+    var keyDownFilter: ((NSEvent) -> Bool)?
+
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .keyDown, keyDownFilter?(event) == true { return }
+        super.sendEvent(event)
+    }
+
     /// A page may not take the keyboard from a field in Luna's chrome — see
     /// `LunaWebView+Focus.swift`.
     override func makeFirstResponder(_ responder: NSResponder?) -> Bool {
@@ -53,13 +62,13 @@ final class LunaWindow: NSWindow {
 
 extension LunaWindow {
 
-    /// One Escape ends hiding mode, wherever the keyboard is. The picker hears
+    /// One Escape ends hiding or comment mode, wherever the keyboard is. The picker hears
     /// Escape in the page, and only while the page has focus; from the sidebar
     /// or a pop-out it came here instead and, in fullscreen, was taken for the
     /// first of the two presses that leave.
     /// - Returns: whether it did.
     static func escapeEndsHiding(in session: BrowserSession) -> Bool {
-        guard session.isPickingElements else { return false }
+        guard session.isPickingElements || session.isDescribingElements else { return false }
         session.activeController?.stopPickingElements()
         return true
     }

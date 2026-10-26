@@ -105,7 +105,7 @@ enum ColorBridge {
 
 /// The pure half of the delegate hub: decisions that depend only on the response, so
 /// they can be tested without a window.
-enum NavigationPolicy {
+public enum NavigationPolicy {
 
     /// Schemes a `WKWebView` renders itself. Anything else is another app's job (§4.2).
     ///
@@ -157,7 +157,7 @@ enum NavigationPolicy {
     /// goes past the cache, because the person reloading it has just edited
     /// it. Measured against `python3 -m http.server`: a plain reload fetched
     /// the new HTML and kept the old CSS and JavaScript from the cache.
-    static func isLocalDevelopment(_ url: URL) -> Bool {
+    public static func isLocalDevelopment(_ url: URL) -> Bool {
         if url.isFileURL { return true }
         guard let host = url.host(percentEncoded: false)?.lowercased() else { return false }
         return ["localhost", "127.0.0.1", "::1", "0.0.0.0"].contains(host)
