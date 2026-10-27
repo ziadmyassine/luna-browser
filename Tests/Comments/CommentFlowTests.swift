@@ -324,7 +324,16 @@ extension CommentFlowTests {
         let page = try XCTUnwrap(tab.state.url)
         let answered = try XCTUnwrap(URL(string: page.absoluteString + "#state=abc&id_token=xyz"))
         tab.load(answered)
-        try await waitFor { self.tab.state.url == answered }
+        // `WKWebView.url` names a load as soon as it is asked for, before it
+        // happens. Should WebKit make this one a new document — on the CI
+        // runner a second web process started here — its commit ends a picker
+        // started on the old one, so the page itself says when it has landed.
+        var landed: String?
+        for _ in 0 ..< 100 where landed != "#state=abc&id_token=xyz complete" {
+            landed = try await tab.webView?.evaluateJavaScript("location.hash + ' ' + document.readyState") as? String
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertEqual(landed, "#state=abc&id_token=xyz complete", "the answered URL never landed")
         delegate.toggleCommenting(nil)
         try await pick(x: "90", y: "80")
         let state = try XCTUnwrap(set.comments.first?.page)
