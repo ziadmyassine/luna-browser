@@ -302,6 +302,11 @@ extension SignInStepsTests {
 
     /// Microsoft's password step slides in from the side. The field is
     /// measured where it stops, not where it was when it took the focus.
+    ///
+    /// Three steps, not more: a web view in no window is a hidden page, and
+    /// WebKit holds a hidden page's timer to about one call a second once it
+    /// has fired six times. A longer slide was still under way when the
+    /// settle's one-second limit reported it.
     func testAFieldSlidingInIsMeasuredWhereItStops() async throws {
         let (webView, sink) = load("""
         <div id="step" style="position: relative; left: 300px">
@@ -312,7 +317,7 @@ extension SignInStepsTests {
         _ = try await webView.evaluateJavaScript("""
         var step = document.getElementById('step'), left = 300;
         var slide = setInterval(function () {
-          left = Math.max(0, left - 30);
+          left = Math.max(0, left - 100);
           step.style.left = left + 'px';
           if (left === 0) { clearInterval(slide); }
         }, 20);

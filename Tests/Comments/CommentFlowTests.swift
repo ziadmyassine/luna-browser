@@ -324,7 +324,9 @@ extension CommentFlowTests {
         let page = try XCTUnwrap(tab.state.url)
         let answered = try XCTUnwrap(URL(string: page.absoluteString + "#state=abc&id_token=xyz"))
         tab.load(answered)
-        try await waitFor { self.tab.state.url == answered }
+        // The URL is the requested one from the moment the load starts; the
+        // page is the one the pick lands on only once the load has finished.
+        try await waitFor { self.tab.state.url == answered && !self.tab.state.isLoading }
         delegate.toggleCommenting(nil)
         try await pick(x: "90", y: "80")
         let state = try XCTUnwrap(set.comments.first?.page)
