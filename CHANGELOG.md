@@ -5,6 +5,8 @@ in a release go under Unreleased, grouped by date.
 
 ## Unreleased
 
+## 0.3.0 — 2026-10-27
+
 ### 2026-10-23
 
 - **Comment mode keeps what you picked marked while you write** (⇧⌘M): the element or area stays outlined with a black and white dashed line while its note is open, stays on it as the page scrolls, and goes when the note closes. It is drawn after the pictures are taken, so it is never in them.
