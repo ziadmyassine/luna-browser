@@ -60,14 +60,12 @@ extension CommentFlowTests {
     /// The picker's script is put in asynchronously; a press before it lands goes to the page.
     private func enterCommenting() async throws {
         delegate.toggleCommenting(nil)
-        for _ in 0 ..< 50 {
-            let ready = try await tab.webView?.evaluateJavaScript(
+        let ready = try await poll {
+            try await self.tab.webView?.evaluateJavaScript(
                 "!!window.__lunaPicker", in: nil, contentWorld: .defaultClient
-            ) as? Bool
-            if ready == true { return }
-            try await Task.sleep(for: .milliseconds(20))
+            ) as? Bool == true
         }
-        XCTFail("the picker never started")
+        XCTAssertTrue(ready, "the picker never started")
     }
 
     private func clickOut(x: String, y: String) async throws {
@@ -90,12 +88,11 @@ extension CommentFlowTests {
     /// The marker is set asynchronously once the note opens, so this waits for it.
     private func assertMarked(_ wanted: [Double], _ message: String, line: UInt = #line) async throws {
         var marked: [Double]?
-        for _ in 0 ..< 50 {
-            marked = try await tab.webView?.evaluateJavaScript(
+        _ = try await poll {
+            marked = try await self.tab.webView?.evaluateJavaScript(
                 "window.__lunaPicker.marked()", in: nil, contentWorld: .defaultClient
             ) as? [Double]
-            if marked == wanted { break }
-            try await Task.sleep(for: .milliseconds(20))
+            return marked == wanted
         }
         XCTAssertEqual(marked, wanted, message, line: line)
     }

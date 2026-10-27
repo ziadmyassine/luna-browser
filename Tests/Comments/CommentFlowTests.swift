@@ -61,10 +61,7 @@ final class CommentFlowTests: XCTestCase {
         controller.setContent(session.webView(for: id))
         tab = try XCTUnwrap(session.controller(for: id))
         tab.load(url)
-        for _ in 0 ..< 100 {
-            if tab.state.url == url, !tab.state.isLoading { break }
-            try await Task.sleep(for: .milliseconds(50))
-        }
+        _ = try await poll { self.tab.state.url == url && !self.tab.state.isLoading }
         XCTAssertFalse(tab.state.isLoading, "the page never finished loading")
         controller.window?.contentView?.layoutSubtreeIfNeeded()
     }
@@ -298,9 +295,23 @@ final class CommentFlowTests: XCTestCase {
         try await waitFor { !surface.subviews.contains { $0 is CommentNoteView } }
     }
 
-    func waitFor(_ condition: @escaping () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {
-        for _ in 0 ..< 100 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
-        XCTAssertTrue(condition(), "timed out", file: file, line: line)
+    func waitFor(
+        _ condition: @escaping () async throws -> Bool, file: StaticString = #filePath, line: UInt = #line
+    ) async throws {
+        let held = try await poll(condition)
+        XCTAssertTrue(held, "timed out", file: file, line: line)
+    }
+
+    /// Whether `condition` came to hold. The ceiling is the CI runner's: a pick
+    /// and its capture there have taken more than the two seconds a local run
+    /// never comes near, and a local run returns on the first pass that holds.
+    func poll(_ condition: @escaping () async throws -> Bool) async throws -> Bool {
+        let deadline = ContinuousClock.now + .seconds(15)
+        while ContinuousClock.now < deadline {
+            if try await condition() { return true }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        return try await condition()
     }
 }
 
@@ -467,11 +478,10 @@ extension CommentFlowTests {
     /// The outline settles on `selector`'s box; the walk is answered asynchronously.
     private func assertOutline(on selector: String, _ message: String, line: UInt = #line) async throws {
         var outlined: [Double]?, wanted: [Double]?
-        for _ in 0 ..< 25 {
-            outlined = try await outline()
-            wanted = try await rect(of: selector)
-            if outlined == wanted { break }
-            try await Task.sleep(for: .milliseconds(20))
+        _ = try await poll {
+            outlined = try await self.outline()
+            wanted = try await self.rect(of: selector)
+            return outlined == wanted
         }
         XCTAssertEqual(outlined, wanted, message, line: line)
     }
