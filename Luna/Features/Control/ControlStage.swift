@@ -105,7 +105,7 @@ final class ControlStage {
     /// (React's streamed Suspense) never appears. With detection off the
     /// page is `visible` on the stage. Private, so checked first: a WebKit
     /// without it leaves the page hidden, as before (`docs/DECISIONS.md` D10).
-    private static func detectOcclusion(_ enabled: Bool, of webView: WKWebView) {
+    static func detectOcclusion(_ enabled: Bool, of webView: WKWebView) {
         let selector = NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")
         guard webView.responds(to: selector) else { return }
         typealias Setter = @convention(c) (AnyObject, Selector, Bool) -> Void
