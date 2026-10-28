@@ -76,6 +76,7 @@ final class CommentMode: WindowScoped {
 
     /// Every way out comes here, the picker's own Escape included, once.
     func leave() {
+        NSLog("CMDIAG leave, ended %d, from %@", ended ? 1 : 0, Thread.callStackSymbols.prefix(8).joined(separator: " | "))
         guard !ended else { return }
         ended = true
         capturing?.cancel()

@@ -117,11 +117,13 @@ extension AppDelegate {
     @objc func toggleCommenting(_ sender: Any?) {
         guard let front else { return }
         if let mode = front.comments { return mode.leave() }
-        guard canComment(in: front.session) else { return }
+        guard canComment(in: front.session) else { NSLog("CMDIAG cannot comment"); return }
         let set = commentSet ?? CommentSet()
         commentSet = set
         let mode = CommentMode(window: front, set: set)
-        if mode.enter() { front.comments = mode }
+        let entered = mode.enter()
+        NSLog("CMDIAG entered %d", entered ? 1 : 0)
+        if entered { front.comments = mode }
     }
 
     /// Works with the mode off too: the set is app-wide and outlives it.
