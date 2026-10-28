@@ -26,6 +26,7 @@ final class CommentFlowTests: XCTestCase {
     var window: BrowserWindow!
     var delegate: AppDelegate!
     var tab: TabController!
+    private var makeView: ((WKWebViewConfiguration) -> WKWebView)?
 
     /// One button by the leading edge, one against the trailing edge, and a
     /// `div` whose path goes through `foreignObject`, which no selector finds again.
@@ -41,6 +42,16 @@ final class CommentFlowTests: XCTestCase {
     """
 
     override func setUp() async throws {
+        // The window never goes on screen, so to WebKit the page is out of every
+        // window, where Luna's `.throttle` let its process start suspending
+        // part-way through a test and answer no pick after. Set as each web view
+        // is made: on a running one the policy has no effect (`WebViewFactory`).
+        let make = WebViewFactory.makeView
+        makeView = make
+        WebViewFactory.makeView = { configuration in
+            configuration.preferences.inactiveSchedulingPolicy = .none
+            return make(configuration)
+        }
         directory = URL.temporaryDirectory.appending(path: "luna-tests-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         session = try await BrowserSession.restored(store: BrowserStore(path: directory.appending(path: "luna.sqlite")))
@@ -72,6 +83,7 @@ final class CommentFlowTests: XCTestCase {
         controller.close()
         session.tearDown()
         try? FileManager.default.removeItem(at: directory)
+        if let makeView { WebViewFactory.makeView = makeView }
     }
 
     // MARK: - Entering and leaving
