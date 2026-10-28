@@ -46,7 +46,10 @@ extension CommentFlowTests {
         controller.window?.contentView?.layoutSubtreeIfNeeded()
         let read = try await tab.webView?.evaluateJavaScript("[innerWidth, innerHeight]") as? [Double]
         let viewport = try XCTUnwrap(read)
-        XCTAssertGreaterThan(viewport[0] - 2, 1600, "the viewport is too small to reach the cap at any scale")
+        XCTAssertGreaterThan(
+            viewport[0] - 2, 1600, "the viewport is too small to reach the cap at any scale: window "
+                + "\(String(describing: controller.window?.frame)), screens \(NSScreen.screens.map(\.frame))"
+        )
         delegate.toggleCommenting(nil)
         try await region(from: (1, 1), to: (viewport[0] - 1, viewport[1] - 1))
         let comment = try XCTUnwrap(set.comments.first)

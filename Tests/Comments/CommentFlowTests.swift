@@ -60,14 +60,12 @@ final class CommentFlowTests: XCTestCase {
         session.activateTab(id, inWindow: window.id)
         controller.setContent(session.webView(for: id))
         tab = try XCTUnwrap(session.controller(for: id))
-        // Shown off every screen with occlusion detection off, as Luna
-        // Control's stage is, so the page is visible as it is to anyone
-        // commenting. Never shown, it is hidden, and now and then a pick
-        // never became a comment: CI reported the page hidden and its
-        // process still answering. The snapshot waits for a screen update.
-        let shown = try XCTUnwrap(controller.window)
-        shown.setFrameOrigin(NSPoint(x: -20000, y: -20000))
-        shown.orderFrontRegardless()
+        // Ordered in, which the test host does off every screen, with
+        // occlusion detection off, as Luna Control's stage is, so the page
+        // is visible as it is to anyone commenting. Never shown, it is
+        // hidden, and now and then a pick never became a comment: CI
+        // reported the page hidden and its process still answering.
+        try XCTUnwrap(controller.window).orderFrontRegardless()
         ControlStage.detectOcclusion(false, of: try XCTUnwrap(tab.webView))
         tab.load(url)
         _ = try await poll { self.tab.state.url == url && !self.tab.state.isLoading }
