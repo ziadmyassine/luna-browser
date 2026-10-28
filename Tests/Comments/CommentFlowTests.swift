@@ -61,11 +61,15 @@ final class CommentFlowTests: XCTestCase {
         controller.setContent(session.webView(for: id))
         tab = try XCTUnwrap(session.controller(for: id))
         tab.load(url)
-        for _ in 0 ..< 100 {
-            if tab.state.url == url, !tab.state.isLoading { break }
-            try await Task.sleep(for: .milliseconds(50))
+        // The page's own location, not the tab's state: a new tab reports
+        // the URL and not loading before anything has committed, and on the
+        // runner its blank document and then this one committed after comment
+        // mode had started, ending it.
+        let loaded = try await poll {
+            let page = try? await self.tab.webView?.evaluateJavaScript("location.href + ' ' + document.readyState") as? String
+            return page == url.absoluteString + " complete" && !self.tab.state.isLoading
         }
-        XCTAssertFalse(tab.state.isLoading, "the page never finished loading")
+        XCTAssertTrue(loaded, "the page never finished loading")
         controller.window?.contentView?.layoutSubtreeIfNeeded()
     }
 
@@ -297,11 +301,6 @@ final class CommentFlowTests: XCTestCase {
         let surface = controller.controlSurface
         try await waitFor { !surface.subviews.contains { $0 is CommentNoteView } }
     }
-
-    func waitFor(_ condition: @escaping () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {
-        for _ in 0 ..< 100 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
-        XCTAssertTrue(condition(), "timed out", file: file, line: line)
-    }
 }
 
 // MARK: - Capture
@@ -324,7 +323,9 @@ extension CommentFlowTests {
         let page = try XCTUnwrap(tab.state.url)
         let answered = try XCTUnwrap(URL(string: page.absoluteString + "#state=abc&id_token=xyz"))
         tab.load(answered)
-        try await waitFor { self.tab.state.url == answered }
+        // The URL is the requested one from the moment the load starts; the
+        // page is the one the pick lands on only once the load has finished.
+        try await waitFor { self.tab.state.url == answered && !self.tab.state.isLoading }
         delegate.toggleCommenting(nil)
         try await pick(x: "90", y: "80")
         let state = try XCTUnwrap(set.comments.first?.page)
@@ -465,11 +466,10 @@ extension CommentFlowTests {
     /// The outline settles on `selector`'s box; the walk is answered asynchronously.
     private func assertOutline(on selector: String, _ message: String, line: UInt = #line) async throws {
         var outlined: [Double]?, wanted: [Double]?
-        for _ in 0 ..< 25 {
-            outlined = try await outline()
-            wanted = try await rect(of: selector)
-            if outlined == wanted { break }
-            try await Task.sleep(for: .milliseconds(20))
+        _ = try await poll {
+            outlined = try await self.outline()
+            wanted = try await self.rect(of: selector)
+            return outlined == wanted
         }
         XCTAssertEqual(outlined, wanted, message, line: line)
     }
