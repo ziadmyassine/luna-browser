@@ -16,9 +16,6 @@ extension CommentFlowTests {
         _ condition: @escaping () async throws -> Bool, file: StaticString = #filePath, line: UInt = #line
     ) async throws {
         if try await poll(condition) { return }
-        NSLog("CMDIAG timed out: comments %d, mode %d, note %d, toast %@", set.comments.count,
-              window.comments == nil ? 0 : 1, window.comments?.note == nil ? 0 : 1,
-              controller.controlSurface.toast?.text ?? "none")
         XCTFail("timed out; the page \(await pageReport())", file: file, line: line)
     }
 

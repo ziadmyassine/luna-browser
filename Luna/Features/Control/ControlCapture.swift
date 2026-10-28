@@ -58,12 +58,7 @@ enum ControlCapture {
         configuration.afterScreenUpdates = true
         configuration.rect = CGRect(x: css.minX * zoom, y: css.minY * zoom, width: css.width * zoom, height: css.height * zoom)
         configuration.snapshotWidth = NSNumber(value: width)
-        NSLog("CMDIAG snapshot asked")
-        let snapshot = try await whileMasked(webView) {
-            NSLog("CMDIAG masked")
-            return try await webView.takeSnapshot(configuration: configuration)
-        }
-        NSLog("CMDIAG snapshot back")
+        let snapshot = try await whileMasked(webView) { try await webView.takeSnapshot(configuration: configuration) }
         guard let source = snapshot.cgImage(forProposedRect: nil, context: nil, hints: nil),
               let context = context(width: width, height: height) else {
             throw ControlError("The screenshot could not be drawn.")

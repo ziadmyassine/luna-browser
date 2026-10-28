@@ -76,7 +76,6 @@ final class CommentMode: WindowScoped {
 
     /// Every way out comes here, the picker's own Escape included, once.
     func leave() {
-        NSLog("CMDIAG leave, ended %d, from %@", ended ? 1 : 0, Thread.callStackSymbols.prefix(8).joined(separator: " | "))
         guard !ended else { return }
         ended = true
         capturing?.cancel()
@@ -125,7 +124,6 @@ final class CommentMode: WindowScoped {
 
     /// - Parameter region: a drag's area, of which `element` is the container.
     private func picked(_ element: PageElement, region: PageRegion? = nil) {
-        NSLog("CMDIAG picked")
         commitNote()
         let previous = capturing
         capturing = Task { [weak self] in
@@ -141,8 +139,7 @@ final class CommentMode: WindowScoped {
     /// A region is cropped exactly as drawn, an element with room around it.
     private func capture(_ element: PageElement, region: PageRegion?) async {
         guard !ended, let tabID, let webView = session.controller(for: tabID)?.webView, let url = webView.url,
-              let origin = CommentBundle.slug(for: url) else { NSLog("CMDIAG capture guard out"); return }
-        NSLog("CMDIAG capture start")
+              let origin = CommentBundle.slug(for: url) else { return }
         let id = UUID()
         let image = "\(id.uuidString).png"
         let box = region?.box ?? element.box
@@ -152,25 +149,21 @@ final class CommentMode: WindowScoped {
         do {
             try FileManager.default.createDirectory(at: set.folder, withIntermediateDirectories: true)
             let crop = try await ControlCapture.image(of: webView, scale: scale(for: cropped, in: webView), region: cropped)
-            NSLog("CMDIAG crop done")
             try write(crop, to: image)
             if isLocal(url) {
                 let centre = CGPoint(x: box.x + box.width / 2, y: box.y + box.height / 2)
                 let name = "\(id.uuidString)-context.png"
                 try write(await frame(webView, [centre]), to: name)
                 context = name
-                NSLog("CMDIAG context done")
             }
             page = try await state(of: webView, at: url)
         } catch {
-            NSLog("CMDIAG capture error %@", String(describing: error))
             for name in [image, context].compactMap(\.self) {
                 try? FileManager.default.removeItem(at: set.folder.appending(path: name))
             }
             if !ended { (region == nil ? PageToast.commentNotCaptured : .areaNotCaptured).show(in: surface.window) }
             return
         }
-        NSLog("CMDIAG state done, ended %d", ended ? 1 : 0)
         guard !ended else { return }
         set.add(Comment(
             id: id, note: "", created: .now, origin: origin, page: page, element: element.cleaned,

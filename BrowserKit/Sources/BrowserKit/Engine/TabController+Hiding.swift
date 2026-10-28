@@ -134,7 +134,6 @@ extension TabController {
 
     /// The reader, the picker and the Markdown document were all things done to a document that has gone.
     func forgetPageTools() {
-        NSLog("CMDIAG forgetPageTools, url %@", webView?.url?.absoluteString ?? "nil")
         isArticle = false
         readerIsOn = false
         endPicking()
@@ -216,7 +215,7 @@ extension TabController {
     /// selector of its own must not get one hidden on the page around it.
     func handlePickMessage(_ message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame, let body = message.body as? [String: Any] else { return }
-        if body["off"] as? Bool == true { NSLog("CMDIAG picker posted off"); return endPicking() }
+        if body["off"] as? Bool == true { return endPicking() }
         switch picking?.mode {
         case let .hiding(onPick):
             guard let selector = body["selector"] as? String, !selector.isEmpty else { return }
