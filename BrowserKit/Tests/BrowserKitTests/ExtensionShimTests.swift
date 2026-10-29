@@ -132,6 +132,30 @@ struct ExtensionShimTests {
         manager.tearDown()
     }
 
+    /// WebKit kills an extension's web process when its worker asks for a Web
+    /// Lock, and every page and port of the extension goes with it: 1Password's
+    /// session manager takes one, so its popup closed as it opened and its
+    /// helper was started anew twice a second.
+    @Test func aWorkerCanTakeAWebLock() async throws {
+        let (store, spaceID) = try await makeTemporaryStoreWithSpace()
+        let library = ExtensionLibrary(root: temporaryDirectory().appending(path: "Extensions"))
+        let dataStore = WKWebsiteDataStore(forIdentifier: UUID())
+        defer { Self.remove(dataStore) }
+        let browser = ShimProbeBrowser(space: spaceID)
+        let manager = ExtensionManager(store: store, library: library)
+        manager.browser = browser
+        _ = manager.controller(forSpace: spaceID, dataStore: dataStore)
+
+        let folder = try Self.write(manifest: Self.offscreenManifest, background: Self.lockWorker)
+        let request = try await manager.prepareInstall(from: folder)
+        try await manager.install(request, granting: request.grantingEverything, inSpace: spaceID)
+
+        try await waitUntil(seconds: 10) { browser.reports["queued"] != nil }
+        #expect(browser.reports["held"] == "a", "the lock was granted and its callback ran")
+        #expect(browser.reports["queued"] == "a,b", "a second request for the same name waits for the first")
+        manager.tearDown()
+    }
+
     /// The provider's page opens in a tab; its redirect to the extension's
     /// chromiumapp.org address is the answer, from that tab and no other.
     @Test func aSignInEndsWhereItBeganAndNowhereElse() async throws {
@@ -188,6 +212,18 @@ struct ExtensionShimTests {
     chrome.offscreen.createDocument({ url: "offscreen.html", reasons: ["DOM_PARSER"], justification: "test" })
       .then(() => chrome.offscreen.hasDocument())
       .then((has) => report("has", has), (e) => report("has", "error: " + e.message));
+    """
+
+    static let lockWorker = """
+    const report = (key, value) => chrome.tabs.create({ url: "https://example.com/?" + key + "=" + encodeURIComponent(value) });
+    const order = [];
+    const first = navigator.locks.request("session", async (lock) => {
+      order.push("a");
+      report("held", lock.name === "session" ? "a" : "unnamed");
+      await new Promise((done) => setTimeout(done, 200));
+    });
+    const second = navigator.locks.request("session", async () => { order.push("b"); });
+    Promise.all([first, second]).then(() => report("queued", order.join(",")), (e) => report("queued", "error: " + e.message));
     """
 
     static let probeManifest = """

@@ -534,6 +534,61 @@
       }
     } catch (e) {}
   }
+  // A worker asking WebKit for a Web Lock has its whole process ended:
+  // the browser refuses the worker's origin (WebLockRegistryProxy) and
+  // takes the request for a compromised process's. Every page and port
+  // of the extension goes with it, and the worker starts again and asks
+  // again. 1Password's session manager takes one, so its popup closed as
+  // it opened. So a worker's locks are granted here, among its own
+  // requests; no page of the extension shares them.
+  if (worker && typeof navigator !== "undefined" && navigator.locks && typeof WorkerNavigator !== "undefined") {
+    const held = [], queue = [];
+    const abort = (what) => new DOMException(what, "AbortError");
+    const free = (r) => !held.some((h) => h.name === r.name && (h.mode === "exclusive" || r.mode === "exclusive"));
+    const release = (r) => { const i = held.indexOf(r); if (i < 0) return false; held.splice(i, 1); pump(); return true; };
+    const grant = (r) => {
+      held.push(r);
+      const lock = Object.freeze({ name: r.name, mode: r.mode });
+      Promise.resolve().then(() => r.callback(lock)).then((v) => { if (release(r)) r.resolve(v); }, (e) => { if (release(r)) r.reject(e); });
+    };
+    // In order, and none ahead of an earlier request for the same name.
+    const pump = () => {
+      for (let i = 0; i < queue.length; i++) {
+        const r = queue[i];
+        if (queue.slice(0, i).some((q) => q.name === r.name) || !free(r)) continue;
+        queue.splice(i--, 1);
+        grant(r);
+      }
+    };
+    const request = (name, options, callback) => {
+      if (typeof options === "function") { callback = options; options = {}; }
+      const o = options || {}, mode = o.mode === undefined ? "exclusive" : String(o.mode);
+      name = String(name);
+      if (typeof callback !== "function") return Promise.reject(new TypeError("Failed to execute 'request' on 'LockManager': The callback provided is not a function."));
+      if (mode !== "exclusive" && mode !== "shared") return Promise.reject(new TypeError("The provided value '" + mode + "' is not a valid enum value of type LockMode."));
+      if (name.startsWith("-")) return Promise.reject(new DOMException("Names cannot start with '-'.", "NotSupportedError"));
+      if ((o.steal && (o.ifAvailable || mode !== "exclusive")) || (o.signal && (o.steal || o.ifAvailable))) {
+        return Promise.reject(new DOMException("The options cannot be used together.", "NotSupportedError"));
+      }
+      if (o.signal && o.signal.aborted) return Promise.reject(o.signal.reason);
+      return new Promise((resolve, reject) => {
+        const r = { name, mode, callback, resolve, reject };
+        if (o.steal) {
+          for (let i = held.length - 1; i >= 0; i--) if (held[i].name === name) held.splice(i, 1)[0].reject(abort("The lock was stolen."));
+          return grant(r);
+        }
+        if (!queue.some((q) => q.name === name) && free(r)) return grant(r);
+        if (o.ifAvailable) { Promise.resolve().then(() => callback(null)).then(resolve, reject); return; }
+        queue.push(r);
+        if (o.signal) o.signal.addEventListener("abort", () => { const i = queue.indexOf(r); if (i >= 0) { queue.splice(i, 1); reject(o.signal.reason); } }, { once: true });
+      });
+    };
+    const describe = (r) => ({ name: r.name, mode: r.mode, clientId: "" });
+    const locks = Object.create(Object.getPrototypeOf(navigator.locks));
+    put(locks, "request", request);
+    put(locks, "query", () => Promise.resolve({ held: held.map(describe), pending: queue.map(describe) }));
+    try { Object.defineProperty(WorkerNavigator.prototype, "locks", { get: () => locks, configurable: true }); } catch (e) {}
+  }
   if (worker && typeof root.importScripts === "function") {
     const shipped = new Set(), empty = new Set();
     for (const p of __LUNA_SCRIPTS__) p.startsWith("-") ? empty.add(p.slice(1)) : shipped.add(p);
