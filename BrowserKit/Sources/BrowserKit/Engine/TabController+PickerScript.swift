@@ -9,6 +9,10 @@ extension TabController {
     /// page's own stylesheets cannot reach it and the internal pages' palette
     /// can, with `:root` read as the shadow host.
     ///
+    /// Its styles, and the crosshair's, are adopted constructed sheets: a page's
+    /// Content Security Policy can refuse a `<style>` element and does not
+    /// govern these, and some sites send one that refuses both.
+    ///
     /// The outline and its label are black inside a white halo, not palette
     /// ink: the palette follows Luna's appearance and the page does not, so
     /// in a dark Luna the ink was white on a white page (measured 1.0:1). One
@@ -48,8 +52,8 @@ extension TabController {
           host = document.createElement('luna-picker');
           host.style.cssText = 'all:initial;position:fixed;inset:0;pointer-events:none;z-index:2147483647';
           var root = host.attachShadow({ mode: 'closed' });
-          var style = document.createElement('style');
-          style.textContent = palette.replace(/:root/g, ':host') +
+          var style = new CSSStyleSheet();
+          style.replaceSync(palette.replace(/:root/g, ':host') +
             '.box{position:fixed;display:none;box-sizing:border-box;pointer-events:none;' +
             'border:2px solid #000;box-shadow:0 0 0 2px #fff;background:var(--luna-surface-selected);' +
             'border-radius:var(--luna-row-radius);transition-property:left,top,width,height;' +
@@ -66,7 +70,7 @@ extension TabController {
             // transition, so it stays on the page as it scrolls.
             '.spot{position:fixed;display:none;box-sizing:border-box;pointer-events:none;' +
             'border:2px solid #fff;outline:2px dashed #000;outline-offset:-2px}' +
-            '@media (prefers-reduced-motion: reduce){.box{transition:none}}';
+            '@media (prefers-reduced-motion: reduce){.box{transition:none}}');
           box = document.createElement('div');
           box.className = 'box';
           tag = document.createElement('div');
@@ -74,7 +78,7 @@ extension TabController {
           box.appendChild(tag);
           spot = document.createElement('div');
           spot.className = 'spot';
-          root.appendChild(style);
+          root.adoptedStyleSheets = [style];
           root.appendChild(spot);
           root.appendChild(box);
           document.documentElement.appendChild(host);
@@ -304,9 +308,9 @@ extension TabController {
           build(palette);
           // Every element, not the root alone: a link's own pointer and the
           // text beam would otherwise win wherever the page sets one.
-          cursor = document.createElement('style');
-          cursor.textContent = '*, *::before, *::after { cursor: crosshair !important; }';
-          document.documentElement.appendChild(cursor);
+          cursor = new CSSStyleSheet();
+          cursor.replaceSync('*, *::before, *::after { cursor: crosshair !important; }');
+          document.adoptedStyleSheets = document.adoptedStyleSheets.concat(cursor);
           window.addEventListener('mousemove', onMove, true);
           window.addEventListener('pointermove', onDrag, true);
           window.addEventListener('scroll', onScroll, true);
@@ -323,7 +327,11 @@ extension TabController {
           trail = [];
           press = null;
           pinned = null;
-          if (cursor) { cursor.remove(); cursor = null; }
+          if (cursor) {
+            var sheet = cursor;
+            document.adoptedStyleSheets = document.adoptedStyleSheets.filter(function (s) { return s !== sheet; });
+            cursor = null;
+          }
           window.removeEventListener('mousemove', onMove, true);
           window.removeEventListener('pointermove', onDrag, true);
           window.removeEventListener('scroll', onScroll, true);
@@ -350,7 +358,8 @@ extension TabController {
         function look() {
           if (!box) { return null; }
           var b = getComputedStyle(box), t = getComputedStyle(tag);
-          return { border: b.borderTopColor, shadow: b.boxShadow, fill: b.backgroundColor,
+          return { position: b.position, borderWidth: b.borderTopWidth,
+                   border: b.borderTopColor, shadow: b.boxShadow, fill: b.backgroundColor,
                    radius: b.borderTopLeftRadius, tagShown: t.display,
                    tagInk: t.color, tagFill: t.backgroundColor, tagShadow: t.boxShadow };
         }

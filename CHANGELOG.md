@@ -7,6 +7,7 @@ in a release go under Unreleased, grouped by date.
 
 ### 2026-10-29
 
+- **Comment mode and Hide Something… work on strict sites** (#255): on sites whose security policy forbids page styles, such as docta.dk, the outline, the drag rectangle and the crosshair never appeared, the label sat unstyled in the page's top-left corner, and hidden parts of the page showed anyway. Luna's own styles now reach these pages too.
 - **Close Other Tabs and Close Tabs Below** (#254): right-click a tab in the sidebar to close the rest of today's tabs, or the ones under it. With several tabs selected (⌘-click or ⇧-click), they close around the selection. Favorites and tabs in saved folders stay, as with Close All Tabs, and the tab you right-clicked is the one left on screen. Edit ▸ Undo brings them all back at once, and ⇧⌘T reopens them one by one.
 
 ## 0.3.0 — 2026-10-27
