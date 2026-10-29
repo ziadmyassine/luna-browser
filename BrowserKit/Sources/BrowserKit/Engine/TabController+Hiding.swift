@@ -266,15 +266,16 @@ extension TabController {
         )
     }
 
-    /// Before the document has a head, the root element is the only place to put it.
+    /// An adopted constructed sheet, as the picker's, so a page's Content
+    /// Security Policy cannot refuse it. Kept on `window` in Luna's own
+    /// world, where the page cannot see it.
     private static let setStyleFunction = """
-    var sheet = document.getElementById('luna-hidden');
+    var sheet = window.__lunaHidden;
     if (!sheet) {
       if (!css) { return; }
-      sheet = document.createElement('style');
-      sheet.id = 'luna-hidden';
-      (document.head || document.documentElement).appendChild(sheet);
+      sheet = window.__lunaHidden = new CSSStyleSheet();
+      document.adoptedStyleSheets = document.adoptedStyleSheets.concat(sheet);
     }
-    sheet.textContent = css;
+    sheet.replaceSync(css);
     """
 }

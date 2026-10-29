@@ -7,6 +7,7 @@ in a release go under Unreleased, grouped by date.
 
 ### 2026-10-29
 
+- **Comment mode and Hide Something… work on strict sites** (#255): on sites whose security policy forbids page styles, such as docta.dk, the outline, the drag rectangle and the crosshair never appeared, the label sat unstyled in the page's top-left corner, and hidden parts of the page showed anyway. Luna's own styles now reach these pages too.
 - **Reload on an error page tries the page again** (#253): when a page failed to load, the address bar showed Luna's error page instead of the address, and Reload (⌘R) only reloaded the error page. The bar now shows the address that failed, Reload and Try Again load it again, and the attempt takes the error page's place in Back and Forward rather than stacking behind it.
 - **Close Other Tabs and Close Tabs Below** (#254): right-click a tab in the sidebar to close the rest of today's tabs, or the ones under it. With several tabs selected (⌘-click or ⇧-click), they close around the selection. Favorites and tabs in saved folders stay, as with Close All Tabs, and the tab you right-clicked is the one left on screen. Edit ▸ Undo brings them all back at once, and ⇧⌘T reopens them one by one.
 - **A mouse's back and forward buttons work on the page** (#252): the thumb buttons on a mouse such as the MX Master go back and forward in the tab's history, on release, as in Chrome and Firefox. With nothing to go back or forward to, they do nothing.
