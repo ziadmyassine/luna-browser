@@ -5,6 +5,10 @@ in a release go under Unreleased, grouped by date.
 
 ## Unreleased
 
+### 2026-10-29
+
+- **A page Luna Control is working in no longer stays on screen** (#244): when the page an agent was reading or typing into stopped answering, Luna kept it in a window of its own for as long as the page did not answer, and that window could end up drawn over everything else, whichever tab you were on. Luna now takes the tab back after 10 seconds without input.
+
 ## 0.4.0 — 2026-10-29
 
 ### 2026-10-29

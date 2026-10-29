@@ -271,6 +271,35 @@ final class ControlStageTests: XCTestCase {
         userWindow.contentView = nil
     }
 
+    /// A call that waits on a page that never answers never releases its
+    /// stage. The stage gives the tab back by itself once no input has gone
+    /// through it for its idle limit, rather than holding the page in a
+    /// window the system can bring on screen.
+    func testStageLeftByAHungCallGoesAway() async throws {
+        let stage = try ControlStage(adopting: webView, idleLimit: .milliseconds(300))
+        stages.append(stage)
+        let window = try XCTUnwrap(webView.window)
+        let webView = webView!
+        let pending = Task { _ = try? await webView.callAsyncJavaScript("await new Promise(() => {})", contentWorld: .page) }
+        defer { pending.cancel() }
+        for _ in 0 ..< 40 where webView.window != nil { try await settle(50) }
+        XCTAssertNil(webView.window, "the stage still holds the tab")
+        XCTAssertFalse(window.isVisible)
+        XCTAssertThrowsError(try stage.click(at: CGPoint(x: 10, y: 10)))
+    }
+
+    /// Input keeps a stage up past its idle limit: a long `type` is one call.
+    func testInputKeepsTheStageUp() async throws {
+        let stage = try ControlStage(adopting: webView, idleLimit: .milliseconds(300))
+        stages.append(stage)
+        try await focusEditor(stage)
+        for _ in 0 ..< 10 {
+            try await stage.type(ControlInput.keys(typing: "a"))
+            try await settle(100)
+        }
+        XCTAssertTrue(webView.window is ControlStageWindow)
+    }
+
     /// The pointer check reads the real pointer, so it fails if the user
     /// moves it during the second the test runs; nothing here posts a system
     /// event.

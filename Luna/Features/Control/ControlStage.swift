@@ -42,6 +42,9 @@ final class ControlStage {
     private var menuWatch: (any NSObjectProtocol)?
     private var released = false
     private var eventNumber = 0
+    private let idleLimit: Duration
+    private var lastInput = ContinuousClock.now
+    private var watchdog: Task<Void, Never>?
 
     /// Every window that has been a stage, by number, with its web view.
     /// Kept after release because WebKit hands unhandled keys back to
@@ -54,12 +57,20 @@ final class ControlStage {
     /// Refuses a web view that is in any window: in the user's, taking it
     /// would take their first responder; in another stage, a call is
     /// already driving it.
-    init(adopting webView: WKWebView) throws {
+    ///
+    /// Released by itself after `idleLimit` with no input. A call that
+    /// awaits the page while staged — a page under a dialog, or hung — never
+    /// reaches its own `release`, and the stage kept the tab in a window of
+    /// its own for as long as the page did not answer, where it once ended
+    /// up over the user's windows. Input resets the limit, so a long `type` is not cut short;
+    /// the longest gap a working call leaves is `catchUpFrames`' one second.
+    init(adopting webView: WKWebView, idleLimit: Duration = .seconds(10)) throws {
         if webView.window is ControlStageWindow {
             throw ControlError("Another call is driving this tab. Wait for it to finish, then retry.")
         }
         guard webView.window == nil else { throw ControlError(Self.shownMessage) }
         self.webView = webView
+        self.idleLimit = idleLimit
         savedFrame = webView.frame
         savedAutoresizing = webView.translatesAutoresizingMaskIntoConstraints
         let size = NSSize(width: max(savedFrame.width, 320), height: max(savedFrame.height, 240))
@@ -82,6 +93,12 @@ final class ControlStage {
         menuWatch = NotificationCenter.default.addObserver(
             forName: NSMenu.didBeginTrackingNotification, object: nil, queue: nil
         ) { _ in MainActor.assumeIsolated { Self.escapeMenu() } }
+        watchdog = Task { [self] in
+            while !released {
+                let due = lastInput + idleLimit
+                if ContinuousClock.now >= due { release() } else { try? await Task.sleep(until: due) }
+            }
+        }
     }
 
     /// Gives the web view back, windowless and at its old frame, unless the
@@ -89,6 +106,7 @@ final class ControlStage {
     func release() {
         guard !released else { return }
         released = true
+        watchdog?.cancel()
         if let menuWatch { NotificationCenter.default.removeObserver(menuWatch) }
         if webView.window === window {
             Self.detectOcclusion(true, of: webView)
@@ -176,7 +194,9 @@ final class ControlStage {
     private func deliver(_ event: NSEvent) throws { // swiftlint:disable:this cyclomatic_complexity
         // Checked per event: the user may have selected the tab mid-call, and
         // then the web view is in their window.
-        guard !released, webView.window === window else { throw ControlError(Self.shownMessage) }
+        if released { throw ControlError("The page stopped answering, so Luna took the tab back. Try again.") }
+        guard webView.window === window else { throw ControlError(Self.shownMessage) }
+        lastInput = .now
         switch event.type {
         case .keyDown:
             if event.modifierFlags.contains(.command), webView.performKeyEquivalent(with: event) { return }
