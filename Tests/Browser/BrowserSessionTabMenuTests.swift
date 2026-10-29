@@ -230,6 +230,39 @@ final class BrowserSessionTabMenuTests: XCTestCase {
         XCTAssertTrue(menu.items.contains { Self.word($0) == "Unmute Site" })
     }
 
+    /// §3.4's rows close around the tab, and leave an item out when it would
+    /// close nothing. A tile and §4's strip do not: every tab of the day is
+    /// drawn after a tile, and the strip has no below.
+    func testTheListClosesAroundTheTab() async throws {
+        let session = try await makeSession()
+        let bottom = try tab(in: session, at: url("one"))
+        let top = try tab(in: session, at: url("two"))
+
+        let words = { (id: UUID) in
+            try TabMenu.build(
+                for: XCTUnwrap(session.tab(id)), isMuted: false, actions: session.listTabMenuActions(for: id)
+            ).items.map(Self.word).suffix(3)
+        }
+
+        XCTAssertEqual(Array(try words(top)), ["Close", "Close Other Tabs", "Close Tabs Below"])
+        XCTAssertEqual(Array(try words(bottom)), ["", "Close", "Close Other Tabs"])
+        XCTAssertNil(session.tabMenuActions(for: top).closeOthers)
+        XCTAssertNil(session.tabMenuActions(for: top).closeBelow)
+    }
+
+    func testTheMarkedMenuClosesAroundTheMarks() async throws {
+        let session = try await makeSession()
+        let bottom = try tab(in: session, at: url("one"))
+        let middle = try tab(in: session, at: url("two"))
+        let top = try tab(in: session, at: url("three"))
+
+        let menu = TabMenu.build(count: 2, folders: [], inFolder: false, actions: session.tabMenuActions(for: [top, middle]))
+
+        XCTAssertEqual(menu.items.map(Self.word).suffix(3), ["Close 2 Tabs", "Close Other Tabs", "Close Tabs Below"])
+        XCTAssertNil(session.tabMenuActions(for: [middle, bottom]).closeBelow)
+        XCTAssertNil(session.tabMenuActions(for: [top, middle, bottom]).closeOthers)
+    }
+
     // MARK: - Helpers
 
     /// An item's word, without the glyph in front of it.

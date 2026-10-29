@@ -43,6 +43,10 @@ enum TabMenu {
         var setIcon: (String?) -> Void
         var setMuted: (Bool) -> Void
         var close: () -> Void
+        /// Only §3.4's rows pass these — `BrowserSession.listTabMenuActions(for:)` —
+        /// and nil when they would close nothing, so the item is left out.
+        var closeOthers: (() -> Void)?
+        var closeBelow: (() -> Void)?
     }
 
     /// - Parameter group: the §3.4b folder this tab is already in, if any.
@@ -126,7 +130,16 @@ enum TabMenu {
         close.keyEquivalent = "w"
         close.keyEquivalentModifierMask = .command
         menu.addItem(close)
+        addCloseAround(others: actions.closeOthers, below: actions.closeBelow, to: menu)
         return menu
+    }
+
+    /// Close Other Tabs and Close Tabs Below, after Close on either menu.
+    static func addCloseAround(others: (() -> Void)?, below: (() -> Void)?, to menu: NSMenu) {
+        if let others { menu.addItem(item(String(localized: "Close Other Tabs"), symbol: "xmark.square", action: others)) }
+        if let below {
+            menu.addItem(item(String(localized: "Close Tabs Below"), symbol: "arrow.down.to.line", action: below))
+        }
     }
 
     // MARK: - Items
