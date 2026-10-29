@@ -5,6 +5,10 @@ in a release go under Unreleased, grouped by date.
 
 ## Unreleased
 
+### 2026-10-29
+
+- **1Password's popup stays open** (#88): the 1Password extension's popup closed as soon as it opened, and the extension never reached the 1Password app. WebKit shut the whole extension down each time 1Password asked for a Web Lock, and the extension then started over, about twice a second. Luna now handles those locks for the extension, so it keeps running.
+
 ## 0.4.1 — 2026-10-29
 
 ### 2026-10-29
