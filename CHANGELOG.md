@@ -5,6 +5,8 @@ in a release go under Unreleased, grouped by date.
 
 ## Unreleased
 
+## 0.4.0 — 2026-10-29
+
 ### 2026-10-29
 
 - **Comment mode and Hide Something… work on strict sites** (#255): on sites whose security policy forbids page styles, such as docta.dk, the outline, the drag rectangle and the crosshair never appeared, the label sat unstyled in the page's top-left corner, and hidden parts of the page showed anyway. Luna's own styles now reach these pages too.
