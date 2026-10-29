@@ -26,6 +26,10 @@ public final class FaviconService {
     /// not one per redraw.
     private var memory: [String: Data] = [:]
     private var recency: [String] = []
+    /// The icon URL each host's icon was last fetched or checked against, kept
+    /// beside its PNG as `<host>.url`. Empty for an icon cached before Luna kept
+    /// one, which then waits for `refetchAfter` like any other.
+    private var sources: [String: String] = [:]
     private let memoryLimit: Int
     /// Nil for a §5.6 private window's service: its icons live in memory and go
     /// when the window does.
@@ -43,6 +47,16 @@ public final class FaviconService {
     /// leaves room for a Retina scale factor and for §3.3's larger Essentials tile,
     /// and nothing beyond that is worth the bytes.
     nonisolated static let maxPixelSize = 128
+
+    /// How old a cached icon gets before a visit fetches it again. Chrome refetches
+    /// after 7 days (`kFaviconRefetchDelta`) and Firefox caps an icon's life at the
+    /// same (`MAX_FAVICON_EXPIRATION`); Safari never refetches, and an icon a site
+    /// changed stays wrong until its cache is deleted by hand.
+    nonisolated static let refetchAfter: TimeInterval = 7 * 24 * 60 * 60
+
+    /// Goes up whenever a cached icon is replaced by a different one, so a cache
+    /// built over this one (`SidebarIcons`) knows to let go of what it drew.
+    public private(set) var revision = 0
 
     // MARK: - App-supplied seam
     //
@@ -107,12 +121,18 @@ public final class FaviconService {
     /// Asks the live page for its icons, downloads the best one, caches it (§4.7).
     public func fetchFavicon(for webView: WKWebView, host: String) async -> Data? {
         let key = NavigationPolicy.faviconKey(forHost: host)
-        if let cached = favicon(forHost: host) { return cached }
+        let cached = favicon(forHost: host)
 
+        // Asked on every load, cached or not: as in Chrome, a page that no longer
+        // declares the icon Luna has is the cue to fetch its new one now.
         var candidates = await declaredIconURLs(in: webView)
         // The convention every site still honours, and the only candidate for a page
         // that declares nothing.
         if let fallback = URL(string: "https://\(key)/favicon.ico") { candidates.append(fallback) }
+
+        let checked = source(for: key)
+        let moved = !checked.isEmpty && !candidates.contains { $0.absoluteString == checked }
+        if let cached, !moved, !isDue(key) { return cached }
 
         for candidate in candidates {
             guard let bytes = await Self.download(from: candidate, using: urlSession) else { continue }
@@ -121,20 +141,55 @@ public final class FaviconService {
             // bound and the download deliberately is not.
             guard let png = Self.png(from: bytes) ?? Self.rasterize?(bytes, Self.maxPixelSize)
             else { continue }
-            await remember(png, for: key)
+            await remember(png, for: key, from: candidate)
             return png
+        }
+        // A refresh that found nothing keeps the icon the user knows, and is not
+        // tried again until the page declares another icon or this one ages.
+        if let cached {
+            if let file = fileURL(for: key) {
+                try? FileManager.default.setAttributes([.modificationDate: Date.now], ofItemAtPath: file.path(percentEncoded: false))
+            }
+            if let best = candidates.first { await note(best, for: key) }
+            return cached
         }
         store(Data(), for: key)
         return nil
     }
 
     /// Internal so tests can check what reaches the disk.
-    func remember(_ png: Data, for key: String) async {
+    func remember(_ png: Data, for key: String, from source: URL? = nil) async {
+        if let old = memory[key], !old.isEmpty, old != png { revision += 1 }
         store(png, for: key)
         if let file = fileURL(for: key) { await Self.write(png, to: file) }
+        if let source { await note(source, for: key) }
+    }
+
+    private func note(_ source: URL, for key: String) async {
+        sources[key] = source.absoluteString
+        if let file = sourceFile(for: key) {
+            await Self.write(Data(source.absoluteString.utf8), to: file)
+        }
+    }
+
+    private func source(for key: String) -> String {
+        if let known = sources[key] { return known }
+        let onDisk = sourceFile(for: key).flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? ""
+        sources[key] = onDisk
+        return onDisk
     }
 
     // MARK: - Cache
+
+    /// Whether the cached icon is `refetchAfter` old. The file's modification date
+    /// is when it was last fetched or checked. A memory-only service has no file,
+    /// so a private window keeps what it fetched for as long as the window lives.
+    private func isDue(_ key: String) -> Bool {
+        guard let file = fileURL(for: key),
+              let fetched = try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+        else { return false }
+        return Date.now.timeIntervalSince(fetched) > Self.refetchAfter
+    }
 
     private func touch(_ key: String) {
         recency.removeAll { $0 == key }
@@ -145,7 +200,9 @@ public final class FaviconService {
         memory[key] = data
         touch(key)
         while recency.count > memoryLimit {
-            memory.removeValue(forKey: recency.removeFirst())
+            let evicted = recency.removeFirst()
+            memory.removeValue(forKey: evicted)
+            sources.removeValue(forKey: evicted)
         }
     }
 
@@ -153,6 +210,10 @@ public final class FaviconService {
     func fileURL(for key: String) -> URL? {
         let name = key.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? key
         return directory?.appending(path: name + ".png")
+    }
+
+    private func sourceFile(for key: String) -> URL? {
+        fileURL(for: key)?.deletingPathExtension().appendingPathExtension("url")
     }
 
     // MARK: - Page + network (off the main actor)
