@@ -10,20 +10,13 @@ import Foundation
 
 extension PageToast {
 
-    /// Comment mode's export. The prompt on the clipboard is for one site's
-    /// bundle, `copied`; `others` were written too and are only named.
-    /// Reveal selects every bundle's `COMMENTS.md` in Finder.
-    static func commentsExported(
-        _ count: Int, copied: String, others: [String], reveal: @escaping @MainActor () -> Void
-    ) -> PageToast {
-        let site = count == 1
-            ? String(localized: "1 comment on \(copied)")
-            : String(localized: "\(count) comments on \(copied)")
-        let also = others.isEmpty ? "" : String(localized: ", also \(others.joined(separator: ", "))")
-        return PageToast(
+    /// Comment mode's export of one page on `site`, whose prompt is on the
+    /// clipboard. Reveal selects that export's `COMMENTS.md` in Finder.
+    static func commentsExported(_ count: Int, site: String, reveal: @escaping @MainActor () -> Void) -> PageToast {
+        PageToast(
             symbol: "doc.on.clipboard",
             text: String(localized: "Prompt copied"),
-            detail: site + also,
+            detail: count == 1 ? String(localized: "1 comment on \(site)") : String(localized: "\(count) comments on \(site)"),
             actions: [Action(title: String(localized: "Reveal"), label: String(localized: "Show the comments in Finder"), run: reveal)]
         )
     }

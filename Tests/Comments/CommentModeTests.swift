@@ -18,15 +18,15 @@ import XCTest
 @MainActor
 final class CommentModeTests: XCTestCase {
 
-    private var directory: URL!
-    private var session: BrowserSession!
-    private var delegate: AppDelegate!
+    var directory: URL!
+    var session: BrowserSession!
+    var delegate: AppDelegate!
     private var window: BrowserWindow!
 
     private let commands = [BrowserCommand.commentOnPage, .exportComments]
-    private var pasteboard: NSPasteboard!
-    private var bundles: URL { directory.appending(path: "Comments") }
-    private var draft: URL { directory.appending(path: "Comment Draft") }
+    var pasteboard: NSPasteboard!
+    var bundles: URL { directory.appending(path: "Comments") }
+    var drafts: URL { directory.appending(path: "Comment Drafts") }
 
     override func setUp() async throws {
         directory = URL.temporaryDirectory.appending(path: "luna-tests-\(UUID().uuidString)")
@@ -37,6 +37,7 @@ final class CommentModeTests: XCTestCase {
         delegate = AppDelegate()
         delegate.windows = [window]
         delegate.front = window
+        delegate.commentDrafts = drafts
         pasteboard = NSPasteboard.withUniqueName()
     }
 
@@ -80,20 +81,26 @@ final class CommentModeTests: XCTestCase {
     /// command that is never offered at all.
     func testBothAreOfferedOnALivePageWithComments() async throws {
         try await open(page())
-        try comments(["file"])
+        try comments(1)
         XCTAssertEqual(offered(), [true, true])
     }
 
-    /// Export follows the app-wide set, not the page in front.
     func testExportDimsWithNoComments() async throws {
         try await open(page())
-        try comments([])
+        try comments(0)
         XCTAssertEqual(offered(), [true, false])
     }
 
-    func testOnlyExportIsOfferedWithNoLivePage() throws {
-        try comments(["file"])
-        XCTAssertEqual(offered(), [false, true])
+    /// Export is the front page's draft; another page's comments wait for that page.
+    func testExportDimsWhenOnlyAnotherPageHasComments() async throws {
+        try await open(page())
+        try comments(1, on: page("other.html"))
+        XCTAssertEqual(offered(), [true, false])
+    }
+
+    func testNeitherIsOfferedWithNoLivePage() throws {
+        try comments(1, on: page())
+        XCTAssertEqual(offered(), [false, false])
     }
 
     /// A draft on disk would break the private window's promise.
@@ -109,14 +116,14 @@ final class CommentModeTests: XCTestCase {
             hidden.tearDown()
         }
         try await open(page(), in: hidden)
-        try comments(["file"])
+        try comments(1, on: page())
         XCTAssertEqual(offered(), [false, false])
     }
 
     /// Reader's markup is Luna's, not the site's; what was said elsewhere still exports.
     func testOnlyExportIsOfferedInReader() async throws {
         let controller = try await open(page())
-        try comments(["file"])
+        try comments(1)
         let answer = await withCheckedContinuation { done in controller.toggleReader { done.resume(returning: $0) } }
         XCTAssertEqual(answer, .on)
         XCTAssertEqual(offered(), [false, true])
@@ -131,7 +138,7 @@ final class CommentModeTests: XCTestCase {
         context.endPDFPage()
         context.closePDF()
         let controller = try await open(pdf)
-        try comments(["file"])
+        try comments(1)
         XCTAssertTrue(controller.state.isPDF)
         XCTAssertEqual(offered(), [false, true])
     }
@@ -143,14 +150,13 @@ final class CommentModeTests: XCTestCase {
     func testNothingOfCommentModeExistsBeforeEnteringOrAfterLeaving() async throws {
         let controller = try await open(page())
         XCTAssertEqual(offered().first, true)
-        XCTAssertNil(delegate.commentSet, "the set was made before ⇧⌘M")
+        XCTAssertTrue(delegate.commentSets.isEmpty, "a draft was made before ⇧⌘M")
         XCTAssertNil(window.comments)
         XCTAssertFalse(controller.isDescribingElements)
         let installed = "typeof window.__lunaPicker"
         let before = try await controller.webView?.evaluateJavaScript(installed, in: nil, contentWorld: .defaultClient)
         XCTAssertEqual(before as? String, "undefined", "the picker script ran before ⇧⌘M")
 
-        delegate.commentSet = CommentSet(folder: draft)
         delegate.toggleCommenting(nil)
         XCTAssertNotNil(window.comments, "comment mode never started, so leaving proves nothing")
         delegate.toggleCommenting(nil)
@@ -162,44 +168,31 @@ final class CommentModeTests: XCTestCase {
 
     // MARK: - Export
 
-    /// Only the front page's line, even with another origin's comment first.
-    func testExportCopiesTheFrontPagesPromptAndNothingElse() async throws {
+    /// The front page's comments only, into a folder of their own, and that
+    /// folder's prompt; the other page's draft waits for its own export.
+    func testExportWritesTheFrontPagesDraftAndCopiesItsPrompt() async throws {
         try await open(page())
-        let set = try comments(["localhost-3002", "file"])
-
-        _ = delegate.exportComments(to: bundles, pasteboard: pasteboard)
-
-        XCTAssertEqual(pasteboard.pasteboardItems?.count, 1)
-        XCTAssertEqual(pasteboard.string(forType: .string), CommentBundle.prompt(for: bundle("file")))
-        XCTAssertTrue(set.comments.isEmpty)
-    }
-
-    func testWithNoCommentOnTheFrontPageTheFirstOriginIsCopied() throws {
-        try comments(["trego.dk", "localhost-3002"])
-
-        _ = delegate.exportComments(to: bundles, pasteboard: pasteboard)
-
-        XCTAssertEqual(pasteboard.string(forType: .string), CommentBundle.prompt(for: bundle("trego.dk")))
-    }
-
-    func testTheToastCountsTheCopiedSiteAndNamesTheOthers() async throws {
-        try await open(page())
-        try comments(["localhost-3002", "file", "trego.dk", "file"])
+        let here = try comments(2)
+        let other = try comments(1, on: page("other.html"))
 
         let toast = delegate.exportComments(to: bundles, pasteboard: pasteboard)
 
-        XCTAssertEqual(toast, .commentsExported(2, copied: "file", others: ["localhost-3002", "trego.dk"]) {})
-        XCTAssertEqual(toast?.detail, "2 comments on file, also localhost-3002, trego.dk")
+        let written = try exported()
+        XCTAssertEqual(written.count, 1)
+        let file = try XCTUnwrap(written.first).appending(path: "COMMENTS.md")
+        XCTAssertEqual(pasteboard.pasteboardItems?.count, 1)
+        XCTAssertEqual(pasteboard.string(forType: .string), CommentBundle.prompt(for: file))
+        XCTAssertEqual(toast, .commentsExported(2, site: "file") {})
+        XCTAssertEqual(toast?.detail, "2 comments on file")
         XCTAssertEqual(toast?.actions.map(\.title), ["Reveal"])
-        for origin in ["file", "localhost-3002", "trego.dk"] {
-            XCTAssertTrue(FileManager.default.fileExists(atPath: bundle(origin).path), origin)
-        }
+        XCTAssertTrue(here.comments.isEmpty)
+        XCTAssertEqual(other.comments.count, 1)
     }
 
     /// ⌘Z is the Edit menu's, which reaches the session's list, not the set's.
     func testCommandZBringsBackWhatTheExportCleared() async throws {
         try await open(page())
-        let set = try comments(["file", "file"])
+        let set = try comments(2)
         let before = set.comments
 
         _ = delegate.exportComments(to: bundles, pasteboard: pasteboard)
@@ -216,9 +209,9 @@ final class CommentModeTests: XCTestCase {
         try await open(page())
         var earlier = false
         event { session.undoManager.registerUndo(withTarget: self) { _ in earlier = true } }
-        let set = try comments(["file"])
+        let set = try comments(1)
         event { _ = delegate.exportComments(to: bundles, pasteboard: pasteboard) }
-        try add("file", to: set)
+        try add(to: set)
         let second = set.comments
         event { _ = delegate.exportComments(to: bundles, pasteboard: pasteboard) }
 
@@ -232,7 +225,7 @@ final class CommentModeTests: XCTestCase {
 
     func testAFailedWriteKeepsTheSetAndTheDraft() async throws {
         try await open(page())
-        let set = try comments(["file"])
+        let set = try comments(1)
         let before = set.comments
         try FileManager.default.createDirectory(at: bundles, withIntermediateDirectories: true)
         try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: bundles.path)
@@ -248,7 +241,7 @@ final class CommentModeTests: XCTestCase {
         XCTAssertEqual(toast, .commentsNotExported(reason))
         XCTAssertEqual(toast?.detail, reason)
         XCTAssertEqual(set.comments, before)
-        let saved = try JSONDecoder().decode([Comment].self, from: Data(contentsOf: draft.appending(path: "draft.json")))
+        let saved = try JSONDecoder().decode([Comment].self, from: Data(contentsOf: set.folder.appending(path: "draft.json")))
         XCTAssertEqual(saved, before)
         XCTAssertNil(pasteboard.string(forType: .string), "a prompt for a bundle that was never written")
     }
@@ -256,7 +249,7 @@ final class CommentModeTests: XCTestCase {
     /// Nothing to export says nothing and leaves the clipboard alone.
     func testExportingNoCommentsDoesNothing() async throws {
         try await open(page())
-        try comments([])
+        try comments(0)
         pasteboard.clearContents()
         pasteboard.setString("kept", forType: .string)
 
@@ -267,23 +260,26 @@ final class CommentModeTests: XCTestCase {
 
     // MARK: - Support
 
-    /// A set of the test's own with one captured comment per origin, in order.
+    /// The page's draft, with a list the test closes itself, holding `count` captured comments.
     @discardableResult
-    private func comments(_ origins: [String]) throws -> CommentSet {
+    func comments(_ count: Int, on url: URL? = nil) throws -> CommentSet {
+        let url = try url ?? XCTUnwrap(session.activeURL)
+        let page = CommentSet.page(of: url.absoluteString)
         let undo = UndoManager()
         undo.groupsByEvent = false
-        let set = CommentSet(folder: draft, undoManager: undo)
-        try FileManager.default.createDirectory(at: draft, withIntermediateDirectories: true)
-        for origin in origins { try add(origin, to: set) }
-        delegate.commentSet = set
+        let set = CommentSet(folder: CommentSet.folder(for: page, in: drafts), undoManager: undo)
+        delegate.commentSets[page] = set
+        for _ in 0 ..< count { try add(to: set) }
         return set
     }
 
-    /// One captured comment, its pictures already in the draft.
-    private func add(_ origin: String, to set: CommentSet) throws {
-        let comment = Comment.fixture(origin: origin)
+    /// One captured comment on the set's page, its pictures already in its draft.
+    func add(_ note: String = "Make it taller", to set: CommentSet) throws {
+        let page = try XCTUnwrap(delegate.commentSets.first { $0.value === set }?.key)
+        let comment = Comment.fixture(origin: "file", url: page, note: note)
+        try FileManager.default.createDirectory(at: set.folder, withIntermediateDirectories: true)
         for name in [comment.image, comment.context].compactMap(\.self) {
-            try Data("png".utf8).write(to: draft.appending(path: name))
+            try Data("png".utf8).write(to: set.folder.appending(path: name))
         }
         set.add(comment)
     }
@@ -296,25 +292,21 @@ final class CommentModeTests: XCTestCase {
         session.undoManager.endUndoGrouping()
     }
 
-    private func bundle(_ origin: String) -> URL {
-        bundles.appending(path: origin).appending(path: "COMMENTS.md")
-    }
-
-    private func offered() -> [Bool] {
+    func offered() -> [Bool] {
         commands.map { delegate.validateMenuItem(NSMenuItem(title: "", action: $0.action, keyEquivalent: "")) }
     }
 
     /// An article long enough for Reader to find.
-    private func page() throws -> URL {
+    func page(_ name: String = "page.html") throws -> URL {
         let prose = (1...6).map { "<p>Paragraph \($0), long enough to count as prose, with a comma, and another.</p>" }
-        let url = directory.appending(path: "page.html")
+        let url = directory.appending(path: name)
         try "<html><body><div class=\"story\"><h1>Headline</h1>\(prose.joined())</div></body></html>"
             .write(to: url, atomically: true, encoding: .utf8)
         return url
     }
 
     @discardableResult
-    private func open(_ url: URL, in target: BrowserSession? = nil) async throws -> TabController {
+    func open(_ url: URL, in target: BrowserSession? = nil) async throws -> TabController {
         let session = target ?? session!
         let space = try XCTUnwrap(session.spaces.first)
         let tab = Tab(spaceID: space.id, kind: .today, url: url)

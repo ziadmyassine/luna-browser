@@ -140,14 +140,63 @@ final class CommentSetTests: XCTestCase {
         comments.add(first)
         comments.add(second)
 
-        let written = try comments.export(to: base.appending(path: "Comments"))
+        let written = try XCTUnwrap(comments.export(to: base.appending(path: "Comments")))
 
-        XCTAssertEqual(Array(written.keys), ["localhost-3002"])
+        XCTAssertEqual(written.deletingLastPathComponent().deletingLastPathComponent().lastPathComponent, "localhost-3002")
         XCTAssertEqual(comments.comments, [])
         XCTAssertEqual(try onDisk(), [])
 
         undo.undo()
         XCTAssertEqual(comments.comments, [first, second])
         XCTAssertEqual(try onDisk(), [first, second])
+    }
+
+    // MARK: - One draft per page
+
+    /// The query names a different screen on most sites and dev servers
+    /// (`?id=5`, `?tab=billing`); the fragment only scrolls the same one.
+    func testAPageIsItsAddressWithoutTheFragment() {
+        XCTAssertEqual(CommentSet.page(of: "http://localhost:3002/items?id=5#notes"), "http://localhost:3002/items?id=5")
+        XCTAssertNotEqual(CommentSet.page(of: "http://localhost:3002/items?id=5"), CommentSet.page(of: "http://localhost:3002/items?id=6"))
+        XCTAssertEqual(CommentSet.page(of: "https://trego.dk/login?token=abc"), "https://trego.dk/login?token=[hidden]")
+    }
+
+    func testTwoPagesHaveTwoFolders() {
+        let root = base.appending(path: "Comment Drafts")
+        let one = CommentSet.folder(for: "http://localhost:3002/drafts", in: root)
+        let two = CommentSet.folder(for: "http://localhost:3002/workbench", in: root)
+        XCTAssertNotEqual(one, two)
+        XCTAssertEqual(one, CommentSet.folder(for: "http://localhost:3002/drafts", in: root), "a page's folder moved between calls")
+        XCTAssertEqual(one.deletingLastPathComponent().path, root.path)
+    }
+
+    /// The one draft every page shared becomes a draft per page, its pictures with it, and nothing is left behind or lost.
+    func testTheSharedDraftBecomesOneDraftPerPage() throws {
+        let root = base.appending(path: "Comment Drafts")
+        let drafts = Comment.fixture(url: "http://localhost:3002/drafts", note: "One")
+        let item = Comment.fixture(url: "http://localhost:3002/items/5#notes", note: "Two")
+        let again = Comment.fixture(url: "http://localhost:3002/drafts", note: "Three", context: false)
+        for comment in [drafts, item, again] {
+            for name in [comment.image, comment.context].compactMap(\.self) {
+                try Data("png".utf8).write(to: draft.appending(path: name))
+            }
+        }
+        try JSONEncoder().encode([drafts, item, again]).write(to: draft.appending(path: "draft.json"))
+
+        try CommentSet.migrate(into: root)
+
+        let first = CommentSet(folder: CommentSet.folder(for: CommentSet.page(of: drafts.page.url), in: root))
+        let second = CommentSet(folder: CommentSet.folder(for: CommentSet.page(of: item.page.url), in: root))
+        XCTAssertEqual(first.comments, [drafts, again])
+        XCTAssertEqual(second.comments, [item])
+        for (set, comment) in [(first, drafts), (first, again), (second, item)] {
+            for name in [comment.image, comment.context].compactMap(\.self) {
+                XCTAssertTrue(FileManager.default.fileExists(atPath: set.folder.appending(path: name).path), name)
+            }
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: draft.path), "the shared draft is still there to migrate again")
+
+        try CommentSet.migrate(into: root)
+        XCTAssertEqual(CommentSet.saved(in: first.folder), [drafts, again])
     }
 }

@@ -117,47 +117,56 @@ extension AppDelegate {
     @objc func toggleCommenting(_ sender: Any?) {
         guard let front else { return }
         if let mode = front.comments { return mode.leave() }
-        guard canComment(in: front.session) else { return }
-        let set = commentSet ?? CommentSet()
-        commentSet = set
+        guard canComment(in: front.session), let set = commentSet(for: front.session.activeURL) else { return }
         let mode = CommentMode(window: front, set: set)
         if mode.enter() { front.comments = mode }
     }
 
-    /// Works with the mode off too: the set is app-wide and outlives it.
+    /// Works with the mode off too: the page's draft outlives it.
     @objc func exportComments(_ sender: Any?) {
         exportComments()?.show(in: front?.controller.window)
     }
 
-    /// Every site's bundle, and one prompt on the clipboard: the front page's
-    /// site, or the first commented one when the front page has none. The set
-    /// is cleared only once every bundle is written, and ⌘Z brings it back.
+    /// The front page's draft, into a folder of its own, and that folder's
+    /// prompt on the clipboard. The draft is cleared only once the bundle is
+    /// written, and ⌘Z brings it back.
     /// - Returns: the toast to show, or nil when there was nothing to export.
     func exportComments(to root: URL = CommentBundle.folder, pasteboard: NSPasteboard = .general) -> PageToast? {
-        guard let front else { return nil }
+        guard let front, let set = commentSet(for: front.session.activeURL) else { return nil }
         // An open note holds text the set has not been given yet.
         for window in windows { window.comments?.closeNote(focusingPage: true, undoable: false) }
-        let set = commentSet ?? CommentSet()
-        commentSet = set
-        let origins = set.comments.map(\.origin).uniqued()
-        guard let first = origins.first else { return nil }
-        let here = front.session.activeURL.flatMap(CommentBundle.slug(for:))
-        let copied = origins.first { $0 == here } ?? first
-        let count = set.comments.filter { $0.origin == copied }.count
-        let written: [String: URL]
+        guard let site = set.comments.first?.origin else { return nil }
+        let count = set.comments.count
+        let file: URL
         do {
-            written = try set.export(to: root, undoingOn: front.session.undoManager)
+            guard let written = try set.export(to: root, undoingOn: front.session.undoManager) else { return nil }
+            file = written
         } catch {
             return .commentsNotExported(error.localizedDescription)
         }
-        if let file = written[copied] {
-            pasteboard.clearContents()
-            pasteboard.setString(CommentBundle.prompt(for: file), forType: .string)
+        pasteboard.clearContents()
+        pasteboard.setString(CommentBundle.prompt(for: file), forType: .string)
+        return .commentsExported(count, site: site) {
+            NSWorkspace.shared.activateFileViewerSelecting([file])
         }
-        let files = origins.compactMap { written[$0] }
-        return .commentsExported(count, copied: copied, others: origins.filter { $0 != copied }) {
-            NSWorkspace.shared.activateFileViewerSelecting(files)
-        }
+    }
+
+    /// The page's draft, made the first time it is asked for; nil for a page
+    /// comment mode cannot name, such as `about:blank`.
+    func commentSet(for url: URL?) -> CommentSet? {
+        guard let page = commentPage(of: url) else { return nil }
+        if let set = commentSets[page] { return set }
+        let set = CommentSet(folder: CommentSet.folder(for: page, in: commentDrafts))
+        commentSets[page] = set
+        return set
+    }
+
+    /// The page's key, once the draft from before drafts were per page has been shared out.
+    private func commentPage(of url: URL?) -> String? {
+        guard let url, CommentBundle.slug(for: url) != nil else { return nil }
+        // A failed move leaves that draft where it was, to be tried again next time.
+        try? CommentSet.migrate(into: commentDrafts)
+        return CommentSet.page(of: url.absoluteString)
     }
 
     /// Not in a private window, where a draft on disk would break the promise;
@@ -241,10 +250,11 @@ extension AppDelegate {
             return session.canUsePageTools && !session.isDescribingElements
         case #selector(toggleCommenting(_:)):
             return canComment(in: session)
-        // The set is app-wide, so the page in front has no say. A private
-        // window stays out of comment mode's files altogether.
+        // Read without making a set, so the menu costs nothing until ⇧⌘M or
+        // Export. A private window stays out of comment mode's files altogether.
         case #selector(exportComments(_:)):
-            return !session.isPrivate && !(commentSet?.comments ?? CommentSet.saved()).isEmpty
+            guard !session.isPrivate, let page = commentPage(of: session.activeURL) else { return false }
+            return !(commentSets[page]?.comments ?? CommentSet.saved(in: CommentSet.folder(for: page, in: commentDrafts))).isEmpty
         case #selector(printPage(_:)):
             return session.canPrint
         case #selector(downloadPDF(_:)):

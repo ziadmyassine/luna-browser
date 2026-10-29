@@ -52,7 +52,7 @@ final class CommentFlowTests: XCTestCase {
         delegate = AppDelegate()
         delegate.windows = [window]
         delegate.front = window
-        delegate.commentSet = CommentSet(folder: directory.appending(path: "draft"))
+        delegate.commentDrafts = directory.appending(path: "drafts")
 
         let url = directory.appending(path: "page.html")
         try Self.fixture.write(to: url, atomically: true, encoding: .utf8)
@@ -131,6 +131,19 @@ final class CommentFlowTests: XCTestCase {
         XCTAssertNil(window.comments)
         XCTAssertFalse(tab.isDescribingElements, "the picker kept running on the tab that was left")
         try await assertNoCommentViews()
+    }
+
+    /// A page that moves to another address without a new document has moved
+    /// to another page's draft; an anchor in the same page has not.
+    func testAnInPageMoveToAnotherAddressLeaves() async throws {
+        delegate.toggleCommenting(nil)
+        _ = try await tab.webView?.evaluateJavaScript("location.hash = 'notes'; 1")
+        try await Task.sleep(for: .milliseconds(200))
+        XCTAssertNotNil(window.comments, "an anchor ended comment mode")
+
+        _ = try await tab.webView?.evaluateJavaScript("history.pushState(null, '', location.pathname + '?item=2'); 1")
+        try await waitFor { self.window.comments == nil }
+        XCTAssertFalse(tab.isDescribingElements)
     }
 
     /// ⇧⌘M takes the page from Hide's picker rather than doing nothing.
@@ -225,7 +238,8 @@ final class CommentFlowTests: XCTestCase {
     func testUndoingAnExportKeepsTheNoteTypedJustBeforeIt() async throws {
         let undo = UndoManager()
         undo.groupsByEvent = false
-        delegate.commentSet = CommentSet(folder: directory.appending(path: "draft"), undoManager: undo)
+        let page = try CommentSet.page(of: XCTUnwrap(session.activeURL).absoluteString)
+        delegate.commentSets[page] = CommentSet(folder: CommentSet.folder(for: page, in: delegate.commentDrafts), undoManager: undo)
         delegate.toggleCommenting(nil)
         try await pick(x: "90", y: "80")
         try XCTUnwrap(window.comments?.note).textView.string = "Make it blue"
@@ -257,7 +271,7 @@ final class CommentFlowTests: XCTestCase {
 
     // MARK: - Support
 
-    var set: CommentSet { delegate.commentSet! }
+    var set: CommentSet { delegate.commentSet(for: tab.state.url)! }
 
     /// A press and its release as the picker hears them, then the field it opens.
     private func pick(x: String, y: String) async throws {

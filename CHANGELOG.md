@@ -5,6 +5,10 @@ in a release go under Unreleased, grouped by date.
 
 ## Unreleased
 
+### 2026-10-29
+
+- **Exporting comments keeps every earlier export, and each page has its own notes** (#263): Review ▸ Export Comments replaced the site's last export, so 11 comments on one page were deleted by an export of 3 on another while an agent still worked from them. Each export now gets a folder of its own under the site's, named after the page and the time, as in `Comments/localhost-3002/workbench-items-5-2026-10-29-141200/`, and nothing is ever overwritten. Comments are kept per page, so two pages of one site can be commented on at once in two tabs, each exported on its own and both still there after a relaunch. The copied prompt and Reveal point at that export's folder. Notes waiting from before are moved to the page they were made on.
+
 ## 0.4.1 — 2026-10-29
 
 ### 2026-10-29
