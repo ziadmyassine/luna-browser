@@ -18,7 +18,13 @@ extension TabController {
     /// `about:blank` with its history behind it, and reloading that only
     /// reloaded the blank — the tab had to be closed. A tab that never showed
     /// anything else has no page to go back to and reloads as it is.
+    ///
+    /// An error page reloads the address that failed, not itself.
     public func reload() {
+        if let failedURL {
+            load(failedURL)
+            return
+        }
         if let webView, webView.url.map(Self.isBlank) ?? true, let page = fallbackURL, !Self.isBlank(page) {
             load(page)
             return

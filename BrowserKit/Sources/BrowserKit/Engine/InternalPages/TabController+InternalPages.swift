@@ -1,4 +1,5 @@
 import Foundation
+import WebKit
 
 //  A tab's half of §4.4 and §4.5: showing one of Luna's own pages, deciding
 //  whether a `luna://` navigation is Luna's or a web page's, and performing the
@@ -31,6 +32,21 @@ extension TabController {
     /// can be passed through verbatim.
     public func showErrorPage(_ kind: InternalPageError.Kind, for url: URL?, detail: String? = nil) {
         load(.error(InternalPageError(kind: kind, url: url, detail: detail)))
+    }
+
+    /// The address that failed, while this tab shows the error page standing in for it.
+    public var failedURL: URL? {
+        webView?.url.flatMap(InternalPages.failedURL(for:))
+    }
+
+    /// Loads `url` in the error page's place, so the back list keeps the address
+    /// and not the page that stood in for it, and a retry that fails again leaves
+    /// one error page rather than two. WebKit has no replacing load, so the page
+    /// does it. A file needs `loadFileURL`'s read grant, which `location` cannot give.
+    func replacedErrorPage(with url: URL, in webView: WKWebView) -> Bool {
+        guard failedURL != nil, !url.isFileURL else { return false }
+        webView.callAsyncJavaScript("location.replace(url)", arguments: ["url": url.absoluteString], in: nil, in: .page)
+        return true
     }
 
     /// Whether a `luna://` navigation may proceed. Web content must not be able
