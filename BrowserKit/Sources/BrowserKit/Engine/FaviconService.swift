@@ -44,6 +44,16 @@ public final class FaviconService {
     /// and nothing beyond that is worth the bytes.
     nonisolated static let maxPixelSize = 128
 
+    /// How old a cached icon gets before a visit fetches it again. Chrome refetches
+    /// after 7 days (`kFaviconRefetchDelta`) and Firefox caps an icon's life at the
+    /// same (`MAX_FAVICON_EXPIRATION`); Safari never refetches, and an icon a site
+    /// changed stays wrong until its cache is deleted by hand.
+    nonisolated static let refetchAfter: TimeInterval = 7 * 24 * 60 * 60
+
+    /// Goes up whenever a cached icon is replaced by a different one, so a cache
+    /// built over this one (`SidebarIcons`) knows to let go of what it drew.
+    public private(set) var revision = 0
+
     // MARK: - App-supplied seam
     //
     // Rule 1 keeps AppKit out of `BrowserKit`, and AppKit is the only thing on this
@@ -107,7 +117,8 @@ public final class FaviconService {
     /// Asks the live page for its icons, downloads the best one, caches it (§4.7).
     public func fetchFavicon(for webView: WKWebView, host: String) async -> Data? {
         let key = NavigationPolicy.faviconKey(forHost: host)
-        if let cached = favicon(forHost: host) { return cached }
+        let cached = favicon(forHost: host)
+        if let cached, !isDue(key) { return cached }
 
         var candidates = await declaredIconURLs(in: webView)
         // The convention every site still honours, and the only candidate for a page
@@ -124,17 +135,36 @@ public final class FaviconService {
             await remember(png, for: key)
             return png
         }
+        // A refresh that found nothing keeps the icon the user knows, and waits
+        // another interval rather than asking again on the next load.
+        if let cached {
+            if let file = fileURL(for: key) {
+                try? FileManager.default.setAttributes([.modificationDate: Date.now], ofItemAtPath: file.path(percentEncoded: false))
+            }
+            return cached
+        }
         store(Data(), for: key)
         return nil
     }
 
     /// Internal so tests can check what reaches the disk.
     func remember(_ png: Data, for key: String) async {
+        if let old = memory[key], !old.isEmpty, old != png { revision += 1 }
         store(png, for: key)
         if let file = fileURL(for: key) { await Self.write(png, to: file) }
     }
 
     // MARK: - Cache
+
+    /// Whether the cached icon is `refetchAfter` old. The file's modification date
+    /// is when it was last fetched or checked. A memory-only service has no file,
+    /// so a private window keeps what it fetched for as long as the window lives.
+    private func isDue(_ key: String) -> Bool {
+        guard let file = fileURL(for: key),
+              let fetched = try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+        else { return false }
+        return Date.now.timeIntervalSince(fetched) > Self.refetchAfter
+    }
 
     private func touch(_ key: String) {
         recency.removeAll { $0 == key }

@@ -28,6 +28,9 @@ final class SidebarIcons {
 
     let service: FaviconService
     private var cache: [String: NSImage] = [:]
+    /// The service's `revision` the cache was built at. A site's icon refreshed
+    /// (§4.7) empties the cache, so every row draws the new one once.
+    private var revision = 0
 
     init(service: FaviconService) {
         self.service = service
@@ -41,6 +44,10 @@ final class SidebarIcons {
     /// the previous site's mark.
     func favicon(for url: URL?) -> NSImage? {
         guard let host = url?.host(percentEncoded: false), !host.isEmpty else { return nil }
+        if revision != service.revision {
+            cache.removeAll()
+            revision = service.revision
+        }
         if let cached = cache[host] { return cached }
         guard let png = service.favicon(forHost: host),
               let image = NSImage(data: png)

@@ -5,6 +5,10 @@ in a release go under Unreleased, grouped by date.
 
 ## Unreleased
 
+### 2026-10-29
+
+- **A site's new favicon shows up** (#243): Luna kept the first icon it saw for a site forever, so one a site changed never appeared. An icon is now fetched again on a visit once it is a week old, as in Chrome and Firefox. If the site has no icon to give at that moment, the old one stays.
+
 ## 0.4.0 — 2026-10-29
 
 ### 2026-10-29
