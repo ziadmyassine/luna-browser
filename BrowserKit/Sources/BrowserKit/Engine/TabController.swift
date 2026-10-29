@@ -253,7 +253,7 @@ public final class TabController: NSObject {
         // Luna's own loads arrive as `.other`, the type the tab-under guard refuses.
         popups.disarm()
         let webView = ensureWebView(restoringSession: false, loadingFallback: false)
-        Self.load(url, into: webView)
+        if !replacedErrorPage(with: url, in: webView) { Self.load(url, into: webView) }
     }
 
     /// `load(URLRequest)` on a `file:` URL fails silently — WebKit needs the explicit
@@ -590,7 +590,7 @@ extension TabController {
         next.isPDF = webView != nil && showsPDF
         next.hasPlayedAudio = webView != nil && playedAudio
         if let webView {
-            next.url = webView.url ?? next.url
+            next.url = webView.url.map { InternalPages.failedURL(for: $0) ?? $0 } ?? next.url
             // Keep the last non-empty title: a page's title arrives after its first
             // paint, and `didCommit` clears it so it can never survive a navigation.
             if let title = webView.title, !title.isEmpty { next.title = title }

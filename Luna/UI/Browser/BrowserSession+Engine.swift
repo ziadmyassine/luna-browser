@@ -210,7 +210,9 @@ extension BrowserSession: TabControllerDelegate {
         // case §19.3 has to recover from.
         if !state.isLoading, let url = state.url {
             cacheSession(of: controller)
-            noteVisit(url, title: state.title, tabID: id)
+            // `state.url` is the failed address under an error page, and a
+            // failure is not a visit.
+            if controller.failedURL == nil { noteVisit(url, title: state.title, tabID: id) }
         }
 
         noteNowPlaying(id, state)
