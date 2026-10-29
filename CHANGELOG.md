@@ -5,6 +5,10 @@ in a release go under Unreleased, grouped by date.
 
 ## Unreleased
 
+### 2026-10-29
+
+- **A mouse's back and forward buttons work on the page** (#252): the thumb buttons on a mouse such as the MX Master go back and forward in the tab's history, on release, as in Chrome and Firefox. With nothing to go back or forward to, they do nothing.
+
 ## 0.3.0 — 2026-10-27
 
 ### 2026-10-23

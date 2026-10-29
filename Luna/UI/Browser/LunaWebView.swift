@@ -42,6 +42,20 @@ final class LunaWebView: WKWebView {
 
     private var tab: TabController? { uiDelegate as? TabController }
 
+    // MARK: - Mouse Back and Forward (#252)
+
+    /// A mouse's thumb buttons: 3 is Back and 4 is Forward. WebKit hands them
+    /// to the page and nothing else answers them. On the way up, as Chrome and
+    /// Firefox do.
+    override func otherMouseUp(with event: NSEvent) {
+        super.otherMouseUp(with: event)
+        switch event.buttonNumber {
+        case 3 where canGoBack: goBack()
+        case 4 where canGoForward: goForward()
+        default: break
+        }
+    }
+
     // MARK: - Unpainted edge (#218)
 
     // Widened in one step (`ContentCardView.beginGeometryTransition`), the view's
