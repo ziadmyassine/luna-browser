@@ -101,7 +101,7 @@ extension SidebarViewController {
         // it lands on is a new tab — and closing it without choosing leaves
         // the list exactly as it was rather than one empty page longer.
         list.onAddTab = { [weak self] in self?.presentCommandBar?(.newTab, nil) }
-        list.menuActions = { [weak self] id in self?.session.tabMenuActions(for: id) }
+        list.menuActions = { [weak self] id in self?.session.listTabMenuActions(for: id) }
         list.manyMenuActions = { [weak self] ids in self?.session.tabMenuActions(for: ids) }
         list.groupMenuActions = { [weak self] id in self?.session.groupMenuActions(for: id) }
         // §3.4b: a folder is made empty and named on its own row. The session

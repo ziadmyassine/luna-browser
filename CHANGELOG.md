@@ -7,6 +7,7 @@ in a release go under Unreleased, grouped by date.
 
 ### 2026-10-29
 
+- **Close Other Tabs and Close Tabs Below** (#254): right-click a tab in the sidebar to close the rest of today's tabs, or the ones under it. With several tabs selected (⌘-click or ⇧-click), they close around the selection. Favorites and tabs in saved folders stay, as with Close All Tabs, and the tab you right-clicked is the one left on screen. Edit ▸ Undo brings them all back at once, and ⇧⌘T reopens them one by one.
 - **A mouse's back and forward buttons work on the page** (#252): the thumb buttons on a mouse such as the MX Master go back and forward in the tab's history, on release, as in Chrome and Firefox. With nothing to go back or forward to, they do nothing.
 
 ## 0.3.0 — 2026-10-27
