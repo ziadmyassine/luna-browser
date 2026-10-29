@@ -76,6 +76,78 @@ final class ManyTabsTests: XCTestCase {
         XCTAssertEqual(todaySlots(session), start)
     }
 
+    // MARK: - Close Other Tabs, Close Tabs Below
+
+    /// `closableTabs`' rule: the day's tabs go, in a folder or not; a tile and
+    /// a saved row stay.
+    func testCloseOtherTabsKeepsTilesAndSavedRows() async throws {
+        let session = try await makeSession()
+        let tile = session.newTab(url: url("tile"))
+        XCTAssertTrue(session.pinTab(tile))
+        let saved = session.newTab(url: url("saved"))
+        XCTAssertNotNil(session.createGroup(name: "Kept", kind: .pinned, containing: [saved]))
+        let kept = session.newTab(url: url("kept"))
+        let loose = session.newTab(url: url("loose"))
+        let grouped = session.newTab(url: url("grouped"))
+        XCTAssertNotNil(session.createGroup(name: "Today", containing: [grouped]))
+        XCTAssertEqual(session.tab(saved)?.kind, .pinned)
+
+        session.closeOtherTabs(than: [kept])
+
+        for id in [tile, saved, kept] { XCTAssertNotNil(session.tab(id)) }
+        for id in [loose, grouped] { XCTAssertNil(session.tab(id)) }
+    }
+
+    func testCloseOtherTabsKeepsEveryMarkedTab() async throws {
+        let session = try await makeSession()
+        for name in ["a", "b", "c", "d"] { session.newTab(url: url(name)) }
+        let start = todaySlots(session)
+
+        session.closeOtherTabs(than: [start[0], start[2]])
+
+        XCTAssertEqual(todaySlots(session), [start[0], start[2]])
+    }
+
+    /// Below the last of the tabs, a folder's tabs included; the ones above stay.
+    func testCloseTabsBelowClosesTheDaysTabsUnderTheLastOne() async throws {
+        let session = try await makeSession()
+        for name in ["a", "b", "c", "d", "e"] { session.newTab(url: url(name)) }
+        let start = todaySlots(session)
+        XCTAssertNotNil(session.createGroup(name: "Below", containing: [start[4]]))
+
+        session.closeTabsBelow([start[0], start[2]])
+
+        XCTAssertEqual(todaySlots(session), Array(start[0 ... 2]))
+        XCTAssertNil(session.tab(start[4]))
+    }
+
+    /// The menu was opened on a tab to keep it, so that tab is the one on
+    /// screen once the one that was there has gone.
+    func testClosingAroundATabGoesToIt() async throws {
+        let session = try await makeSession()
+        let kept = session.newTab(url: url("kept"))
+        session.newTab(url: url("shown"))
+
+        session.closeOtherTabs(than: [kept])
+
+        XCTAssertEqual(session.activeTabID, kept)
+    }
+
+    /// One ⌘Z brings them all back where they were, and each is on the
+    /// shelf ⌘⇧T reopens from.
+    func testOneUndoBringsBackEveryTabClosedAroundOne() async throws {
+        let session = try await makeSession()
+        for name in ["a", "b", "c", "d"] { session.newTab(url: url(name)) }
+        let start = todaySlots(session)
+        session.undoManager.removeAllActions()
+
+        session.closeTabsBelow([start[1]])
+        XCTAssertEqual(Set(session.archivedInActiveSpace.map(\.id)), Set(start[2...]))
+
+        session.undoManager.undo()
+        XCTAssertEqual(todaySlots(session), start)
+    }
+
     private func url(_ path: String) -> URL {
         URL(string: "https://example.com/\(path)")!
     }
