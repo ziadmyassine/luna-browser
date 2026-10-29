@@ -5,6 +5,10 @@ in a release go under Unreleased, grouped by date.
 
 ## Unreleased
 
+### 2026-10-29
+
+- **Reload on an error page tries the page again** (#253): when a page failed to load, the address bar showed Luna's error page instead of the address, and Reload (⌘R) only reloaded the error page. The bar now shows the address that failed, Reload and Try Again load it again, and the attempt takes the error page's place in Back and Forward rather than stacking behind it.
+
 ## 0.3.0 — 2026-10-27
 
 ### 2026-10-23

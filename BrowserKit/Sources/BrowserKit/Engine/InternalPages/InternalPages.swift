@@ -56,6 +56,14 @@ public enum InternalPages {
         return page.name
     }
 
+    /// The address an error page stands in for, which is what the bar shows and
+    /// what Reload tries again — the `luna://error?…` address is nowhere the
+    /// user asked to go.
+    public static func failedURL(for url: URL) -> URL? {
+        guard case let .page(.error(error)) = route(url) else { return nil }
+        return error.url
+    }
+
     /// A link on an internal page that the engine cannot perform itself.
     /// `TabController` cancels the navigation and reports it (§4.4).
     public enum Action: Equatable, Sendable {
