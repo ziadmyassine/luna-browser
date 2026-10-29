@@ -3,10 +3,10 @@
 //  Luna
 //
 //  §3.4a's menu on a row that is one of several marked tabs: what can be done
-//  to all of them at once. Folder, pin, close — the items whose meaning does
-//  not change with the number of tabs. Rename, icon, copy link and mute are
-//  each about one page, and a menu that offered them here would have to pick
-//  which.
+//  to all of them at once. Folder, pin, close and the two that close around
+//  them — the items whose meaning does not change with the number of tabs.
+//  Rename, icon, copy link and mute are each about one page, and a menu that
+//  offered them here would have to pick which.
 //
 
 import AppKit
@@ -23,6 +23,9 @@ extension TabMenu {
         /// A new folder holding all of them, its name field open.
         var newGroup: () -> Void
         var close: () -> Void
+        /// Nil when they would close nothing, as on the one-tab menu.
+        var closeOthers: (() -> Void)?
+        var closeBelow: (() -> Void)?
     }
 
     /// - Parameter folders: every folder the tabs could go into.
@@ -45,6 +48,7 @@ extension TabMenu {
         close.keyEquivalent = "w"
         close.keyEquivalentModifierMask = .command
         menu.addItem(close)
+        addCloseAround(others: actions.closeOthers, below: actions.closeBelow, to: menu)
         return menu
     }
 

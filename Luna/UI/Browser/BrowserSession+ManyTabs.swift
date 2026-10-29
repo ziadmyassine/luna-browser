@@ -4,7 +4,8 @@
 //
 //  The verbs for several tabs at once — the ones marked in §3.4's list with ⌘-
 //  and ⇧-click (`TabListController+Marking.swift`), dropped together or chosen
-//  from the menu on any of them. Each is the one-tab verb applied in turn,
+//  from the menu on any of them — and §3.4a's two that close the day's tabs
+//  around one or several. Each is the one-tab verb applied in turn,
 //  inside one undo group, so ⌘Z puts them all back at once.
 //
 
@@ -67,15 +68,75 @@ extension BrowserSession {
 
     /// Closed from the last up, so the selection that each close hands on
     /// moves toward the tabs above rather than onto the next one to go.
-    func closeTabs(_ ids: [UUID]) {
-        asOneUndo(String(localized: "Close Tabs")) {
+    func closeTabs(_ ids: [UUID], named name: String = String(localized: "Close Tabs")) {
+        asOneUndo(name) {
             for id in ids.reversed() { closeTab(id) }
         }
     }
 
+    // MARK: - Close Other Tabs, Close Tabs Below (§3.4a)
+
+    /// The day's tabs in `ids`' Space other than `ids` — `closableTabs`' rule,
+    /// so a tile or a saved row is never one of them.
+    func otherTabs(than ids: [UUID]) -> [UUID] {
+        closable(in: rows(around: ids), besides: ids)
+    }
+
+    /// The same, drawn below the last of `ids`.
+    func tabsBelow(_ ids: [UUID]) -> [UUID] {
+        let rows = rows(around: ids)
+        guard let last = rows.lastIndex(where: { ids.contains($0.id) }) else { return [] }
+        return closable(in: Array(rows[(last + 1)...]), besides: ids)
+    }
+
+    func closeOtherTabs(than ids: [UUID]) {
+        close(otherTabs(than: ids), around: ids, named: String(localized: "Close Other Tabs"))
+    }
+
+    func closeTabsBelow(_ ids: [UUID]) {
+        close(tabsBelow(ids), around: ids, named: String(localized: "Close Tabs Below"))
+    }
+
+    /// §3.4's rows: the one-tab menu with the two that close around it. A tile
+    /// and §4's strip keep `tabMenuActions(for:)`: every tab of the day is
+    /// drawn after a tile, so there the two would be one item twice, and the
+    /// strip has no below.
+    func listTabMenuActions(for id: UUID) -> TabMenu.Actions {
+        var actions = tabMenuActions(for: id)
+        (actions.closeOthers, actions.closeBelow) = closeAround([id])
+        return actions
+    }
+
+    /// The menu was opened on `ids` to keep them, so the one on screen is one
+    /// of them when the closing is done. Without this, each close hands the
+    /// selection on (`rowBelow`) and it lands wherever the last one left it.
+    private func close(_ doomed: [UUID], around ids: [UUID], named name: String) {
+        guard !doomed.isEmpty else { return }
+        if let active = activeTabID, doomed.contains(active), let first = ids.first { activateTab(first) }
+        closeTabs(doomed, named: name)
+        PageToast.archived(doomed.count).show(in: hostWindow)
+    }
+
+    /// Nil for an item that would close nothing, so the menu leaves it out.
+    private func closeAround(_ ids: [UUID]) -> (others: (() -> Void)?, below: (() -> Void)?) {
+        (
+            otherTabs(than: ids).isEmpty ? nil : { [weak self] in self?.closeOtherTabs(than: ids) },
+            tabsBelow(ids).isEmpty ? nil : { [weak self] in self?.closeTabsBelow(ids) }
+        )
+    }
+
+    private func rows(around ids: [UUID]) -> [Tab] {
+        ids.first.flatMap { list.tab($0)?.spaceID }.map { list[$0] } ?? []
+    }
+
+    private func closable(in rows: [Tab], besides ids: [UUID]) -> [UUID] {
+        rows.filter { $0.kind == .today && !ids.contains($0.id) }.map(\.id)
+    }
+
     /// §3.4a's menu for several marked tabs — the verbs above, bound to them.
     func tabMenuActions(for ids: [UUID]) -> TabMenu.ManyActions {
-        TabMenu.ManyActions(
+        let around = closeAround(ids)
+        return TabMenu.ManyActions(
             pin: allowsPinning ? { [weak self] in
                 guard let self else { return }
                 let favorites = favorites(inSpace: activeSpaceID).count
@@ -85,7 +146,9 @@ extension BrowserSession {
             newGroup: { [weak self] in
                 self?.createGroup(name: BrowserSession.untitledGroupName, containing: ids)
             },
-            close: { [weak self] in self?.closeTabs(ids) }
+            close: { [weak self] in self?.closeTabs(ids) },
+            closeOthers: around.others,
+            closeBelow: around.below
         )
     }
 
