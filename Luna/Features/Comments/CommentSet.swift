@@ -7,6 +7,7 @@
 //
 
 import BrowserKit
+import CryptoKit
 import Foundation
 
 struct Comment: Codable, Identifiable, Equatable, Sendable {
@@ -14,7 +15,7 @@ struct Comment: Codable, Identifiable, Equatable, Sendable {
     /// The owner's words: the instruction, so never scrubbed.
     var note: String
     let created: Date
-    /// The slug of `CommentBundle.slug(for:)`, which groups the export.
+    /// The slug of `CommentBundle.slug(for:)`, which names the export's site folder.
     let origin: String
     let page: PageState
     /// From the picker, every string scrubbed at capture.
@@ -48,10 +49,11 @@ extension Comment {
     }
 }
 
-/// The comments not yet exported, for every window: in memory while comment
-/// mode runs, and in `draft.json` after each change so a crash or a relaunch
-/// loses none. The draft sits outside `Comments/`, where no slug can collide
-/// with it and an agent's read rule does not reach.
+/// One page's comments not yet exported: in memory while comment mode runs,
+/// and in `draft.json` after each change so a crash or a relaunch loses none.
+/// Each page has a folder of its own under `Comment Drafts/`, outside
+/// `Comments/`, where no slug can collide with it and an agent's read rule
+/// does not reach.
 ///
 /// Each change is one step on `undoManager`, which the note field owns so ⌘Z
 /// there never reaches the window's list. The pictures stay in the draft until
@@ -59,7 +61,7 @@ extension Comment {
 @MainActor
 final class CommentSet {
 
-    static var draftFolder: URL { Comment.support.appending(path: "Comment Draft", directoryHint: .isDirectory) }
+    static var draftsFolder: URL { Comment.support.appending(path: "Comment Drafts", directoryHint: .isDirectory) }
 
     let folder: URL
     let undoManager: UndoManager
@@ -71,7 +73,7 @@ final class CommentSet {
 
     private var file: URL { folder.appending(path: "draft.json") }
 
-    init(folder: URL = CommentSet.draftFolder, undoManager: UndoManager = UndoManager()) {
+    init(folder: URL, undoManager: UndoManager = UndoManager()) {
         self.folder = folder
         self.undoManager = undoManager
         comments = Self.saved(in: folder)
@@ -80,7 +82,7 @@ final class CommentSet {
 
     /// The draft as last written, read without making a set: Export asks
     /// before anything has made one this launch.
-    static func saved(in folder: URL = draftFolder) -> [Comment] {
+    static func saved(in folder: URL) -> [Comment] {
         guard let data = try? Data(contentsOf: folder.appending(path: "draft.json")) else { return [] }
         return (try? JSONDecoder().decode([Comment].self, from: data)) ?? []
     }
@@ -106,15 +108,16 @@ final class CommentSet {
         change("Delete Comment", to: comments.filter { $0.id != id }, undoable: undoable)
     }
 
-    /// Writes every origin's bundle, then clears the set as one step. A failed
+    /// Writes the page's bundle, then clears the set as one step. A failed
     /// write throws before anything is cleared, so the draft survives it.
     /// - Parameter outer: the window's list, where the Edit menu's ⌘Z looks;
     ///   it gets a step that undoes this export here, for as long as this
     ///   export is the last change.
+    /// - Returns: the bundle's `COMMENTS.md`, or nil when there was nothing to write.
     @discardableResult
     func export(to root: URL = CommentBundle.folder, now: Date = .now, undoingOn outer: UndoManager? = nil) throws
-        -> [String: URL] {
-        guard !comments.isEmpty else { return [:] }
+        -> URL? {
+        guard !comments.isEmpty else { return nil }
         let written = try CommentBundle.write(comments, images: folder, to: root, now: now)
         change("Export Comments", to: [])
         outer?.registerUndo(withTarget: self) { set in
@@ -159,5 +162,45 @@ final class CommentSet {
         for name in (try? files.contentsOfDirectory(atPath: folder.path)) ?? [] where name.hasSuffix(".png") && !named.contains(name) {
             try? files.removeItem(at: folder.appending(path: name))
         }
+    }
+}
+
+extension CommentSet {
+
+    /// The page a draft belongs to: its address without the fragment, which
+    /// only scrolls the same page, scrubbed as capture scrubs it. The query
+    /// stays, because on most sites and dev servers it names another screen
+    /// (`?id=5`, `?tab=billing`), and those screens' notes must not mix.
+    static func page(of address: String) -> String {
+        CommentBundle.clean(String(address.prefix { $0 != "#" }))
+    }
+
+    /// A page's draft folder, named by a hash because an address can be longer
+    /// than a file name and hold anything.
+    static func folder(for page: String, in root: URL) -> URL {
+        let name = SHA256.hash(data: Data(page.utf8)).prefix(12).map { String(format: "%02x", $0) }.joined()
+        return root.appending(path: name, directoryHint: .isDirectory)
+    }
+
+    /// The one `Comment Draft/` every page shared, beside `root`, becomes a
+    /// draft for each page its comments were made on, pictures moved with
+    /// them. It goes only once every page's draft is written, and a comment
+    /// already in a page's draft is not added twice, so a second run after a
+    /// failed one loses and duplicates nothing.
+    static func migrate(into root: URL) throws {
+        let files = FileManager.default
+        let legacy = root.deletingLastPathComponent().appending(path: "Comment Draft", directoryHint: .isDirectory)
+        guard files.fileExists(atPath: legacy.appending(path: "draft.json").path) else { return }
+        for (page, comments) in Dictionary(grouping: saved(in: legacy), by: { Self.page(of: $0.page.url) }) {
+            let folder = folder(for: page, in: root)
+            try files.createDirectory(at: folder, withIntermediateDirectories: true)
+            for name in comments.flatMap({ [$0.image, $0.context].compactMap(\.self) }) {
+                try? files.moveItem(at: legacy.appending(path: name), to: folder.appending(path: name))
+            }
+            let kept = saved(in: folder)
+            let merged = kept + comments.filter { comment in !kept.contains { $0.id == comment.id } }
+            try JSONEncoder().encode(merged).write(to: folder.appending(path: "draft.json"), options: .atomic)
+        }
+        try files.removeItem(at: legacy)
     }
 }

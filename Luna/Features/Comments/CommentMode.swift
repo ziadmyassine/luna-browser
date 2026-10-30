@@ -7,8 +7,9 @@
 //  entered and dropped when it ends, so nothing is resident while the mode is
 //  off. `docs/plans/COMMENT-MODE.md` is the brief; this is its Flow 1–4.
 //
-//  The mode belongs to the tab it was entered on. Escape, ⇧⌘M, a new
-//  document or a tab switch ends it; the draft stays for the next time.
+//  The mode belongs to the tab and the page it was entered on, and writes to
+//  that page's draft. Escape, ⇧⌘M, a new document, a move to another address
+//  or a tab switch ends it; the draft stays for the next time.
 //
 
 import AppKit
@@ -38,6 +39,7 @@ final class CommentMode: WindowScoped {
     /// Picks are captured one at a time, in the order they were made.
     private var capturing: Task<Void, Never>?
     private var observation: ObservationToken?
+    private var pageObservation: ObservationToken?
     private var ended = false
 
     /// Padding around the element in its crop, CSS pixels a side.
@@ -69,6 +71,12 @@ final class CommentMode: WindowScoped {
         }
         guard controller.isDescribingElements else { return false }
         observation = session.addChangeObserver { [weak self] in self?.followSelection() }
+        // `pushState` makes no new document, but it is another page with a draft of its own.
+        let page = controller.state.url.map { CommentSet.page(of: $0.absoluteString) }
+        pageObservation = session.addTabStateObserver { [weak self] id, state in
+            guard id == tab, let url = state.url, CommentSet.page(of: url.absoluteString) != page else { return }
+            self?.leave()
+        }
         (surface.window as? LunaWindow)?.keyDownFilter = { [weak self] in self?.walk(by: $0) ?? false }
         focusPage()
         return true
@@ -80,6 +88,7 @@ final class CommentMode: WindowScoped {
         ended = true
         capturing?.cancel()
         observation = nil
+        pageObservation = nil
         (surface.window as? LunaWindow)?.keyDownFilter = nil
         closeNote(focusingPage: false)
         tabID.flatMap { session.controller(for: $0) }?.stopDescribingElements()
