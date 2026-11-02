@@ -50,14 +50,18 @@ public final class ExtensionManager {
     // MARK: - Spaces
 
     /// The Space's controller, made on first use. The session hands it to every
-    /// web view it builds in that Space.
-    public func controller(forSpace spaceID: UUID, dataStore: WKWebsiteDataStore) -> WKWebExtensionController {
-        host(forSpace: spaceID, dataStore: dataStore).controller
+    /// web view it builds in that Space. `sharesSessions` is read when the host
+    /// is made and not again: every web view binds the controller, so the
+    /// store it chose is settled until the next launch.
+    public func controller(
+        forSpace spaceID: UUID, dataStore: WKWebsiteDataStore, sharesSessions: Bool = false
+    ) -> WKWebExtensionController {
+        host(forSpace: spaceID, dataStore: dataStore, sharesSessions: sharesSessions).controller
     }
 
-    private func host(forSpace spaceID: UUID, dataStore: WKWebsiteDataStore) -> ExtensionHost {
+    private func host(forSpace spaceID: UUID, dataStore: WKWebsiteDataStore, sharesSessions: Bool) -> ExtensionHost {
         if let existing = hosts[spaceID] { return existing }
-        let host = ExtensionHost(spaceID: spaceID, dataStore: dataStore)
+        let host = ExtensionHost(spaceID: spaceID, dataStore: dataStore, sharesSessions: sharesSessions)
         host.browser = browser
         host.ui = ui
         host.services = services
@@ -71,7 +75,7 @@ public final class ExtensionManager {
 
     /// Reads what is installed and loads it, one context at a time, spaced
     /// out. Call once, after the first window is on screen (§4).
-    public func start(spaces: [(id: UUID, dataStore: WKWebsiteDataStore)]) async {
+    public func start(spaces: [(id: UUID, dataStore: WKWebsiteDataStore, sharesSessions: Bool)]) async {
         try? FileManager.default.removeItem(at: library.root.appending(path: ".staging"))
         for (record, rows) in (try? await store.installedExtensions()) ?? [] {
             var details: ExtensionDetails?
@@ -83,7 +87,7 @@ public final class ExtensionManager {
             )
         }
         for space in spaces {
-            let host = host(forSpace: space.id, dataStore: space.dataStore)
+            let host = host(forSpace: space.id, dataStore: space.dataStore, sharesSessions: space.sharesSessions)
             for (id, entry) in installed.sorted(by: { $0.value.record.installedAt < $1.value.record.installedAt }) {
                 guard let row = entry.spaces[space.id], row.isEnabled else { continue }
                 await load(id, into: host, grants: row.grants)
@@ -98,8 +102,8 @@ public final class ExtensionManager {
     /// because a new Space turning back on what the user turned off everywhere
     /// undoes their choice. The host is made here rather than with the Space's
     /// first web view, because only `start` and a switch load contexts into one.
-    public func addSpace(_ spaceID: UUID, dataStore: WKWebsiteDataStore) async {
-        _ = host(forSpace: spaceID, dataStore: dataStore)
+    public func addSpace(_ spaceID: UUID, dataStore: WKWebsiteDataStore, sharesSessions: Bool = false) async {
+        _ = host(forSpace: spaceID, dataStore: dataStore, sharesSessions: sharesSessions)
         let missing = extensions.filter { info in
             let rows = installed[info.id]?.spaces ?? [:]
             return rows[spaceID] == nil && (rows.isEmpty || rows.values.contains(where: \.isEnabled))

@@ -16,7 +16,11 @@ extension BrowserSession {
     /// in a private session and for a Space that no longer exists.
     func extensionController(forSpace spaceID: UUID) -> WKWebExtensionController? {
         guard let extensions, space(spaceID) != nil else { return nil }
-        return extensions.controller(forSpace: spaceID, dataStore: dataStore(forSpace: spaceID))
+        return extensions.controller(
+            forSpace: spaceID,
+            dataStore: dataStore(forSpace: spaceID),
+            sharesSessions: Settings.extensionsShareSessions(inSpace: spaceID)
+        )
     }
 
     /// Loads what is installed, one extension at a time. After the first
@@ -24,7 +28,9 @@ extension BrowserSession {
     /// failed some workers for good.
     func startExtensions() {
         guard let extensions else { return }
-        let spaces = spaces.map { (id: $0.id, dataStore: dataStore(forSpace: $0.id)) }
+        let spaces = spaces.map {
+            (id: $0.id, dataStore: dataStore(forSpace: $0.id), sharesSessions: Settings.extensionsShareSessions(inSpace: $0.id))
+        }
         Task {
             await extensions.start(spaces: spaces)
             // The icons and badges the chrome drew before this were for no
@@ -40,8 +46,9 @@ extension BrowserSession {
     func startExtensions(inSpace spaceID: UUID) {
         guard let extensions else { return }
         let dataStore = dataStore(forSpace: spaceID)
+        let sharesSessions = Settings.extensionsShareSessions(inSpace: spaceID)
         Task {
-            await extensions.addSpace(spaceID, dataStore: dataStore)
+            await extensions.addSpace(spaceID, dataStore: dataStore, sharesSessions: sharesSessions)
             ExtensionsCenter.shared.announce()
         }
     }

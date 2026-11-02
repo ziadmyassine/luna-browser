@@ -137,6 +137,24 @@ leaves §16.6 as Luna's to invent.
     app that is not there. Web Store installs are Chrome builds, so Chrome is
     also what they were tested against. Web tabs keep Luna's own UA.
 
+    The own store is also why a cookie-based sign-in that works in Chrome
+    does not here: a worker's `fetch` with `credentials: "include"` carries
+    the store's cookies, and the background store holds none of the Space's.
+    Measured 2026-10-16 with Docta, which signs in by fetching itslearning's
+    OAuth consent page on the browser session: the same fetch from an
+    itslearning tab in Luna returns the consent page, from the extension's
+    worker it does not. So Settings → Extensions has **"Can use a Space's
+    sign-ins"**, one switch per Space, off by default
+    (`Settings.extensionsShareSessions(inSpace:)`). On, the Space's extension
+    pages run in the Space's own store (`ExtensionHost.pagesStore`), and the
+    launch wipe of service-worker registrations — store-wide, since
+    `dataRecords` never lists `webkit-extension://` origins — then takes the
+    Space's sites' registrations with it; they register again on the next
+    visit. Per Space, not per extension: a Space's extensions share one
+    controller, and the store is on its web view configuration, so it is
+    chosen once per controller, and only at the next launch — every tab in
+    the Space binds the controller it was built with.
+
 ---
 
 ## 4. WebKit traps, with who found them

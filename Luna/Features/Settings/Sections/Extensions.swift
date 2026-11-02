@@ -31,6 +31,8 @@ final class ExtensionsSection: NSObject, SettingsSection {
     /// The cards on screen, in order, so a change that keeps the same
     /// extensions updates them rather than building the pane again.
     private var shown: [(id: String, card: ExtensionCardView)] = []
+    /// The Spaces the sign-in rows were built for; a different list rebuilds.
+    private var shownSpaces: [UUID] = []
     /// The Details popover, while one is open.
     private weak var details: NSPopover?
 
@@ -57,7 +59,7 @@ final class ExtensionsSection: NSObject, SettingsSection {
     /// Only a different list of extensions builds the pane again.
     @objc private func refresh() {
         let installed = center.installed
-        guard installed.map(\.id) == shown.map(\.id) else { return build() }
+        guard installed.map(\.id) == shown.map(\.id), spaces.map(\.id) == shownSpaces else { return build() }
         for (info, entry) in zip(installed, shown) {
             let made = model(for: info)
             entry.card.update(made.model)
@@ -69,11 +71,13 @@ final class ExtensionsSection: NSObject, SettingsSection {
     func willAppear() { refresh() }
 
     private var center: ExtensionsCenter { .shared }
+    private var spaces: [Space] { center.session?.spaces ?? [] }
 
     private func build() {
         body = SettingsBody()
         shown = []
         addCard()
+        signInsCard()
         let installed = center.installed
         if installed.isEmpty {
             body.card(ExtensionsEmptyCard(), rows: [(view: NSView(), terms: ["no extensions"])])
@@ -138,6 +142,72 @@ final class ExtensionsSection: NSObject, SettingsSection {
         alert.messageText = String(localized: "Luna couldn’t add that extension")
         alert.informativeText = reason
         if let window { alert.beginSheetModal(for: window) } else { alert.runModal() }
+    }
+
+    // MARK: - Sign-ins
+
+    /// One switch per Space (docs/EXTENSIONS.md §3.11). Next launch, not now:
+    /// every web view in the Space binds the controller the store was chosen
+    /// for, so a new store means a new controller and every tab rebuilt.
+    ///
+    /// The rows are a name and a switch; what the switch does is behind the
+    /// heading's Details, as an extension's own card keeps its description
+    /// behind its Details — two lines under every Space read as a wall.
+    private func signInsCard() {
+        let spaces = spaces
+        shownSpaces = spaces.map(\.id)
+        guard !spaces.isEmpty else { return }
+        let details = ExtensionCardButton(
+            symbol: "info.circle",
+            title: String(localized: "Details"),
+            label: String(localized: "Details about using a Space’s sign-ins")
+        )
+        details.onActivate = { [weak self, weak details] in
+            guard let details else { return }
+            self?.showSignInsDetails(from: details)
+        }
+        let title = String(localized: "Can use a Space’s sign-ins")
+        body.heading(SettingsRow.heading(title, accessory: details), terms: [title, Self.signInsExplanation, "details"])
+        body.card(nil, spaces.map { space in
+            let row = SettingsRow.toggle(space.name, value: Settings.extensionsShareSessions(inSpace: space.id)) { on in
+                Settings.setExtensionsShareSessions(on, inSpace: space.id)
+            }
+            return (view: row, terms: [space.name, "sign-ins", "cookies", "sessions", "login", "credentials", "space"])
+        })
+    }
+
+    private static let signInsExplanation = String(localized: """
+    Background requests from extensions carry this Space’s cookies, as in Chrome. Luna then also \
+    re-registers the Space’s websites’ service workers at each launch. Takes effect after Luna relaunches.
+    """)
+
+    /// The explanation, in a popover under the heading's Details, as
+    /// `showDetails` places an extension's.
+    private func showSignInsDetails(from anchor: NSView) {
+        details?.close()
+        let label = NSTextField(wrappingLabelWithString: Self.signInsExplanation)
+        label.font = Tokens.TypeScale.sidebarRow
+        label.textColor = Tokens.Text.secondary
+        label.translatesAutoresizingMaskIntoConstraints = false
+        let view = NSView()
+        view.addSubview(label)
+        let inset = SettingsMetrics.cardInset
+        let width = Tokens.Metric.siteSettingsPanel - 2 * inset
+        label.preferredMaxLayoutWidth = width
+        NSLayoutConstraint.activate([
+            label.widthAnchor.constraint(equalToConstant: width),
+            label.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: inset),
+            label.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -inset),
+            label.topAnchor.constraint(equalTo: view.topAnchor, constant: inset),
+            label.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -inset)
+        ])
+        let controller = NSViewController()
+        controller.view = view
+        let popover = NSPopover()
+        popover.contentViewController = controller
+        popover.behavior = .transient
+        popover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minY)
+        details = popover
     }
 
     // MARK: - One extension
