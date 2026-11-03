@@ -5,6 +5,12 @@ in a release go under Unreleased, grouped by date.
 
 ## Unreleased
 
+## 0.4.4 — 2026-11-03
+
+### 2026-11-03
+
+- **1Password works with Luna again**: 0.4.3 had no Developer ID signature, and 1Password refused it as signed in an unsupported way. 0.4.4 is signed with NovApps' Developer ID, which 1Password accepts.
+
 ## 0.4.3 — 2026-11-02
 
 ### 2026-11-02
