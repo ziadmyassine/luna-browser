@@ -118,26 +118,111 @@ final class PageBarInsetTests: XCTestCase {
         XCTAssertEqual(page.obscuredContentInsets.top, Tokens.Metric.pageBar)
     }
 
-    /// WebKit's inspector docked beside the page runs its full height, and its
-    /// toolbar was under the bar; it is told what the bar covers. Docked below
-    /// the page it is nowhere near the bar and is told nothing.
-    func testADockedInspectorBesideThePageStartsBelowTheBar() {
+    /// WebKit's inspector docked beside the page stands on the chrome beside
+    /// it. The bar follows the page instead of running across the
+    /// inspector's top, so the inspector starts at the top; only the traffic
+    /// lights, over the card's corner when the sidebar is hidden, push it down.
+    func testADockedInspectorBesideThePageKeepsTheBarOverThePage() {
         let card = ContentCardView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
         let page = WKWebView(frame: .zero)
         card.setContent(page)
+        let bar = NSView()
+        card.setOverlay(bar)
         card.setContentTopInset(Tokens.Metric.pageBar, animated: false)
+        card.layoutSubtreeIfNeeded()
         let inspector = FakeInspectorWebView(frame: NSRect(x: 500, y: 0, width: 300, height: 600))
         card.addSubview(inspector)
-        XCTAssertEqual(inspector.obscuredContentInsets.top, Tokens.Metric.pageBar, "the side inspector ran under the bar")
+        page.frame = NSRect(x: 0, y: 0, width: 500, height: 600)
+        XCTAssertEqual(bar.frame, page.frame, "the bar ran across the inspector")
+        XCTAssertEqual(inspector.obscuredContentInsets.top, 0, "the inspector beside started below a bar not over it")
+        XCTAssertEqual(page.layer?.cornerRadius, WindowCorner.radius, "the page beside the inspector stayed square")
+
+        card.insetEdge = nil
+        inspector.frame = NSRect(x: 0, y: 0, width: 300, height: 600)
+        page.frame = NSRect(x: 300, y: 0, width: 500, height: 600)
+        XCTAssertEqual(inspector.obscuredContentInsets.top, Tokens.Metric.pageBar, "the lights sat over the inspector")
 
         inspector.frame = NSRect(x: 0, y: 0, width: 800, height: 250)
+        page.frame = NSRect(x: 0, y: 250, width: 800, height: 350)
         XCTAssertEqual(inspector.obscuredContentInsets.top, 0, "the inspector below the page was pushed down")
 
-        inspector.frame = NSRect(x: 500, y: 0, width: 300, height: 600)
-        card.setContentTopInset(0, animated: false)
-        XCTAssertEqual(inspector.obscuredContentInsets.top, 0, "the bar went and the inspector kept its gap")
         inspector.removeFromSuperview()
+        card.layoutSubtreeIfNeeded()
         XCTAssertFalse(page.translatesAutoresizingMaskIntoConstraints, "the page did not get its edges back")
+        XCTAssertEqual(bar.frame, card.bounds, "the bar did not get the card's edges back")
+        XCTAssertEqual(page.layer?.cornerRadius, 0, "the page kept the inspector's corners")
+    }
+
+    /// The page rounds every corner that meets the inspector or the chrome,
+    /// and leaves square only those where two window edges meet — the
+    /// window's own mask rounds those, and in fullscreen they are square.
+    func testThePageRoundsTheCornersThatMeetAnInspector() {
+        let card = NSRect(x: 0, y: 0, width: 800, height: 600)
+        let all: CACornerMask = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner, .layerMinXMinYCorner, .layerMaxXMinYCorner]
+        let below = NSRect(x: 0, y: 250, width: 800, height: 350)
+        XCTAssertEqual(
+            ContentCardView.roundedCorners(of: below, in: card, chrome: [.leading]),
+            [.layerMinXMaxYCorner, .layerMinXMinYCorner, .layerMaxXMinYCorner],
+            "below the page, the window's own top right corner was rounded again"
+        )
+        XCTAssertEqual(ContentCardView.roundedCorners(of: below, in: card, chrome: [.top]), all)
+        let leftOfInspector = NSRect(x: 0, y: 0, width: 500, height: 600)
+        XCTAssertEqual(ContentCardView.roundedCorners(of: leftOfInspector, in: card, chrome: [.leading]), all)
+        let rightOfInspector = NSRect(x: 300, y: 0, width: 500, height: 600)
+        XCTAssertEqual(
+            ContentCardView.roundedCorners(of: rightOfInspector, in: card, chrome: []),
+            [.layerMinXMaxYCorner, .layerMinXMinYCorner],
+            "with the sidebar hidden, the page rounded the window's own corners"
+        )
+    }
+
+    /// A flipped layer has its top at `minY`, and a web view is flipped.
+    func testAFlippedPageIsRoundedAtTheSameCorners() {
+        let page = WKWebView(frame: NSRect(x: 0, y: 0, width: 100, height: 100))
+        page.wantsLayer = true
+        ContentCardView.round(page, corners: [.layerMinXMaxYCorner], edged: true)
+        XCTAssertEqual(page.layer?.maskedCorners, [.layerMinXMinYCorner])
+        XCTAssertTrue(page.layer?.isGeometryFlipped == true, "the web view's layer is no longer flipped")
+        XCTAssertEqual(page.layer?.borderWidth, Tokens.Metric.hairline)
+    }
+
+    /// The inspector is held back until it wears the stylesheet. Closed, the
+    /// page takes its whole size at once and is uncovered from where it
+    /// stood, the bar over it with it, while the card stays clear behind.
+    func testAClosedInspectorsPlaceIsUncoveredFromWhereThePageStood() throws {
+        let card = ContentCardView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+        let page = WKWebView(frame: .zero)
+        card.setContent(page)
+        let bar = NSView()
+        card.setOverlay(bar)
+        card.layoutSubtreeIfNeeded()
+        let inspector = FakeInspectorWebView(frame: NSRect(x: 0, y: 0, width: 800, height: 250))
+        card.addSubview(inspector)
+        XCTAssertEqual(inspector.alphaValue, 0, "the inspector showed before it wore the stylesheet")
+        inspector.removeFromSuperview()
+        XCTAssertEqual(inspector.alphaValue, 1, "undocked into a window of its own, the inspector stayed invisible")
+
+        let above = NSRect(x: 0, y: 250, width: 800, height: 350)
+        card.revealPage(from: above, corners: [.layerMinXMinYCorner, .layerMaxXMinYCorner])
+        XCTAssertEqual(page.frame, card.bounds, "the page did not take its whole size at once")
+        let mask = try XCTUnwrap(page.layer?.mask, "the page was not masked")
+        XCTAssertEqual(mask.frame, page.bounds)
+        XCTAssertEqual(mask.maskedCorners, [.layerMinXMaxYCorner, .layerMaxXMaxYCorner], "the flipped page's mask rounded its top")
+        XCTAssertEqual(Self.start(of: mask), NSPoint(x: 400, y: 175), "the flipped page was uncovered from somewhere else")
+        let barMask = try XCTUnwrap(bar.layer?.mask, "the bar was not masked with the page")
+        XCTAssertEqual(Self.start(of: barMask), NSPoint(x: 400, y: 425))
+        card.updateLayer()
+        XCTAssertEqual(card.layer?.backgroundColor?.alpha, 0, "the card's grey showed beside the growing page")
+
+        card.endPageReveal()
+        XCTAssertNil(page.layer?.mask)
+        XCTAssertNil(bar.layer?.mask)
+        card.updateLayer()
+        XCTAssertEqual(card.layer?.backgroundColor?.alpha, 1, "the card stayed clear after the page had it all")
+    }
+
+    private static func start(of mask: CALayer) -> NSPoint? {
+        ((mask.animation(forKey: "position") as? CABasicAnimation)?.fromValue as? NSValue)?.pointValue
     }
 
     /// The page is scrolled by the change, so it stays still on screen —

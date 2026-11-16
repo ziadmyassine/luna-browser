@@ -20,71 +20,6 @@ import AppKit
 import BrowserKit
 import WebKit
 
-/// The one edge of the page's pane that meets the chrome rather than the
-/// window, and so the pair of corners that is rounded.
-enum CardEdge: Equatable {
-    case leading, trailing, top
-
-    init(_ edge: SidebarEdge) {
-        self = edge == .leading ? .leading : .trailing
-    }
-
-    /// The pane's two corners along this edge.
-    var corners: CACornerMask {
-        switch self {
-        case .trailing: [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
-        case .top: [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
-        case .leading: [.layerMinXMinYCorner, .layerMinXMaxYCorner]
-        }
-    }
-}
-
-extension ChromeState {
-
-    /// Which of the pane's edges is not a window edge, and therefore which pair
-    /// of corners is rounded: the side the sidebar is on, or the top under §4's
-    /// bar. Collapsed or in fullscreen the pane meets the window on every side
-    /// and the window's own mask is the only corner there is.
-    var cardInsetEdge: CardEdge? {
-        switch self {
-        case let .sidebar(_, edge): CardEdge(edge)
-        case .topBar: .top
-        case .sidebarCollapsed, .fullscreen: nil
-        }
-    }
-
-    var cardIsInset: Bool { cardInsetEdge != nil }
-
-    /// The card's inset from the window's content view, per layout.
-    ///
-    /// Pure, and unit-tested alongside the traffic lights: this and
-    /// `TrafficLightLayout` are the only two places window geometry is decided.
-    var cardInsets: NSEdgeInsets {
-        switch self {
-        case let .sidebar(width, edge):
-            // Flush to the window's top and bottom and to the edge the sidebar
-            // is not on; the sidebar is the only thing that insets it.
-            return switch edge {
-            case .leading: NSEdgeInsets(top: 0, left: width, bottom: 0, right: 0)
-            case .trailing: NSEdgeInsets(top: 0, left: 0, bottom: 0, right: width)
-            }
-        case .sidebarCollapsed:
-            // Flush, lights and all. Hiding the sidebar means the page
-            // fills the window; reserving a 52 pt strip for the traffic lights
-            // would leave a band of empty glass across the top, which is not
-            // "hidden". The lights keep their own place in the titlebar and
-            // float over the page, which is what every browser that has this
-            // mode does.
-            return NSEdgeInsets()
-        case .topBar:
-            // §4: flush full-bleed below the bar.
-            return NSEdgeInsets(top: TopBarMetrics.barHeight, left: 0, bottom: 0, right: 0)
-        case .fullscreen:
-            return NSEdgeInsets()
-        }
-    }
-}
-
 /// Opaque rounded host for the web content.
 @MainActor
 final class ContentCardView: NSView {
@@ -132,6 +67,10 @@ final class ContentCardView: NSView {
     /// §3.2b's page bar, floating over the page at the pane's top edge — the
     /// one thing that is allowed inside the card and is not the web content.
     private var overlay: NSView?
+    /// The bar's and Luna Control's four edges, handed over to the page's
+    /// frame while an inspector is docked (`shapeAroundInspector`).
+    private var overlayEdges: [NSLayoutConstraint] = []
+    private var controlEdges: [NSLayoutConstraint] = []
     /// Luna Control's layer (`ControlSurfaceView`): over the page, under the
     /// page bar, whichever tab is showing.
     private var agentLayer: ControlSurfaceView?
@@ -153,7 +92,10 @@ final class ContentCardView: NSView {
     private(set) var contentEdges: [NSLayoutConstraint] = []
     private var contentFollowsFrames = false
     /// WebKit's docked inspector, told how much of it §3.2b's bar covers.
-    private weak var dockedInspector: WKWebView? { didSet { needsDisplay = true } }
+    private(set) weak var dockedInspector: WKWebView? { didSet { needsDisplay = true } }
+    /// The masks uncovering the page while it takes back a closed inspector's
+    /// place (`revealPage`); the card stays clear until they are gone.
+    var revealMasks: [CALayer] = [] { didSet { needsDisplay = true } }
     private var pageBarInset: CGFloat = 0
     /// Cancels the watchdog when a transition ends the ordinary way.
     private var transitionWatchdog: Task<Void, Never>?
@@ -250,6 +192,7 @@ final class ContentCardView: NSView {
         NSLayoutConstraint.activate(contentEdges)
         // A tab arriving under a bar that is already there.
         applyTopInset()
+        shapeAroundInspector()
     }
 
     /// §3.2b's bar.
@@ -266,12 +209,9 @@ final class ContentCardView: NSView {
         guard let view else { return }
         view.translatesAutoresizingMaskIntoConstraints = false
         addSubview(view, positioned: .above, relativeTo: nil)
-        NSLayoutConstraint.activate([
-            view.topAnchor.constraint(equalTo: topAnchor),
-            view.leadingAnchor.constraint(equalTo: leadingAnchor),
-            view.trailingAnchor.constraint(equalTo: trailingAnchor),
-            view.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ])
+        overlayEdges = pinnedEdges(of: view)
+        NSLayoutConstraint.activate(overlayEdges)
+        shapeAroundInspector()
     }
 
     /// §3.2b's bar is drawn over the page and read before it.
@@ -291,12 +231,9 @@ final class ContentCardView: NSView {
             addSubview(view)
         }
         view.topInset = pageBarInset
-        NSLayoutConstraint.activate([
-            view.topAnchor.constraint(equalTo: topAnchor),
-            view.leadingAnchor.constraint(equalTo: leadingAnchor),
-            view.trailingAnchor.constraint(equalTo: trailingAnchor),
-            view.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ])
+        controlEdges = pinnedEdges(of: view)
+        NSLayoutConstraint.activate(controlEdges)
+        shapeAroundInspector()
     }
 
     /// How much of the page §3.2b's bar covers.
@@ -487,6 +424,7 @@ final class ContentCardView: NSView {
         layer?.cornerRadius = edges.isEmpty ? 0 : WindowCorner.radius
         // The edge is drawn by `updateLayer` and turns off with the corners.
         needsDisplay = true
+        if dockedInspector != nil { shapeAroundInspector() }
     }
 
     override var wantsUpdateLayer: Bool { true }
@@ -496,16 +434,20 @@ final class ContentCardView: NSView {
         // Clear while an inspector is docked: it is restyled to be the chrome
         // carried on into the card (`InspectorStyle`), so the window's glass
         // has to be what is behind it. The page paints its own background.
-        layer.backgroundColor = dockedInspector == nil ? Tokens.Surface.base.cgColor : NSColor.clear.cgColor
+        let clear = dockedInspector != nil || !revealMasks.isEmpty
+        layer.backgroundColor = clear ? NSColor.clear.cgColor : Tokens.Surface.base.cgColor
         // The glass edge (§3.6). The pane is opaque, so the chrome's
         // material stops dead at its leading edge and the two planes meet with
         // nothing between them. `Line.border` is that edge — the same hairline
         // every other glass surface in the app carries, drawn on the side where
         // the page meets the chrome. It follows `maskedCorners`, so it runs
         // round the rounded edge and nowhere else.
-        let edged = isInset || agentEdge != nil
+        // Docked beside an inspector, the edge is the page's own instead
+        // (`shapeAroundInspector`).
+        let edged = (isInset || agentEdge != nil) && dockedInspector == nil
         layer.borderWidth = edged ? Tokens.Metric.hairline : 0
         layer.borderColor = edged ? Tokens.Line.border.cgColor : nil
+        content?.layer?.borderColor = dockedInspector == nil ? nil : Tokens.Line.border.cgColor
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -534,6 +476,8 @@ extension ContentCardView {
         contentLeading = nil
         contentWidth = nil
         contentTop = nil
+        // Nor a docked inspector's corners: the page leaves square.
+        if let content { Self.round(content, corners: [], edged: false) }
     }
 
     /// Whether the page is in the card. WebKit lends it to a window of its
@@ -584,16 +528,26 @@ extension ContentCardView {
         if subview === content { pageCameBack() }
         guard Self.isDockedInspector(subview) else { return }
         followFrames(true)
+        endPageReveal()
         dockedInspector = subview as? WKWebView
-        if let inspector = dockedInspector { WebInspector.restyle(inspector, css: InspectorStyle.css) }
-        subview.postsFrameChangedNotifications = true
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(inspectorMoved), name: NSView.frameDidChangeNotification, object: subview
-        )
-        // WebKit zeroes the inspector's insets after adding it, so the
-        // cover goes on again once it has finished.
-        coverInspector()
-        DispatchQueue.main.async { [weak self] in self?.coverInspector() }
+        if let inspector = dockedInspector {
+            // Held back until it wears the stylesheet: WebKit's own look
+            // flashed for a third of a second before it.
+            inspector.alphaValue = 0
+            WebInspector.restyle(inspector, css: InspectorStyle.css, script: InspectorStyle.script) { [weak inspector] in
+                Self.fadeIn(inspector)
+            }
+        }
+        for view in [subview, content].compactMap({ $0 }) {
+            view.postsFrameChangedNotifications = true
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(inspectorMoved), name: NSView.frameDidChangeNotification, object: view
+            )
+        }
+        // WebKit sets the frames and zeroes the inspector's insets after
+        // adding it, so both go on again once it has finished.
+        shapeAroundInspector()
+        DispatchQueue.main.async { [weak self] in self?.shapeAroundInspector() }
     }
 
     override func willRemoveSubview(_ subview: NSView) {
@@ -601,9 +555,18 @@ extension ContentCardView {
         onSubviewsChange?()
         if subview === content { pageWasLent() }
         guard Self.isDockedInspector(subview) else { return }
+        let page = content.map { convert($0.bounds, from: $0) }
+        let corners = page.map { Self.roundedCorners(of: $0, in: bounds, chrome: chromeEdges) } ?? []
         followFrames(false)
-        NotificationCenter.default.removeObserver(self, name: NSView.frameDidChangeNotification, object: subview)
+        for view in [subview, content].compactMap({ $0 }) {
+            NotificationCenter.default.removeObserver(self, name: NSView.frameDidChangeNotification, object: view)
+        }
+        // Undocked into a window of its own, it is shown there at once.
+        subview.alphaValue = 1
         dockedInspector = nil
+        shapeAroundInspector()
+        guard let page, window != nil, !Tokens.Motion.reduceMotion else { return }
+        revealPage(from: page, corners: corners)
     }
 
     /// Where a docked Web Inspector stands, in the card's coordinates.
@@ -611,21 +574,71 @@ extension ContentCardView {
         subviews.first(where: Self.isDockedInspector)?.frame
     }
 
-    @objc private func inspectorMoved() { coverInspector() }
+    @objc private func inspectorMoved() { shapeAroundInspector() }
 
-    /// Docked beside the page, the inspector runs the card's full height and
-    /// its toolbar sat under §3.2b's bar, so it is told what the bar covers the
-    /// way the page is. Docked below the page it reaches nowhere near the bar
-    /// and is told nothing. Recomputed on every move: WebKit re-adds the view
+    /// While an inspector is docked the page is a card of its own: the card
+    /// goes clear, the inspector stands on the chrome's glass beside it, and
+    /// the page rounds every corner that meets the inspector or the chrome.
+    /// §3.2b's bar and Luna Control's layer follow the page rather than the
+    /// card, so the bar never runs across the top of an inspector beside it.
+    /// Undocked, all of it goes back to the card's four edges.
+    func shapeAroundInspector() {
+        guard let content else { return }
+        let docked = dockedInspector != nil && content.isDescendant(of: self)
+        let page = docked ? convert(content.bounds, from: content) : bounds
+        let corners = docked ? Self.roundedCorners(of: page, in: bounds, chrome: chromeEdges) : []
+        content.wantsLayer = true
+        Self.round(content, corners: corners, edged: docked)
+        for (view, edges) in [(overlay, overlayEdges), (agentLayer as NSView?, controlEdges)] {
+            guard let view else { continue }
+            if docked {
+                NSLayoutConstraint.deactivate(edges)
+                view.translatesAutoresizingMaskIntoConstraints = true
+                Tokens.Motion.immediately { view.frame = page }
+            } else if view.translatesAutoresizingMaskIntoConstraints {
+                view.translatesAutoresizingMaskIntoConstraints = false
+                NSLayoutConstraint.activate(edges)
+            }
+            Self.round(view, corners: corners, edged: false)
+        }
+        needsDisplay = true
+        coverInspector()
+    }
+
+    /// With the bar over the page alone, the only chrome that can reach over
+    /// an inspector is the traffic lights, which float over the card's top
+    /// left when nothing else is there — the sidebar hidden, or on the right.
+    /// An inspector docked to that corner starts below them, the way the page
+    /// starts below the bar. Recomputed on every move: WebKit re-adds the view
     /// when it changes side, and zeroes the insets whenever it sets the frame.
     private func coverInspector() {
         guard let inspector = dockedInspector else { return }
-        let top = isFlipped ? inspector.frame.minY : bounds.height - inspector.frame.maxY
-        let covered = max(0, pageBarInset - top)
+        let frame = convert(inspector.bounds, from: inspector)
+        let underLights = frame.maxY >= bounds.maxY - 0.5 && frame.minX <= bounds.minX + 0.5
+            && insetEdge != .leading && insetEdge != .top
+        let covered = underLights ? pageBarInset : 0
         guard inspector.obscuredContentInsets.top != covered else { return }
         var insets = inspector.obscuredContentInsets
         insets.top = covered
         inspector.obscuredContentInsets = insets
+    }
+
+    /// The edges the sidebar, the top bar or the agent's panel are on.
+    private var chromeEdges: Set<CardEdge> { Set([insetEdge, agentEdge].compactMap { $0 }) }
+
+    /// The page and what floats over it: the three that follow the page's
+    /// frame while an inspector is docked.
+    var pageViews: [NSView] { [content, agentLayer, overlay].compactMap { $0 } }
+
+    /// What the bar and Luna Control's layer are held by when no inspector is
+    /// docked: the card's four edges.
+    fileprivate func pinnedEdges(of view: NSView) -> [NSLayoutConstraint] {
+        [
+            view.topAnchor.constraint(equalTo: topAnchor),
+            view.leadingAnchor.constraint(equalTo: leadingAnchor),
+            view.trailingAnchor.constraint(equalTo: trailingAnchor),
+            view.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ]
     }
 
     private static func isDockedInspector(_ view: NSView) -> Bool {

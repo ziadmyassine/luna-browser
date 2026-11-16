@@ -16,10 +16,21 @@ import XCTest
 final class WebInspectorTests: XCTestCase {
 
     private var window: NSWindow?
+    /// WebKit opens the inspector in a window of its own when that is how it
+    /// was last left, and it keeps that in the app's defaults. Docked for the
+    /// tests, put back as it was after them.
+    private static let startsAttached = "__WebInspectorPageGroupLevel1__.WebKit2InspectorStartsAttached"
+    private var savedAttached: Any?
+
+    override func setUp() async throws {
+        savedAttached = UserDefaults.standard.object(forKey: Self.startsAttached)
+        UserDefaults.standard.set(true, forKey: Self.startsAttached)
+    }
 
     override func tearDown() async throws {
         window?.close()
         window = nil
+        UserDefaults.standard.set(savedAttached, forKey: Self.startsAttached)
     }
 
     func testTheInspectorOpensBesideThePageInTheCard() async throws {
@@ -47,6 +58,16 @@ final class WebInspectorTests: XCTestCase {
         let page = try XCTUnwrap(inspector as? WKWebView)
         let styled = try await page.evaluateJavaScript("!!document.getElementById('luna-inspector-style')") as? Bool
         XCTAssertEqual(styled, true, "the inspector was not restyled")
+        // WebKit opens on the tab last used, and the test host starts with no
+        // settings of its own, so on Console.
+        _ = try await page.evaluateJavaScript("WI.showElementsTab(); 1")
+        var standing = false
+        for _ in 0..<30 where !standing {
+            standing = try await page.evaluateJavaScript("!!document.querySelector('.find-banner.luna-pinned')") as? Bool ?? false
+            if !standing { try await Task.sleep(for: .milliseconds(100)) }
+        }
+        XCTAssertTrue(standing, "Elements' search field is not standing under the tab bar")
+        XCTAssertEqual(inspector.alphaValue, 1, "the styled inspector was never faded in")
 
         window?.setContentSize(NSSize(width: 800, height: 600))
         card.layoutSubtreeIfNeeded()
@@ -62,16 +83,17 @@ final class WebInspectorTests: XCTestCase {
         let room = card.bounds.width - (beside ? inspector.frame.width : 0)
         XCTAssertEqual(webView.frame.width, room, accuracy: 1, "the page did not follow the window")
 
-        WebInspector.close(for: webView)
+        ContentCardView.closeInspector(of: webView)
         for _ in 0..<30 where WebInspector.isVisible(for: webView) { try await Task.sleep(for: .milliseconds(100)) }
         XCTAssertFalse(WebInspector.isVisible(for: webView))
         card.layoutSubtreeIfNeeded()
         XCTAssertEqual(webView.frame, card.bounds, "the page did not take the inspector's room back")
     }
 
-    /// WebKit zeroes the inspector's insets whenever it docks or sizes it, so
-    /// a cover set once was gone by the time the inspector drew.
-    func testTheBarDoesNotCoverTheTopOfAnInspectorDockedBeside() async throws {
+    /// Docked beside the page, the inspector stands on the glass from the
+    /// card's top, and the page rounds the corners that meet it — after a
+    /// resize too, when WebKit sets both frames again.
+    func testThePageBesideADockedInspectorIsACardOfItsOwn() async throws {
         let (card, webView) = try await pageInCard()
         card.setContentTopInset(52, animated: false)
         WebInspector.show(.elements, for: webView)
@@ -84,12 +106,36 @@ final class WebInspectorTests: XCTestCase {
         }
         try await Task.sleep(for: .milliseconds(300))
         XCTAssertEqual(inspector.frame.height, card.bounds.height, accuracy: 1, "the inspector did not dock beside")
-        XCTAssertEqual(inspector.obscuredContentInsets.top, 52, "docked beside, the bar covers the inspector's top")
+        XCTAssertEqual(inspector.obscuredContentInsets.top, 0, "the inspector beside started below a bar not over it")
+        XCTAssertEqual(webView.layer?.cornerRadius, WindowCorner.radius, "the page beside the inspector stayed square")
+        XCTAssertEqual(
+            webView.layer?.maskedCorners,
+            [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner],
+            "the page did not round every corner beside the inspector"
+        )
+        let rule = try await inspector.evaluateJavaScript("getComputedStyle(document.body).borderLeftWidth") as? String
+        XCTAssertEqual(rule, "0px", "the inspector ruled a straight line beside the page's round corner")
+        let plate = try await inspector.evaluateJavaScript(
+            "getComputedStyle(document.body).getPropertyValue('--popover-background-color').trim()"
+        ) as? String
+        XCTAssertTrue(
+            [InspectorStyle.popover.light, InspectorStyle.popover.dark].contains(plate ?? ""),
+            "a pop-over's plate is \(plate ?? "nil"), not the raised plane"
+        )
 
         window?.setContentSize(NSSize(width: 900, height: 600))
         try await Task.sleep(for: .milliseconds(500))
-        XCTAssertEqual(inspector.obscuredContentInsets.top, 52, "after a resize, the bar covers the inspector's top")
-        WebInspector.close(for: webView)
+        XCTAssertEqual(webView.layer?.cornerRadius, WindowCorner.radius, "after a resize, the page lost its corners")
+        // The inspector's own close button, which fades it before it goes.
+        let fades = try await inspector.evaluateJavaScript("InspectorFrontendHost.hasOwnProperty('closeWindow')") as? Bool
+        XCTAssertEqual(fades, true, "the inspector's own close does not fade it")
+        _ = try await inspector.evaluateJavaScript("InspectorFrontendHost.closeWindow(); 1")
+        for _ in 0..<30 where WebInspector.isVisible(for: webView) { try await Task.sleep(for: .milliseconds(100)) }
+        XCTAssertFalse(WebInspector.isVisible(for: webView), "the inspector's own close did not close it")
+        XCTAssertEqual(webView.layer?.cornerRadius, 0, "closed, the page kept the inspector's corners")
+        try await Task.sleep(for: .milliseconds(500))
+        XCTAssertTrue(card.revealMasks.isEmpty, "the page was still masked after it had taken the inspector's place")
+        XCTAssertNil(webView.layer?.mask)
     }
 
     func testTheRightClickMenuOffersInspectElementOnlyWhileTheSettingIsOn() {

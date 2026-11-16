@@ -5,6 +5,10 @@ in a release go under Unreleased, grouped by date.
 
 ## Unreleased
 
+### 2026-11-02
+
+- **A calmer, rounder Web Inspector**: Inspect Element now looks like part of Luna. The page becomes a rounded card, and the inspector sits on the same glass as the sidebar or top bar, whether it is docked below, left or right. Tabs, rows, fields and choices are rounded washes instead of boxes. Code is in SF Mono with softer colours, in light and dark. Elements has a search field across the top, and the element's path sits below the tree. The Styles panel drops the braces and icons, so each rule is easier to read. It opens with a fade once it is ready, so WebKit's old look never flashes first, and on closing it fades out while the page slides back to full size. Every feature is still there.
+
 ## 0.4.4 — 2026-11-03
 
 ### 2026-11-03

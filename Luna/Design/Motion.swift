@@ -126,7 +126,8 @@ extension Tokens {
 
         // MARK: Layout
 
-        /// Sidebar collapse / expand — the width half.
+        /// Sidebar collapse / expand — the width half. A docked Web Inspector
+        /// arrives and leaves on the same two (`ContentCardView+InspectorMotion`).
         static let sidebarCollapse = MotionSpec(0.20)
         /// …and the opacity half, which finishes first.
         static let sidebarCollapseOpacity = MotionSpec(0.12)

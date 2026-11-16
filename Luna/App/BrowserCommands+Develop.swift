@@ -34,7 +34,7 @@ extension AppDelegate {
     /// `⌥⌘I`, and the same key closes it again, as Safari's does.
     @objc func toggleWebInspector(_ sender: Any?) {
         if WebInspector.isVisible(for: activeWebView) {
-            WebInspector.close(for: activeWebView)
+            ContentCardView.closeInspector(of: activeWebView)
         } else {
             WebInspector.show(.elements, for: activeWebView)
         }

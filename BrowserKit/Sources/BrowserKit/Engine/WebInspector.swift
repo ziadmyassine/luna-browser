@@ -63,15 +63,21 @@ public enum WebInspector {
         send("toggleElementSelection", to: webView)
     }
 
-    /// Lays `css` over a docked inspector's own page, and makes the view
-    /// clear so what is behind it shows through the planes the stylesheet
-    /// empties.
+    /// Lays `css` over a docked inspector's own page, runs `script` in it
+    /// after, and makes the view clear so what is behind it shows through the
+    /// planes the stylesheet empties.
     ///
     /// Sent now and again a moment later, because WebKit adds the view before
     /// its page has a document, and installed as a script too, for the page
     /// loading again under it. The style element is replaced, not added, so
-    /// repeating it costs nothing.
-    public static func restyle(_ inspector: WKWebView, css: String) {
+    /// repeating it costs nothing; `script` has to be just as safe to repeat.
+    ///
+    /// `whenStyled` runs once the stylesheet is on a finished document that
+    /// has been laid out under it, so a caller holding the view back can
+    /// show it without WebKit's own look flashing first.
+    public static func restyle(
+        _ inspector: WKWebView, css: String, script: String = "", whenStyled: (@MainActor () -> Void)? = nil
+    ) {
         if inspector.responds(to: NSSelectorFromString("_setDrawsBackground:")) {
             inspector.setValue(false, forKey: "drawsBackground")
         }
@@ -86,6 +92,7 @@ public enum WebInspector {
           }
           style.textContent = \(literal);
         })();
+        \(script)
         """
         let controller = inspector.configuration.userContentController
         if !controller.userScripts.contains(where: { $0.source == source }) {
@@ -94,6 +101,34 @@ public enum WebInspector {
         for delay in [0.0, 0.3, 1.0] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak inspector] in
                 inspector?.evaluateJavaScript(source, completionHandler: nil)
+            }
+        }
+        if let whenStyled { awaitStyle(on: inspector, source: source, attempts: 30, then: whenStyled) }
+    }
+
+    /// Asks every 50 ms, putting the stylesheet on if the document has none
+    /// yet, and answers two frames after it is on a finished one. After
+    /// `attempts` it answers anyway: a frontend that never finishes loading
+    /// is better shown as it is than not at all.
+    private static func awaitStyle(
+        on inspector: WKWebView, source: String, attempts: Int, then done: @escaping @MainActor () -> Void
+    ) {
+        let probe = """
+        if (!document.getElementById('luna-inspector-style')) { \(source) }
+        if (document.readyState !== 'complete') return false;
+        await new Promise(function (settled) {
+          requestAnimationFrame(function () { requestAnimationFrame(settled); });
+          setTimeout(settled, 100);
+        });
+        return true;
+        """
+        inspector.callAsyncJavaScript(probe, arguments: [:], in: nil, in: .page) { [weak inspector] result in
+            guard let inspector else { return }
+            if case let .success(styled) = result, styled as? Bool == true { return done() }
+            guard attempts > 0 else { return done() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak inspector] in
+                guard let inspector else { return }
+                awaitStyle(on: inspector, source: source, attempts: attempts - 1, then: done)
             }
         }
     }
