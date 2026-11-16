@@ -22,8 +22,21 @@ final class LunaWebView: WKWebView {
     /// it makes as a background one (`TabController.nextNewTabIsBackground`).
     static let newWindowItem = "WKMenuItemIdentifierOpenLinkInNewWindow"
 
+    /// WebKit's own download items, which download nothing in an app's web
+    /// view (`TabController+ContextMenu.swift`).
+    static let downloadItems: [String: ContextMenuDownload] = [
+        "WKMenuItemIdentifierDownloadImage": .image,
+        "WKMenuItemIdentifierDownloadLinkedFile": .link,
+        "WKMenuItemIdentifierDownloadMedia": .media
+    ]
+
     override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
         super.willOpenMenu(menu, with: event)
+        offerLinkInNewTab(in: menu)
+        takeOverDownloads(in: menu)
+    }
+
+    private func offerLinkInNewTab(in menu: NSMenu) {
         guard let newWindow = menu.items.first(where: { $0.identifier?.rawValue == Self.newWindowItem }),
               newWindow.action != nil else { return }
         let item = NSMenuItem(
@@ -38,6 +51,30 @@ final class LunaWebView: WKWebView {
         guard let newWindow = sender.representedObject as? NSMenuItem, let action = newWindow.action else { return }
         tab?.nextNewTabIsBackground = true
         NSApp.sendAction(action, to: newWindow.target, from: newWindow)
+    }
+
+    /// Kept under WebKit's title and identifier, so the menu reads as it did.
+    /// Every time rather than only once the page has said what is under the
+    /// pointer: its report is still on its way while the menu opens.
+    private func takeOverDownloads(in menu: NSMenu) {
+        for item in menu.items {
+            guard let id = item.identifier?.rawValue, Self.downloadItems[id] != nil, item.action != nil,
+                  let original = item.copy() as? NSMenuItem else { continue }
+            // A copy, tag and represented object and all: WebKit reads its
+            // item's own from the sender.
+            item.representedObject = original
+            item.target = self
+            item.action = #selector(downloadFromMenu(_:))
+        }
+    }
+
+    @objc private func downloadFromMenu(_ sender: NSMenuItem) {
+        guard let id = sender.identifier?.rawValue, let kind = Self.downloadItems[id] else { return }
+        if tab?.downloadFromContextMenu(kind) == true { return }
+        // The page never said, as a page whose scripts cannot run: WebKit's
+        // own item, which is all there was before.
+        guard let original = sender.representedObject as? NSMenuItem, let action = original.action else { return }
+        NSApp.sendAction(action, to: original.target, from: original)
     }
 
     private var tab: TabController? { uiDelegate as? TabController }

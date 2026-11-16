@@ -91,6 +91,9 @@ public final class TabController: NSObject {
     /// Storage for `TabController+PictureInPicture.swift`: the subframes that
     /// have reported a video.
     var videoFrames: [WKFrameInfo] = []
+    /// Storage for `TabController+ContextMenu.swift`: what the last right-click
+    /// was on, as the page reported it.
+    public internal(set) var contextMenuHit: ContextMenuHit?
     private static let recoveryLimit = 3, recoveryWindow: TimeInterval = 60
 
     static let mediaMessageName = "lunaMedia"
@@ -352,6 +355,7 @@ public final class TabController: NSObject {
         attachReading(to: controller, relay: messageRelay)
         attachClipboard(to: controller, relay: messageRelay)
         attachPictureInPicture(to: controller, relay: messageRelay)
+        attachContextMenu(to: controller, relay: messageRelay)
         installUserScripts(into: controller, host: state.url?.host(), isFile: (state.url ?? fallbackURL)?.isFileURL ?? false)
         followBlockingLists()
 
@@ -400,6 +404,7 @@ public final class TabController: NSObject {
 
         controller.addUserScript(Self.documentEndScript())
         controller.addUserScript(Self.pictureInPictureUserScript)
+        controller.addUserScript(Self.contextMenuUserScript)
         // §14.10: hides `PublicKeyCredential` until Apple grants the
         // entitlement, so sites offer a password instead of a passkey button
         // that cannot work. Returns nil — and injects nothing — once it is
@@ -433,25 +438,6 @@ public final class TabController: NSObject {
         installWebStoreScript(into: controller, host: host)
         installHiddenStyle(into: controller, host: host)
         addedUserScripts.forEach(controller.addUserScript)
-    }
-
-    /// Re-installs the scripts when — and only when — §17.2's answer for the site the
-    /// tab is headed to differs from the answer it was built with, it is headed
-    /// to or away from a file (`FileStorageSeed`), or the site has a different
-    /// list of hidden elements.
-    ///
-    /// Called from `decidePolicyFor`, which is early enough: WebKit takes the
-    /// script set when it creates the document, and the document does not exist
-    /// yet. Guarded rather than unconditional because `removeAllUserScripts()`
-    /// throws away WebKit's compiled copy of four sources.
-    func refreshUserScriptsIfNeeded(host: String?, isFile: Bool = false) {
-        guard let controller = webView?.configuration.userContentController else { return }
-        let blocks = ContentBlocker.shared.blocksYouTubeAds(forHost: host, in: sitePermissions)
-        let seeds = isFile && FileStorageSeed.userScript() != nil
-        let store = wantsWebStoreScript(host: host)
-        guard blocks != youTubeScriptInstalled || seeds != fileSeedInstalled
-            || store != webStoreScriptInstalled || hiddenStyleIsStale(for: host) else { return }
-        installUserScripts(into: controller, host: host, isFile: isFile)
     }
 
     /// Everything that has to happen before the last reference to the web view
@@ -492,12 +478,37 @@ public final class TabController: NSObject {
         controller.removeScriptMessageHandler(forName: Self.readingMessageName, contentWorld: .defaultClient)
         detachClipboard(from: controller)
         controller.removeScriptMessageHandler(forName: Self.pictureInPictureMessageName, contentWorld: .defaultClient)
+        controller.removeScriptMessageHandler(forName: Self.contextMenuMessageName, contentWorld: .defaultClient)
 
         // Picture-in-Picture and element fullscreen outlive their web view: without this
         // a hibernated tab leaves a floating video playing with nothing behind it.
         view.closeAllMediaPresentations(completionHandler: retirement.completion())
         view.removeFromSuperview()
         retirement.start()
+    }
+}
+
+// MARK: - Script refresh
+
+extension TabController {
+
+    /// Re-installs the scripts when — and only when — §17.2's answer for the site the
+    /// tab is headed to differs from the answer it was built with, it is headed
+    /// to or away from a file (`FileStorageSeed`), or the site has a different
+    /// list of hidden elements.
+    ///
+    /// Called from `decidePolicyFor`, which is early enough: WebKit takes the
+    /// script set when it creates the document, and the document does not exist
+    /// yet. Guarded rather than unconditional because `removeAllUserScripts()`
+    /// throws away WebKit's compiled copy of four sources.
+    func refreshUserScriptsIfNeeded(host: String?, isFile: Bool = false) {
+        guard let controller = webView?.configuration.userContentController else { return }
+        let blocks = ContentBlocker.shared.blocksYouTubeAds(forHost: host, in: sitePermissions)
+        let seeds = isFile && FileStorageSeed.userScript() != nil
+        let store = wantsWebStoreScript(host: host)
+        guard blocks != youTubeScriptInstalled || seeds != fileSeedInstalled
+            || store != webStoreScriptInstalled || hiddenStyleIsStale(for: host) else { return }
+        installUserScripts(into: controller, host: host, isFile: isFile)
     }
 }
 
