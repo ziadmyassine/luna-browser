@@ -441,6 +441,14 @@ extension TabController: WKUIDelegate {
         return child
     }
 
+    /// `window.close()`, which WebKit allows only a window a script opened or
+    /// one with nothing to go back to, as Safari does. Left unanswered, a
+    /// sign-in pop-up stayed as a tab after it had signed the opener in.
+    public func webViewDidClose(_ webView: WKWebView) {
+        guard webView === self.webView else { return }
+        delegate?.tabControllerWantsToClose(self)
+    }
+
     public func webView(
         _ webView: WKWebView,
         runJavaScriptAlertPanelWithMessage message: String,

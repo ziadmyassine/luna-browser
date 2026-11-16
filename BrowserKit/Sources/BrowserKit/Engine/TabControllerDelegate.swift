@@ -113,8 +113,9 @@ public protocol TabControllerDelegate: AnyObject {
     /// `controller.popups.blocked`.
     func tabController(_ controller: TabController, didBlockPopup url: URL)
 
-    /// §17: this tab is a pop-up whose destination was refused. Close it, and
-    /// leave the user on the tab that opened it.
+    /// This tab is a pop-up whose destination was refused (§17), or its page
+    /// closed itself with `window.close()`, as a sign-in window does once it
+    /// has answered. Close it, and leave the user on the tab that opened it.
     func tabControllerWantsToClose(_ controller: TabController)
 
     /// A copy button on a rendered Markdown page was pressed. BrowserKit has

@@ -26,15 +26,28 @@ public enum WebViewFactory {
     /// or refuse outright, so the Safari tokens come first and `Luna/` trails them the
     /// way `Edg/` and `CriOS/` do. A site can be given another (`SitePermissions.userAgentMode`).
     ///
-    /// `Version/` tracks the Safari whose web-compat profile we inherit (§26) — review
-    /// it on each macOS release rather than letting it rot.
+    /// `Version/` is the Safari whose web-compat profile we inherit (§26).
     public static var applicationNameForUserAgent: String {
         "\(safariTokens) Luna/\(shortVersion)"
     }
 
     /// The Safari compat tokens, without Luna's. `Version/` and `Safari/` move
     /// together; splitting them is what produces a UA no real browser sends.
-    public static let safariTokens = "Version/26.0 Safari/605.1.15"
+    public static let safariTokens = "Version/\(safariVersion) Safari/605.1.15"
+
+    /// The installed Safari's version, which ships with the WebKit every page
+    /// here runs on. A constant was left at 26.0 on macOS 27, and sites that
+    /// work around an older Safari's bugs worked around ones this WebKit does
+    /// not have: Google Docs measured the zoom of a "Safari before 26.4" from
+    /// `outerWidth`, which an app's web view reports as 0, and drew every
+    /// page at a quarter of its pixels. 26.0, the oldest macOS Luna runs on,
+    /// if Safari cannot be read.
+    public static let safariVersion: String = {
+        let safari = Bundle(url: URL(filePath: "/Applications/Safari.app"))
+        let version = safari?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        guard let version, version.first?.isNumber == true else { return "26.0" }
+        return version
+    }()
 
     /// WebKit's own default UA prefix, measured on macOS 26.5 by reading
     /// `navigator.userAgent` out of a web view built with no application name.

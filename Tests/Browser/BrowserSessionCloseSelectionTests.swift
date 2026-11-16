@@ -125,6 +125,38 @@ final class BrowserSessionCloseSelectionTests: XCTestCase {
         XCTAssertEqual(session.activeTabID, rows[1], "closing the child did not go back to the page it came from")
     }
 
+    /// A sign-in window closing itself once it has signed its opener in: the
+    /// tab goes, the user is back on the page it signed in, and there is no
+    /// closed tab to reopen.
+    func testAPopupThatClosesItselfGoesBackToItsOpener() async throws {
+        let session = try await makeSession()
+        let rows = try seed(session, count: 3)
+        session.activateTab(rows[2])
+        session.adoptPopup(from: rows[2], url: url("signin"), configuration: nil)
+        let popup = try XCTUnwrap(session.activeTabID)
+
+        session.tabControllerWantsToClose(try XCTUnwrap(session.controller(for: popup)))
+
+        XCTAssertNil(session.tab(popup), "the pop-up's tab stayed")
+        XCTAssertEqual(session.activeTabID, rows[2], "the window did not go back to the page that opened it")
+        XCTAssertFalse(session.undoManager.canUndo, "a page closing itself left a closed tab to reopen")
+    }
+
+    /// One closing behind the tab in front moves nothing.
+    func testATabClosingItselfBehindLeavesTheSelectionAlone() async throws {
+        let session = try await makeSession()
+        let rows = try seed(session, count: 3)
+        session.activateTab(rows[0])
+        session.adoptPopup(from: rows[0], url: url("signin"), configuration: nil)
+        let popup = try XCTUnwrap(session.activeTabID)
+        session.activateTab(rows[2])
+
+        session.tabControllerWantsToClose(try XCTUnwrap(session.controller(for: popup)))
+
+        XCTAssertNil(session.tab(popup))
+        XCTAssertEqual(session.activeTabID, rows[2], "a tab closing behind took the selection")
+    }
+
     // MARK: - Helpers
 
     /// `count` today tabs, in list order top to bottom. They are inserted at

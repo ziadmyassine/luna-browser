@@ -34,15 +34,19 @@ extension BrowserSession {
         toast.show(in: hostWindow, keepsDeadline: popupNotice.count > 1)
     }
 
-    /// A blank pop-up whose destination was refused. Off the undo stack — the
-    /// user did not close it — and back to the tab that opened it, so the
-    /// notice the opener is about to show lands on the page it is about.
+    /// A blank pop-up whose destination was refused, or a page that closed
+    /// itself. Off the undo stack — the user did not close it — and back to
+    /// the tab that opened it: the notice the opener is about to show lands on
+    /// the page it is about, and a sign-in window hands back to the page it
+    /// signed in. Only from the tab in front; one closing behind it moves
+    /// nothing.
     func tabControllerWantsToClose(_ controller: TabController) {
         let parent = tab(controller.id)?.parentTabID
+        let wasActive = controller.id == activeTabID
         undoManager.disableUndoRegistration()
         closeTab(controller.id)
         undoManager.enableUndoRegistration()
-        if let parent, tab(parent) != nil { activateTab(parent) }
+        if wasActive, let parent, tab(parent) != nil { activateTab(parent) }
     }
 
     /// The active tab's most recent blocked pop-up, whether the notice is

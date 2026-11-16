@@ -5,6 +5,11 @@ in a release go under Unreleased, grouped by date.
 
 ## Unreleased
 
+### 2026-11-16
+
+- **Google Docs is sharp again**: documents were drawn at a quarter of their detail and looked blurry. Luna told sites it was Safari 26.0 on a Mac running a newer Safari, so Docs worked around an old Safari bug that this one doesn't have. Luna now names the Safari installed on your Mac.
+- **Sign-in windows close when they are done** (§17): signing in with Google (or anyone else) in a pop-up left its tab open after you were signed in, and you stayed on it. A page that closes itself now closes its tab, and you're back on the page you signed in to.
+
 ### 2026-11-07
 
 - **Download Image works** (§15): Download Image, Download Linked File and Download Video in a page's right-click menu did nothing — no file, no question where to save it, nothing in Downloads. They now download the image, link or video you right-clicked, the same way any other download does.

@@ -117,6 +117,19 @@ struct PopupEngineTests {
         #expect(recorder.opened.count == 1)
     }
 
+    /// A sign-in pop-up closes itself once it has answered its opener; its tab
+    /// goes with it, and only its own.
+    @Test func aPopupThatClosesItselfAsksToClose() async throws {
+        let (controller, recorder) = await tab(.smart)
+        await run("window.open('https://news.example.com/signin')", in: controller)
+        await settle { !recorder.children.isEmpty }
+        let child = try #require(recorder.children.first)
+        await settle { child.webView?.isLoading == false }
+        await run("window.close()", in: child)
+        await settle { !recorder.closed.isEmpty }
+        #expect(recorder.closed == [child.id])
+    }
+
     /// The page script's echo of a refused `window.open` is a message of its
     /// own, and on a busy main thread it lands well after the refusal — once
     /// 16 s into a loaded test run. It is still the same pop-up.

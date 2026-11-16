@@ -48,12 +48,28 @@ final class UserAgentTests: XCTestCase {
             "Default must leave customUserAgent nil or the appended string is thrown away"
         )
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
-        XCTAssertEqual(WebViewFactory.applicationNameForUserAgent, "Version/26.0 Safari/605.1.15 Luna/\(version)")
+        XCTAssertEqual(
+            WebViewFactory.applicationNameForUserAgent, "Version/\(Self.installedSafari) Safari/605.1.15 Luna/\(version)"
+        )
+    }
+
+    /// The Safari this Mac has, read from its Info.plist directly. Luna's UA
+    /// names it, so a site sees the WebKit it is actually talking to.
+    private static var installedSafari: String {
+        let plist = URL(filePath: "/Applications/Safari.app/Contents/Info.plist")
+        let info = (try? Data(contentsOf: plist)).flatMap {
+            try? PropertyListSerialization.propertyList(from: $0, format: nil) as? [String: Any]
+        }
+        return info?["CFBundleShortVersionString"] as? String ?? "26.0"
+    }
+
+    func testTheUserAgentNamesTheInstalledSafari() {
+        XCTAssertEqual(WebViewFactory.safariVersion, Self.installedSafari)
     }
 
     func testImpersonatingModesReplaceTheWholeUserAgent() {
         let safari = WebViewFactory.customUserAgent(for: .safari)
-        XCTAssertEqual(safari, "\(WebViewFactory.webKitBase) Version/26.0 Safari/605.1.15")
+        XCTAssertEqual(safari, "\(WebViewFactory.webKitBase) Version/\(Self.installedSafari) Safari/605.1.15")
         XCTAssertFalse(safari?.contains("Luna/") ?? true, "Safari mode must not leak Luna's own token")
 
         let chrome = WebViewFactory.customUserAgent(for: .chrome)
