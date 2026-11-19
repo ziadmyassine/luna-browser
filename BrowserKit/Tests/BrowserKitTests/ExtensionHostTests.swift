@@ -28,6 +28,18 @@ struct ExtensionHostTests {
         #expect(context.permissionStatus(for: pattern) != .grantedExplicitly)
     }
 
+    /// Chrome grants only what a manifest names, and never asks for the rest;
+    /// WebKit asks for any host an extension touches, so a page's third-party
+    /// requests reached the user as prompts the extension never made.
+    @Test func asksOnlyForWhatTheManifestDeclares() async throws {
+        let fixture = try await WKWebExtension(resourceBaseURL: Self.fixture)
+
+        #expect(fixture.declared(["storage", "webRequest"], as: .permissions) == ["storage"])
+        #expect(fixture.declared(["https://example.com/*", "https://flagsapi.com/*"], as: .matchPatterns) == ["https://example.com/*"])
+        #expect(fixture.declared(["https://example.com/a", "https://flagsapi.com/b"], as: .urls) == ["https://example.com/a"])
+        #expect(fixture.declared(["https://api.introdb.app/"], as: .urls).isEmpty)
+    }
+
     @Test func installsRunsAndComesBackAfterARelaunch() async throws {
         let (store, spaceID) = try await makeTemporaryStoreWithSpace()
         let library = ExtensionLibrary(root: temporaryDirectory())
