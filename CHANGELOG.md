@@ -5,6 +5,10 @@ in a release go under Unreleased, grouped by date.
 
 ## Unreleased
 
+### 2026-11-19
+
+- **Extensions stop asking for sites they never named**: an extension could show "wants more access" for sites like flagsapi.com that it never listed. Luna now asks only about sites and permissions in the extension's manifest, as Chrome does, and quietly refuses the rest.
+
 ### 2026-11-16
 
 - **Google Docs is sharp again**: documents were drawn at a quarter of their detail and looked blurry. Luna told sites it was Safari 26.0 on a Mac running a newer Safari, so Docs worked around an old Safari bug that this one doesn't have. Luna now names the Safari installed on your Mac.

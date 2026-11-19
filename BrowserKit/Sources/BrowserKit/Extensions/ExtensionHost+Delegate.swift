@@ -115,16 +115,18 @@ extension ExtensionHost: WKWebExtensionControllerDelegate {
 
     /// With no UI, nothing more is granted: WebKit asks Safari-style with
     /// nobody having touched anything, and Chrome never asks there (§2, Search).
-    /// An answer the user did give is remembered — URLs excepted, which are
-    /// one-off by nature.
+    /// Nor does Chrome ask for what the manifest leaves out, so that is refused
+    /// unasked. An answer the user did give is remembered — URLs excepted,
+    /// which are one-off by nature.
     private func prompt(
         _ kind: ExtensionPermissionPrompt.Kind,
-        _ items: Set<String>,
+        _ asked: Set<String>,
         _ tab: (any WKWebExtensionTab)?,
         _ context: WKWebExtensionContext,
         answer: @escaping (Set<String>) -> Void
     ) {
-        guard let ui else { return answer([]) }
+        let items = context.webExtension.declared(asked, as: kind)
+        guard let ui, !items.isEmpty else { return answer([]) }
         let id = context.uniqueIdentifier
         let request = ExtensionPermissionPrompt(
             kind: kind, items: items, extensionID: id, spaceID: spaceID, tabID: (tab as? ExtensionTab)?.id
@@ -249,5 +251,27 @@ extension ExtensionHost: WKWebExtensionControllerDelegate {
         let named = context.webExtension.requestedPermissions.union(context.webExtension.optionalPermissions)
         let refused = loaded[id]?.grants.deniedPermissions.contains(WKWebExtension.Permission.nativeMessaging.rawValue) ?? false
         return named.contains(.nativeMessaging) && !added.contains(WKWebExtension.Permission.nativeMessaging.rawValue) && !refused
+    }
+}
+
+extension WKWebExtension {
+
+    /// The part of a prompt this manifest names. WebKit asks for any host an
+    /// extension's requests touch, which put a page's third-party hosts in
+    /// front of the user as if the extension had asked for them.
+    func declared(_ items: Set<String>, as kind: ExtensionPermissionPrompt.Kind) -> Set<String> {
+        let patterns = requestedPermissionMatchPatterns.union(optionalPermissionMatchPatterns)
+        switch kind {
+        case .permissions:
+            return items.intersection(requestedPermissions.union(optionalPermissions).map(\.rawValue))
+        case .matchPatterns:
+            return items.filter { item in
+                guard let asked = try? MatchPattern(string: item) else { return false }
+                return patterns.contains { $0.matches(asked) }
+            }
+        case .urls:
+            let hosts = patterns.union(allRequestedMatchPatterns)
+            return items.filter { item in hosts.contains { $0.matches(URL(string: item)) } }
+        }
     }
 }
