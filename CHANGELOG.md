@@ -5,6 +5,8 @@ in a release go under Unreleased, grouped by date.
 
 ## Unreleased
 
+## 0.4.5 — 2026-11-19
+
 ### 2026-11-19
 
 - **Extensions stop asking for sites they never named**: an extension could show "wants more access" for sites like flagsapi.com that it never listed. Luna now asks only about sites and permissions in the extension's manifest, as Chrome does, and quietly refuses the rest.
