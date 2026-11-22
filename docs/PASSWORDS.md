@@ -18,7 +18,7 @@ today (`CODE_SIGN_IDENTITY: "-"`, no team, no provisioning profile).
 | Do our items show up in the **Passwords app** and sync? | **Only once Luna is signed with a real identity** — and re-test it then: §5a's fix gives our items a security domain, which may change how the Passwords app classifies them. |
 | Is it an ACL prompt (Allow / Always Allow) or a hard denial? | **Neither.** See §3 — the items are not in Luna's search domain at all, so there is nothing to prompt about. |
 | Can we read what **Safari / the Passwords app** already saved? | **No, at any signature.** Structural, not a permission we can ask for. |
-| Can we do **passkeys / WebAuthn**? | **No, until Apple grants an entitlement.** Apply-only. See §4. |
+| Can we do **passkeys / WebAuthn**? | **Yes, in the signed build** (`make signed`). Apple granted the entitlement to team `FUUYR6KRSH`. See §4. |
 | Can we show **Safari's own autofill panel**? | **No.** Measured — a plain `WKWebView` on a site with a saved Apple password offers nothing. See §5b. |
 | Can we see credentials **other apps** put in the Keychain? | **No, and must not.** See §5a, which is where that went wrong once. |
 
@@ -126,6 +126,15 @@ The name is **verified against Apple's current entitlement documentation**, as
 the turnaround is theirs, not ours. It is how Chrome and Firefox reach passkeys
 held in Apple Passwords on macOS, so the mechanism is real and proven — it is
 the grant that is uncertain.
+
+**Granted (2026-11-22).** Apple assigned it to team `FUUYR6KRSH`, it is on for
+`dev.novapps.luna`, and `Config/Signing/Luna.entitlements` claims it. Only a
+build signed with a profile made after that date may claim it: one from
+before does not grant it, and macOS refuses to launch an app that claims an
+entitlement its profile does not grant. Measured in the signed build:
+`isUserVerifyingPlatformAuthenticatorAvailable()` and
+`isConditionalMediationAvailable()` both resolve true. Debug builds and the
+release workflow are still signed without it, and keep the suppression below.
 
 ### What the request actually costs
 

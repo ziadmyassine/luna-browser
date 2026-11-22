@@ -5,6 +5,10 @@ in a release go under Unreleased, grouped by date.
 
 ## Unreleased
 
+### 2026-11-22
+
+- **Passkeys work** (§14.10): Apple granted Luna the passkey permission, so a Luna signed with NovApps' Developer ID can sign in with passkeys saved in iCloud Keychain, and offers them in sign-in fields. Before, Luna hid passkeys from sites because they could not work.
+
 ## 0.4.5 — 2026-11-19
 
 ### 2026-11-19
